@@ -6,8 +6,19 @@ class InstallationError(Exception):
 
     name = u'Installation error'
 
+    def __init__(self, *args):
+        self.args = args
+
     def msg(self):
-        return u'%s: %s'% (self.name, str(self.args))
+        return u': '.join((self.name, ) + self.args)
+
+    __str__ = msg
+
+class PackageError(InstallationError):
+    """An error occurring while processing a package.
+    """
+
+    name = u'Package error'
 
 
 class ConfigurationError(InstallationError):
@@ -15,14 +26,6 @@ class ConfigurationError(InstallationError):
     """
 
     name = u'Configuration error'
-
-    def __init__(self, location, reason):
-        InstallationError.__init__(self, location, reason)
-        self.location = location
-        self.reason = reason
-
-    def msg(self):
-        return u'%s: %s: %s' % (self.name, self.location, self.reason)
 
 
 class FileError(ConfigurationError):

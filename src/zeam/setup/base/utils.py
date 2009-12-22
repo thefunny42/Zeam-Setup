@@ -3,7 +3,7 @@ import urllib2
 import urlparse
 import re
 
-from zeam.setup.base.error import FileError
+from zeam.setup.base.error import FileError, ConfigurationError
 
 HTML_LINK = re.compile(
     r'<[aA][^>]*[hH][rR][eE][fF]=["\'](?P<url>[^"\']+)["\'][^>]*>'
@@ -42,3 +42,28 @@ def get_links(uri):
             url = urlparse.urlunparse(uri_parts + (url, '', '', '',))
         links.append((name.strip().lower(), url,))
     return dict(links)
+
+# Configuration related helpers
+
+def get_package_name(section):
+    """Return the package name option used in the section or the
+    default one of the configuration.
+    """
+    if 'package' in section:
+        return section['package']
+    configuration = section.configuration
+    if 'egginfo' in configuration:
+        return configuration['egginfo']['name']
+    raise ConfigurationError('Cannot determine package name')
+
+
+def get_option_with_default(option_name, section):
+    """Lookup a option in a given section, and if nothing is found,
+    lookup the value in the [setup] section.
+    """
+    if option_name in section:
+        return section[option_name]
+    setup = section.configuration['setup']
+    if option_name in setup:
+        return setup[option_name]
+    raise ConfigurationError('Cannot find %s value' % option_name)

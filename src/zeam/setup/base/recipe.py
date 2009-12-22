@@ -4,8 +4,8 @@ class Recipe(object):
     """Install a part of the software.
     """
 
-    def __init__(self, installer, config):
-        self.installer = installer
+    def __init__(self, environment, config):
+        self.environment = environment
         self.config = config
 
     def install(self):

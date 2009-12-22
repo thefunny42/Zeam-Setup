@@ -228,6 +228,8 @@ class Section(object):
             return self.options[key]
         except KeyError:
             if default is not marker:
+                if isinstance(default, str):
+                    return Option('default', default, 'default-value')
                 return default
             raise ConfigurationError(
                 self.__location,
@@ -253,6 +255,10 @@ class Section(object):
     def __contains__(self, key):
         return self.options.__contains__(key)
 
+    def as_dict(self):
+        return dict([(key, self.options[key].as_text())
+                     for key in self.options.keys()])
+
 
 class Option(object):
     """Option in a section.
@@ -263,6 +269,7 @@ class Option(object):
         self.section = section
         self.__location = location
         self.__value = value
+        self.__access_callbacks = []
 
     def __copy__(self):
         return self.__class__(self.name, self.__value, self.__location)
@@ -282,10 +289,15 @@ class Option(object):
                 option_value + \
                 value[replace.end():]
             replace = OPTION_REPLACE.search(value)
+        for callback in self.__access_callbacks:
+            callback(value)
         return value
 
     def set_value(self, value):
         self.__value = value
+
+    def register(self, func):
+        self.__access_callbacks.append(func)
 
     def as_text(self):
         return self.__get_value().strip()
