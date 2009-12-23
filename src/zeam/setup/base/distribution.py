@@ -109,6 +109,8 @@ class Software(object):
 
 
 class Release(object):
+    """Represent a release of a software.
+    """
 
     def __init__(self, name, version, format, url,
                  pyversion=None, platform=None):
@@ -122,18 +124,25 @@ class Release(object):
         self.entry_points = {}
 
     def is_active(self):
+        """Return true of the release is currently usable by the
+        current process.
+        """
         return self.path in sys.path
 
     def activate(self):
+        """Activate the release in the current process.
+        """
         if self.path is None:
             raise InstallationError(
-                self.name, 'Trying to activate a non-installed package')
+                self.name, u'Trying to activate a non-installed package')
         if self.is_active():
             return
         # XXX Should check dependencies here as well
         sys.path.insert(len(sys.path) and 1 or 0, self.path)
 
     def get_entry_point(self, group, name):
+        """Load the entry point called name in the given group and return it.
+        """
         if group not in self.entry_points:
             return None
         if name not in self.entry_points[group]:
@@ -151,14 +160,15 @@ class Release(object):
         except ImportError:
             raise PackageError(
                 self.name,
-                'Invalid module %s for entry point %s %s:%s' % (
+                u'Invalid module %s for entry point %s %s:%s' % (
                     python_path, group, self.name, name))
         try:
             entry_point = getattr(python_module, attribute)
         except AttributeError:
             raise PackageError(
                 self.name,
-                'Invalid attribute %s in module %s for entry point %s %s:%s' % (
+                u'Invalid attribute %s in module %s ' \
+                    'for entry point %s %s:%s' % (
                     attribute, python_path, group, self.name, name))
         return entry_point
 
@@ -168,17 +178,29 @@ class Release(object):
 
 
 class DevelopmentRelease(Release):
+    """A development release located on the file system.
+    """
 
-    def __init__(self, path):
-        self.__load_egg_info(path)
+    def __init__(self, path=None, config=None):
+        if config is None:
+            if path is not None:
+                config = self.__load_egg_config(path)
+            else:
+                raise PackageError(
+                    u'Need a path or a config to create a development release')
+        elif path is None:
+            path = config.get_cfg_directory()
+        self.__load_egg_info(config, path)
 
-    def __load_egg_info(self, path):
+    def __load_egg_config(self, path):
         path = os.path.abspath(path)
         setup_cfg_path = os.path.join(path, 'setup.cfg')
         if not os.path.isfile(setup_cfg_path):
             raise PackageError(path, 'No setup.cfg information')
-        setup_cfg = Configuration.read(setup_cfg_path)
-        egginfo = setup_cfg['egginfo']
+        return Configuration.read(setup_cfg_path)
+
+    def __load_egg_info(self, config, path):
+        egginfo = config['egginfo']
 
         self.name = egginfo['name'].as_text()
         self.version = egginfo['version'].as_text()
@@ -198,16 +220,20 @@ class DevelopmentRelease(Release):
         entry_points = egginfo.get('entry_points', None)
         if entry_points is not None:
             for category_name in entry_points.as_list():
-                info = setup_cfg['entry_points:' + category_name]
+                info = config['entry_points:' + category_name]
                 self.entry_points[category_name] = info.as_dict()
 
 
 class Environment(object):
+    """Represent a set of released packages that can be used together.
+    """
 
     def __init__(self):
         self.releases = {}
 
     def add(self, release):
+        """Try to add a new release in the environment.
+        """
         if not isinstance(release, Release):
             raise ValueError(u'Can only add release to an environment')
         if release.name not in self.releases:
@@ -218,6 +244,8 @@ class Environment(object):
                     repr(release), repr(self.releases[release.name])))
 
     def get_entry_point(self, group, name):
+        """Return the entry point value called name for the given group.
+        """
         name_parts = name.split(':')
         package = name_parts[0]
         if len(name_parts) == 1:
@@ -231,6 +259,8 @@ class Environment(object):
         return release.get_entry_point(group, entry_name)
 
     def list_entry_points(self, group, package_name):
+        """List package package_name entry point in the given group.
+        """
         # XXX Do a keyerror if package is not there
         return self.releases[package_name].entry_points.get(group, None)
 

@@ -117,10 +117,17 @@ class Configuration(object):
         self.__location = location
         self.sections = {}
 
+    def get_cfg_directory(self):
+        """Return the directory where the config file resides.
+        """
+        return os.path.dirname(self.__location)
+
     @classmethod
-    def read(klass, filename):
-        input = open_uri(filename)
-        configuration = klass(filename)
+    def read(klass, uri):
+        """Read a configuration file located at the given uri.
+        """
+        input = open_uri(uri)
+        configuration = klass(uri)
         line_number = 0
         section = None
 
@@ -132,7 +139,7 @@ class Configuration(object):
 
             # New section
             new_section = SectionParser.new_section(
-                configuration, text, filename, line_number)
+                configuration, text, uri, line_number)
             if new_section is not None:
                 if section is not None:
                     section.done(line_number - 1)
@@ -142,13 +149,13 @@ class Configuration(object):
                     section.add(line_number, text)
                 else:
                     raise ConfigurationError(
-                        filename,
-                        'Garbage text before section at line %d' % line_number)
+                        uri,
+                        u'Garbage text before section at line %d' % line_number)
         input.close()
         if section is not None:
             section.done(line_number)
         else:
-            raise ConfigurationError(filename, 'No section defined')
+            raise ConfigurationError(uri, u'No section defined')
         return configuration
 
     def write(self, stream):
@@ -205,14 +212,14 @@ class Section(object):
     """Section of a configuration file.
     """
 
-    def __init__(self, name, location, configuration=None):
+    def __init__(self, name, location=None, configuration=None):
         self.name = name
         self.configuration = configuration
         self.__location = location
         self.options = {}
 
     def __copy__(self):
-        new_section = self.__class__(self.name, self.__location)
+        new_section = self.__class__(self.name, location=self.__location)
         for option_name in self.options.keys():
             new_section[option_name] = self.options[option_name]
         return new_section
@@ -236,7 +243,7 @@ class Section(object):
         except KeyError:
             if default is not marker:
                 if isinstance(default, str):
-                    return Option('default', default, 'default-value')
+                    return Option('default', default)
                 return default
             raise ConfigurationError(
                 self.__location,
@@ -245,13 +252,15 @@ class Section(object):
     get = __getitem__
 
     def __setitem__(self, key, value):
+        if isinstance(value, list) or isinstance(value, tuple):
+            value = '\n    '.join(value)
         if isinstance(value, str):
             if key in self.options:
                 # XXX Not sure we want do to that
                 self.options[key].set_value(value)
             else:
                 self.options[key] = Option(
-                    key, value, u'dynamic add-on', self)
+                    key, value, section=self)
         elif isinstance(value, Option):
             option = value.__copy__()
             option.section = self
@@ -278,7 +287,7 @@ class Option(object):
     """Option in a section.
     """
 
-    def __init__(self, name, value, location, section=None):
+    def __init__(self, name, value, location=None, section=None):
         self.name = name
         self.section = section
         self.__location = location
@@ -286,7 +295,7 @@ class Option(object):
         self.__access_callbacks = []
 
     def __copy__(self):
-        return self.__class__(self.name, self.__value, self.__location)
+        return self.__class__(self.name, self.__value, location=self.__location)
 
     def __get_value(self):
         # XXX Should cache this

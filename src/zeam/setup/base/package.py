@@ -47,8 +47,8 @@ class Package(Recipe):
             script_path = os.path.join(bin_directory, script_name)
             script_body = SCRIPT_BODY % {
                 'args': args, 'package': package, 'callable': callable,}
-            created_scripts += self.environment.create_script(
-                script_path, script_body, executable=python_executable)
+            created_scripts.append(self.environment.create_script(
+                script_path, script_body, executable=python_executable))
 
         return created_scripts
 

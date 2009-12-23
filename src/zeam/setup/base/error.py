@@ -10,9 +10,12 @@ class InstallationError(Exception):
         self.args = args
 
     def msg(self):
-        return u': '.join((self.name, ) + self.args) + u'\n'
+        # Remove None values from args
+        args = filter(lambda a: a, self.args)
+        return u': '.join((self.name, ) + args) + u'\n'
 
     __str__ = msg
+
 
 class PackageError(InstallationError):
     """An error occurring while processing a package.

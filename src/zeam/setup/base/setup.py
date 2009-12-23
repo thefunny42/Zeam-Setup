@@ -9,13 +9,22 @@ import sys
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.installer import Installer
 from zeam.setup.base.error import InstallationError
+from zeam.setup.base.source_dist import SourceDistribution
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
+COMMANDS = {
+    'sdist': SourceDistribution,
+    'install': Installer,
+    'default': Installer,}
 
 logger = logging.getLogger('zeam.setup')
 
-def get_default_cfg():
+
+def get_default_cfg_path():
+    """Return a path to the default configuration stored in user
+    directory.
+    """
     user_dir = os.path.expanduser('~')
     setup_dir = os.path.join(user_dir, DEFAULT_CONFIG_DIR)
     if not os.path.isdir(setup_dir):
@@ -33,6 +42,9 @@ def get_default_cfg():
 
 
 def get_previous_cfg_path(config):
+    """Return a path to the previous configuration used to setup this
+    environment.
+    """
     destination = config['setup']['prefix_directory'].as_text()
     zsetup_dest = os.path.join(destination, DEFAULT_CONFIG_DIR)
     if not os.path.isdir(zsetup_dest):
@@ -41,6 +53,9 @@ def get_previous_cfg_path(config):
 
 
 def bootstrap_cfg(config, options):
+    """Bootstrap the configuration settings. Mainly set things like
+    network_timeout, prefix_directory, python_executable.
+    """
     setup = config['setup']
 
     # Network timeout
@@ -72,6 +87,8 @@ def bootstrap_cfg(config, options):
 
 
 def setup():
+    """Main entry point of the setup script.
+    """
     parser = OptionParser()
     parser.add_option("-c", "--configuration", dest="config",
                       help="Configuration file to use (default to setup.cfg)",
@@ -88,7 +105,7 @@ def setup():
         logger.info(u'Reading configuration %s' % options.config)
         config = Configuration.read(options.config)
         logger.info(u'Reading default configuration')
-        config += Configuration.read(get_default_cfg())
+        config += Configuration.read(get_default_cfg_path())
 
         bootstrap_cfg(config, options)
         previous_config = None
@@ -97,8 +114,15 @@ def setup():
             logger.info(u'Loading previous configuration')
             previous_config = Configuration.read(previous_cfg_path)
 
-        installer = Installer(config, options)
-        installer.run()
+        command = COMMANDS['default']
+        if len(args):
+            try:
+                command = COMMANDS[args[0]]
+            except KeyError:
+                raise InstallationError(u'Unknow command %s' % args[0])
+
+        processor = command(config)
+        processor.run()
 
         zsetup_fd = open(previous_cfg_path, 'w')
         config.write(zsetup_fd)

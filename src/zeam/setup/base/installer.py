@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 
+from zeam.setup.base.configuration import Section
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
 from zeam.setup.base.error import InstallationError
 
@@ -16,7 +17,7 @@ def create_directory(directory):
         os.makedirs(directory)
 
 
-def setup_environment(config, options):
+def setup_environment(config):
     setup = config['setup']
     setup['bin_directory'].register(create_directory)
     setup['lib_directory'].register(create_directory)
@@ -31,18 +32,18 @@ def setup_environment(config, options):
     environment = Environment()
     if 'develop' in setup:
         for path in setup['develop'].as_list():
-            environment.add(DevelopmentRelease(path))
+            environment.add(DevelopmentRelease(path=path))
     return environment
 
 
 class Installer(object):
-    """Installer.
+    """Install an environment.
     """
 
-    def __init__(self, config, options):
+    def __init__(self, config):
         self.config = config
         # Setup env
-        self.environment = setup_environment(config, options)
+        self.environment = setup_environment(config)
 
         # Lookup recipes
         self.recipes = {}
@@ -56,9 +57,22 @@ class Installer(object):
 
 
     def run(self):
+        # Organise recipe order
+        # Look for update/uninstall/install
+
+        # Prepare recipe
+        # Uninstall in reverse order of install
+        # Update
+        # Install in order
         for recipe in self.recipes.values():
+            section_name = 'installed:' + recipe.config.name
+            installed_section = Section(section_name)
+            self.config[section_name] = installed_section
+            installed_section = self.config[section_name]
+
             recipe.prepare()
-            recipe.install()
 
-
+        for recipe in self.recipes.values():
+            installed_path = recipe.install()
+            installed_section['path'] = installed_path
 
