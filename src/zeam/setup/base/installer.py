@@ -1,7 +1,6 @@
 
 import logging
 import os
-import socket
 import sys
 
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
@@ -19,33 +18,6 @@ def create_directory(directory):
 
 def setup_environment(config, options):
     setup = config['setup']
-
-    # Network timeout
-    if 'network_timeout' in setup:
-        timeout = setup['network_timeout'].as_int()
-        if timeout:
-            socket.settimeout(timeout)
-
-    # Prefix directory
-    new_prefix = None
-    create_dir = None
-    if options.prefix is not None:
-        new_prefix = options.prefix
-        create_dir = options.prefix
-    elif 'prefix_directory' in setup:
-        create_dir = setup['prefix_directory'].as_text()
-    else:
-        new_prefix = os.getcwd()
-
-    if create_dir:
-        if not os.path.isdir(create_dir):
-            os.makedirs(create_dir)
-        else:
-            raise InstallationError(
-                u'Installation directory %s already exists',
-                create_dir)
-    if new_prefix:
-        setup['prefix_directory'] = new_prefix
     setup['bin_directory'].register(create_directory)
     setup['lib_directory'].register(create_directory)
     setup['log_directory'].register(create_directory)

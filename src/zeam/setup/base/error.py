@@ -10,7 +10,7 @@ class InstallationError(Exception):
         self.args = args
 
     def msg(self):
-        return u': '.join((self.name, ) + self.args)
+        return u': '.join((self.name, ) + self.args) + u'\n'
 
     __str__ = msg
 

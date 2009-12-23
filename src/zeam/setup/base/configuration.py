@@ -31,7 +31,7 @@ class OptionParser(object):
         self.section = section
         self.__filename = filename
         self.__start_line = line
-        self.__lines = [(line, text,)]
+        self.__lines = [(line, text + '\n',)]
 
     @classmethod
     def new_option(klass, section, text, filename, line):
@@ -52,7 +52,7 @@ class OptionParser(object):
             line = None
         option_value = ''
         for line, text in self.__lines:
-            option_value += text + '\n'
+            option_value += text
         self.section.options[self.name] = Option(
             self.name, option_value,
             format_location(self.__filename, self.__start_line, line),
@@ -150,6 +150,13 @@ class Configuration(object):
         else:
             raise ConfigurationError(filename, 'No section defined')
         return configuration
+
+    def write(self, stream):
+        section_names = self.sections.keys()
+        section_names.sort()
+        for name in section_names:
+            self.sections[name]._write(stream)
+            stream.write('\n')
 
     def __copy__(self):
         new_conf = self.__class__(self.__location)
@@ -255,6 +262,13 @@ class Section(object):
     def __contains__(self, key):
         return self.options.__contains__(key)
 
+    def _write(self, stream):
+        stream.write('[' + self.name + ']\n')
+        option_names = self.options.keys()
+        option_names.sort()
+        for name in option_names:
+            self.options[name]._write(stream)
+
     def as_dict(self):
         return dict([(key, self.options[key].as_text())
                      for key in self.options.keys()])
@@ -298,6 +312,11 @@ class Option(object):
 
     def register(self, func):
         self.__access_callbacks.append(func)
+
+    def _write(self, stream):
+        stream.write(self.name + ' = ' + self.__value)
+        if not self.__value or self.__value[-1] != '\n':
+            stream.write('\n')
 
     def as_text(self):
         return self.__get_value().strip()
