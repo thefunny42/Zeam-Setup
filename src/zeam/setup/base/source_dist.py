@@ -5,7 +5,7 @@ import os
 import tarfile
 import zipfile
 
-from zeam.setup.base.error import PackageError
+from zeam.setup.base.error import PackageError, ConfigurationError
 from zeam.setup.base.distribution import DevelopmentRelease
 from zeam.setup.base.utils import open_uri
 
@@ -25,6 +25,10 @@ class ZipArchive(object):
     def add(self, filename, dest_filename):
         self.__handle.write(filename, dest_filename)
 
+    def extract(self, destination):
+        for filename in self.__handle.namelist():
+            pass
+
     def close(self):
         self.__handle.close()
 
@@ -41,6 +45,10 @@ class TarArchive(object):
 
     def add(self, filename, dest_filename):
         self.__handle.add(filename, dest_filename, False)
+
+    def extract(self, destination):
+        for entry in self.__handle:
+            self.__handle.extract(entry, destination)
 
     def close(self):
         self.__handle.close()
@@ -130,8 +138,8 @@ def search_files(base_path, regular_rules, recursive_rules):
     """
 
     def visit_directory(path):
-        local_rules = list(regular_rules.get(path, []))
         match_path = path + os.path.sep
+        local_rules = list(regular_rules.get(match_path, []))
         for rule_path, rules in recursive_rules.items():
             if match_path.startswith(rule_path):
                 local_rules.extend(rules)
@@ -155,8 +163,9 @@ class SourceDistribution(object):
     """Create a source distribution of the package
     """
 
-    def __init__(self, config):
+    def __init__(self, config, environment):
         self.config = config
+        self.environment = environment
         self.package = DevelopmentRelease(config=config)
         self.prefix = self.config['setup']['prefix_directory'].as_text()
 

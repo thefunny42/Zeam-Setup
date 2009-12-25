@@ -7,16 +7,11 @@ import socket
 import sys
 
 from zeam.setup.base.configuration import Configuration
-from zeam.setup.base.installer import Installer
+from zeam.setup.base.distribution import Environment, DevelopmentRelease
 from zeam.setup.base.error import InstallationError
-from zeam.setup.base.source_dist import SourceDistribution
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
-COMMANDS = {
-    'sdist': SourceDistribution,
-    'install': Installer,
-    'default': Installer,}
 
 logger = logging.getLogger('zeam.setup')
 
@@ -52,6 +47,16 @@ def get_previous_cfg_path(config):
     return os.path.join(zsetup_dest, 'installed.cfg')
 
 
+def create_directory(directory):
+    """Create a directory called directory if it doesn't exits
+    already.
+    """
+    directory = directory.strip()
+    if not os.path.isdir(directory):
+        logger.info('Creating directory %s' % directory)
+        os.makedirs(directory)
+
+
 def bootstrap_cfg(config, options):
     """Bootstrap the configuration settings. Mainly set things like
     network_timeout, prefix_directory, python_executable.
@@ -85,6 +90,22 @@ def bootstrap_cfg(config, options):
     if new_prefix:
         setup['prefix_directory'] = new_prefix
 
+    setup['bin_directory'].register(create_directory)
+    setup['lib_directory'].register(create_directory)
+    setup['log_directory'].register(create_directory)
+    setup['var_directory'].register(create_directory)
+
+    # Lookup python executable
+    if 'python_executable' not in setup:
+        setup['python_executable'] = sys.executable
+
+    # Create an environment with develop packages
+    environment = Environment()
+    if 'develop' in setup:
+        for path in setup['develop'].as_list():
+            environment.add(DevelopmentRelease(path=path))
+    return environment
+
 
 def setup():
     """Main entry point of the setup script.
@@ -107,21 +128,24 @@ def setup():
         logger.info(u'Reading default configuration')
         config += Configuration.read(get_default_cfg_path())
 
-        bootstrap_cfg(config, options)
+        environment = bootstrap_cfg(config, options)
         previous_config = None
         previous_cfg_path = get_previous_cfg_path(config)
         if os.path.isfile(previous_cfg_path):
             logger.info(u'Loading previous configuration')
             previous_config = Configuration.read(previous_cfg_path)
 
-        command = COMMANDS['default']
+        all_commands = environment.list_entry_points('setup_commands')
+        command = all_commands['default']
         if len(args):
             try:
-                command = COMMANDS[args[0]]
+                command = all_commands[args[0]]
             except KeyError:
                 raise InstallationError(u'Unknow command %s' % args[0])
 
-        processor = command(config)
+        command_class = environment.get_entry_point(
+            'setup_commands', command['name'])
+        processor = command_class(config, environment)
         processor.run()
 
         zsetup_fd = open(previous_cfg_path, 'w')

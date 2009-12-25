@@ -258,11 +258,26 @@ class Environment(object):
         release = self.releases[package]
         return release.get_entry_point(group, entry_name)
 
-    def list_entry_points(self, group, package_name):
+    def list_entry_points(self, group, *package_names):
         """List package package_name entry point in the given group.
         """
-        # XXX Do a keyerror if package is not there
-        return self.releases[package_name].entry_points.get(group, None)
+        if not package_names:
+            package_names = self.releases.keys()
+        entry_points = {}
+        for package_name in package_names:
+            if package_name not in self.releases:
+                raise PackageError(
+                    u"No package called %s in the environment" % package_name)
+            package = self.releases[package_name]
+            package_entry_points = package.entry_points.get(group, None)
+            if package_entry_points is not None:
+                for name, destination in package_entry_points.items():
+                    if name in entry_points:
+                        raise PackageError(
+                            u"Conflict between entry points called %s" % name)
+                    entry_points[name] = {'destination': destination,
+                                          'name': package_name + ':' + name}
+        return entry_points
 
     def create_script(self, script_path, script_body, executable=None):
         """Create a script at the given path with the given body.

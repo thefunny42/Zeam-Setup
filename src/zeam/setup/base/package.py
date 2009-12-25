@@ -43,7 +43,7 @@ class Package(Recipe):
         for script_name, entry_point in all_scripts.items():
             if wanted_scripts is not None and script_name not in wanted_script:
                 continue
-            package, callable = entry_point.split(':')
+            package, callable = entry_point['destination'].split(':')
             script_path = os.path.join(bin_directory, script_name)
             script_body = SCRIPT_BODY % {
                 'args': args, 'package': package, 'callable': callable,}
