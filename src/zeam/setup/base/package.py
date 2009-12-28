@@ -36,12 +36,12 @@ class Package(Recipe):
 
         args = self.config.get('arguments', None)
         if args is not None:
-            args = ', '.join(arguments.as_list())
+            args = ', '.join(args.as_list())
         else:
             args = ''
 
         for script_name, entry_point in all_scripts.items():
-            if wanted_scripts is not None and script_name not in wanted_script:
+            if wanted_scripts is not None and script_name not in wanted_scripts:
                 continue
             package, callable = entry_point['destination'].split(':')
             script_path = os.path.join(bin_directory, script_name)

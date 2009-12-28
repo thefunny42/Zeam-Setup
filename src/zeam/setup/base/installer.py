@@ -1,11 +1,7 @@
 
 import logging
-import os
-import sys
 
 from zeam.setup.base.configuration import Section
-from zeam.setup.base.distribution import Environment, DevelopmentRelease
-from zeam.setup.base.error import InstallationError
 
 logger = logging.getLogger('zeam.setup')
 
