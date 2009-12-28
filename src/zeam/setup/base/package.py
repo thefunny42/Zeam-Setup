@@ -11,6 +11,26 @@ import %(package)s
 if __name__ == '__main__':
   %(package)s.%(callable)s(%(args)s)
 """
+INTERPRETER_BODY = """
+_interactive = True
+if len(sys.argv) > 1:
+    import getopt
+    _options, _args = getopt.getopt(sys.argv[1:], 'ic:')
+    _interactive = False
+    for (_opt, _val) in _options:
+        if _opt == '-i':
+            _interactive = True
+        elif _opt == '-c':
+            exec _val
+
+    if _args:
+        sys.argv[:] = _args
+        execfile(sys.argv[0])
+
+if _interactive:
+    import code
+    code.interact(local=globals())
+"""
 
 
 class Package(Recipe):
@@ -51,6 +71,30 @@ class Package(Recipe):
                 script_path, script_body, executable=python_executable))
 
         return created_scripts
+
+    def uninstall(self):
+        pass
+
+
+
+class Interpreter(Recipe):
+    """Create an python interpreter able to run the current
+    environment.
+    """
+
+    def __init__(self, environment, config):
+        super(Interpreter, self).__init__(environment, config)
+        self.package_name = get_package_name(config).as_text()
+
+
+    def install(self):
+        python_executable = get_option_with_default(
+            'python_executable', self.config).as_text()
+        bin_directory = get_option_with_default(
+            'bin_directory', self.config).as_text()
+        script_path = os.path.join(bin_directory, self.config.name)
+        return [self.environment.create_script(
+                script_path, INTERPRETER_BODY, executable=python_executable)]
 
     def uninstall(self):
         pass

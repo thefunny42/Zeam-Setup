@@ -2,7 +2,7 @@
 import logging
 import re
 
-from zeam.setup.base.distribution import Release, Software
+from zeam.setup.base.distribution import DownloableRelease, Software
 from zeam.setup.base.utils import get_links
 
 logger = logging.getLogger('zeam.setup')
@@ -22,10 +22,10 @@ def get_releases_from_links(links):
         info = RELEASE_TARBALL.match(name)
         if info:
             name = info.group('name').lower()
-            yield Release(name,
-                          info.group('version'),
-                          info.group('format'),
-                          url)
+            yield DownloableRelease(name,
+                                    info.group('version'),
+                                    info.group('format'),
+                                    url)
 
 
 class Downloader(object):

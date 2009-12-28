@@ -100,7 +100,7 @@ def bootstrap_cfg(config, options):
         setup['python_executable'] = sys.executable
 
     # Create an environment with develop packages
-    environment = Environment()
+    environment = Environment(setup['python_executable'])
     if 'develop' in setup:
         for path in setup['develop'].as_list():
             environment.add(DevelopmentRelease(path=path))

@@ -5,13 +5,14 @@ import os
 import stat
 import sys
 import pprint
+import re
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import PackageError, InstallationError
 
 logger = logging.getLogger('zeam.setup')
 
-
+VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)', re.IGNORECASE)
 SCRIPT_TEMPLATE = """#!%(executable)s
 
 import sys
@@ -19,6 +20,34 @@ sys.path[0:0] = %(modules_path)s
 
 %(script)s
 """
+
+class Version(object):
+    """Represent a version of a software.
+    """
+
+    def __init__(self, *version):
+        self.version = version
+
+    @classmethod
+    def parse(klass, version):
+        parts = VERSION_PARTS.split(version)
+        import pdb ; pdb.set_trace()
+        return klass()
+
+    def __str__(self):
+        return ''
+
+
+class Requirement(object):
+    """Represent a list of requirements.
+    """
+
+    @classmethod
+    def parse(klass, requirement):
+        return klass()
+
+    def __str__(self):
+        return ''
 
 
 class Software(object):
@@ -50,6 +79,7 @@ class Release(object):
         self.platform = platform
         self.path = None
         self.entry_points = {}
+        self.requires = []
 
     def is_active(self):
         """Return true of the release is currently usable by the
@@ -105,6 +135,12 @@ class Release(object):
             self.__class__.__name__,self.name, self.version)
 
 
+class DownloableRelease(Release):
+    """A release that you can download.
+    """
+    pass
+
+
 class DevelopmentRelease(Release):
     """A development release located on the file system.
     """
@@ -136,6 +172,7 @@ class DevelopmentRelease(Release):
         self.url = path
         self.pyversion = None
         self.platform = None
+        self.requires = []
 
         # Source path of the extension
         source_path = os.path.join(path, egginfo.get('source', '.').as_text())
@@ -156,8 +193,9 @@ class Environment(object):
     """Represent a set of released packages that can be used together.
     """
 
-    def __init__(self):
+    def __init__(self, default_executable=None):
         self.releases = {}
+        self.default_executable = default_executable
 
     def add(self, release):
         """Try to add a new release in the environment.
@@ -165,6 +203,7 @@ class Environment(object):
         if not isinstance(release, Release):
             raise ValueError(u'Can only add release to an environment')
         if release.name not in self.releases:
+            # XXX look for requires
             self.releases[release.name] = release
         else:
             raise InstallationError(
@@ -182,7 +221,8 @@ class Environment(object):
             entry_name = name_parts[1]
         else:
             InstallationError('Invalid entry point designation %s' % name)
-        # XXX Do a keyerror if package is not there
+        if package not in self.releases:
+            raise PackageError(u"Package %s not available" % package)
         release = self.releases[package]
         return release.get_entry_point(group, entry_name)
 
@@ -210,6 +250,8 @@ class Environment(object):
     def create_script(self, script_path, script_body, executable=None):
         """Create a script at the given path with the given body.
         """
+        if executable is None:
+            executable = self.default_executable
         logger.info('Creating script %s' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
