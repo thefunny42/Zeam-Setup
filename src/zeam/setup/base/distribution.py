@@ -12,7 +12,10 @@ from zeam.setup.base.error import PackageError, InstallationError
 
 logger = logging.getLogger('zeam.setup')
 
-VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)', re.IGNORECASE)
+VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
+VERSION_REPLACE = {'pre':'c', 'preview':'c','-':'final-','rc':'c',}.get
+REQUIREMENT_PARSE = re.compile(
+    r'(?P<operator>[<>=!]=)\s*(?P<version>[\d[a-z].-]+)\s*,?')
 SCRIPT_TEMPLATE = """#!%(executable)s
 
 import sys
@@ -30,12 +33,43 @@ class Version(object):
 
     @classmethod
     def parse(klass, version):
-        parts = VERSION_PARTS.split(version)
-        import pdb ; pdb.set_trace()
-        return klass()
+        # This algo comes from setuptools
+        def split_version_in_parts():
+            for part in VERSION_PARTS.split(version.lower()):
+                if not part or part == '.':
+                    continue
+                part = VERSION_REPLACE(part, part)
+                if part[0] in '0123456789':
+                    yield part.zfill(8)
+                else:
+                    yield '*' + part
+            yield '*final'
+
+        parsed_version = []
+        for part in split_version_in_parts():
+            if part.startswith('*'):
+                if part < '*final':   # remove '-' before a prerelease tag
+                    while parsed_version and parsed_version[-1] == '*final-':
+                        parsed_version.pop()
+                # remove trailing zeros from each series of numeric parts
+                while parsed_version and parsed_version[-1] == '00000000':
+                    parsed_version.pop()
+            parsed_version.append(part)
+        return klass(*parsed_version)
 
     def __str__(self):
-        return ''
+        rendered_version = []
+        need_dot = False
+        for part in self.version[:-1]:
+            if part[0] == '*':
+                rendered_version.append(part[1:])
+            elif need_dot:
+                rendered_version.append('.')
+            need_dot = False
+            if part[0] == '0':
+                rendered_version.append(part.strip('0'))
+                need_dot = True
+        return ''.join(rendered_version)
 
 
 class Requirement(object):

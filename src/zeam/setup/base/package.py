@@ -82,11 +82,6 @@ class Interpreter(Recipe):
     environment.
     """
 
-    def __init__(self, environment, config):
-        super(Interpreter, self).__init__(environment, config)
-        self.package_name = get_package_name(config).as_text()
-
-
     def install(self):
         python_executable = get_option_with_default(
             'python_executable', self.config).as_text()
