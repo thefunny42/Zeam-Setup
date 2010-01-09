@@ -6,6 +6,7 @@ import stat
 import sys
 import pprint
 import re
+import operator
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import PackageError, InstallationError
@@ -13,9 +14,11 @@ from zeam.setup.base.error import PackageError, InstallationError
 logger = logging.getLogger('zeam.setup')
 
 VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
-VERSION_REPLACE = {'pre':'c', 'preview':'c','-':'final-','rc':'c',}.get
+VERSION_REPLACE = {'pre':'c', 'preview':'c', '-':'final-', 'rc':'c',}.get
 REQUIREMENT_PARSE = re.compile(
-    r'(?P<operator>[<>=!]=)\s*(?P<version>[\d[a-z].-]+)\s*,?')
+    r'(?P<operator>[<>=!]=)\s*(?P<version>[\da-z.\-]+)\s*,?')
+REQUIREMENT_OPERATORS = {'==': operator.eq, '>=': operator.ge,
+                         '!=': operator.ne, '<=': operator.le}.get
 SCRIPT_TEMPLATE = """#!%(executable)s
 
 import sys
@@ -72,13 +75,30 @@ class Version(object):
         return ''.join(rendered_version)
 
 
-class Requirement(object):
+class Requirements(object):
     """Represent a list of requirements.
     """
 
+    def __init__(self, *requirements):
+        self.requirements = requirements
+
+    def match(self, release):
+        return False
+
     @classmethod
-    def parse(klass, requirement):
-        return klass()
+    def parse(klass, requirements):
+        parsed_requirements = []
+        # We can parse a list of requirements
+        if not isinstance(requirements, list):
+            requirements = [requirements,]
+
+        # Parse requirements
+        for requirement in requirements:
+            for operator, version in REQUIREMENT_PARSE.findall(requirement):
+                parsed_requirements.append(
+                    (REQUIREMENT_OPERATORS(operator),
+                     Version.parse(version)))
+        return klass(*parsed_requirements)
 
     def __str__(self):
         return ''
@@ -106,7 +126,7 @@ class Release(object):
     def __init__(self, name, version, format, url,
                  pyversion=None, platform=None):
         self.name = name
-        self.version = version
+        self.version = Version.parse(version)
         self.format = format
         self.url = url
         self.pyversion = pyversion
@@ -201,12 +221,13 @@ class DevelopmentRelease(Release):
         egginfo = config['egginfo']
 
         self.name = egginfo['name'].as_text()
-        self.version = egginfo['version'].as_text()
+        self.version = Version.parse(egginfo['version'].as_text())
         self.format = None
         self.url = path
         self.pyversion = None
         self.platform = None
-        self.requires = []
+        self.requires = Requirements.parse(
+            egginfo.get('requires', '').as_list())
 
         # Source path of the extension
         source_path = os.path.join(path, egginfo.get('source', '.').as_text())
