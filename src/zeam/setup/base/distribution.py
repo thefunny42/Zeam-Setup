@@ -204,6 +204,53 @@ class DownloableRelease(Release):
     pass
 
 
+def read_pkg_info(path):
+    """Read the PKG-INFO file located at the given path and return the
+    information as a dictionnary.
+    """
+    metadata = {}
+    key = None
+    value = None
+    pkg_info = open(os.path.join(path, 'PKG-INFO'), 'r')
+    for line in pkg_info.readlines():
+        if line and line[0] in '#;':
+            continue
+        if line[0].isspace():
+            if key is None and value is None:
+                raise ValueError('Invalid PKG-INFO file at %s' % path)
+            value += '\n' + line[0]
+        else:
+            if key is not None and value is not None:
+                metadata[key.strip().lower()] = value.strip()
+            key, value = line.split(':', 1)
+    if key is not None:
+        metadata[key.strip().lower()] = value.strip()
+    return metadata
+
+
+class EnvironmentRelease(Release):
+    """A release already present in the environment.
+    """
+
+    def __init__(self, path):
+        egg_info = os.path.join(path, 'EGG-INFO')
+        pkg_info = read_pkg_info(egg_info)
+        self.name = pkg_info['name']
+        self.version = Version.parse(pkg_info['version'])
+        self.summary = pkg_info.get('summary', '')
+        self.author = pkg_info.get('author', '')
+        self.author_email = pkg_info.get('author-email', '')
+        self.license = pkg_info.get('license', '')
+        self.classifiers = []
+        self.format = None
+        self.url = None
+        self.pyversion = None
+        self.platform = None
+        self.path = os.path.abspath(path)
+        self.entry_points = {}
+        self.requirements = []
+
+
 class DevelopmentRelease(Release):
     """A development release located on the file system.
     """
@@ -292,6 +339,11 @@ class Environment(object):
         self.installed = {}
         self.default_executable = default_executable
 
+        if self.default_executable == sys.executable:
+            for path in sys.path:
+                if os.path.isdir(os.path.join(path, 'EGG-INFO')):
+                    self.add(EnvironmentRelease(path))
+
     def add(self, release):
         """Try to add a new release in the environment.
         """
@@ -301,9 +353,13 @@ class Environment(object):
             # XXX look for requires
             self.installed[release.name] = release
         else:
-            raise InstallationError(
-                u'Release %s and %s added in the environment' % (
-                    repr(release), repr(self.installed[release.name])))
+            installed = self.installed[release.name]
+            if installed.path == release.path:
+                self.installed[release.name] = release
+            else:
+                raise InstallationError(
+                    u'Release %s and %s added in the environment' % (
+                        repr(release), repr(self.installed[release.name])))
 
     def get_entry_point(self, group, name):
         """Return the entry point value called name for the given group.
@@ -347,7 +403,7 @@ class Environment(object):
         """
         if executable is None:
             executable = self.default_executable
-        logger.info('Creating script %s' % script_path)
+        logger.warning('Creating script %s' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
         printer.pprint(map(lambda r: r.path, self.installed.values()))

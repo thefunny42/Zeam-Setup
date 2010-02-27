@@ -12,6 +12,11 @@ from zeam.setup.base.error import InstallationError
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
+VERBOSE_LVL_TO_LOGGING_LVL = {0: logging.ERROR,
+                              1: logging.WARNING,
+                              2: logging.INFO,
+                              3: logging.DEBUG}
+VERBOSE_LVL = lambda lvl: VERBOSE_LVL_TO_LOGGING_LVL.get(lvl, logging.DEBUG)
 
 logger = logging.getLogger('zeam.setup')
 
@@ -100,7 +105,7 @@ def bootstrap_cfg(config, options):
         setup['python_executable'] = sys.executable
 
     # Create an environment with develop packages
-    environment = Environment(setup['python_executable'])
+    environment = Environment(setup['python_executable'].as_text())
     if 'develop' in setup:
         for path in setup['develop'].as_list():
             environment.add(DevelopmentRelease(path=path))
@@ -112,21 +117,19 @@ def setup():
     """
     parser = OptionParser()
     parser.add_option(
-        "-c", "--configuration", dest="config",
-        help="Configuration file to use (default to setup.cfg)",
-        default='setup.cfg')
-    parser.add_option(
-        "-i", '--install', dest="install",
-        help="Install a file or directory in the current environment")
+        "-c", "--configuration", dest="config", default='setup.cfg',
+        help="configuration file to use (default to setup.cfg)")
     parser.add_option(
         "-p", "--prefix", dest="prefix",
-        help="Prefix directory for installation")
-
-    # XXX Improve this logger configuration
-    logger.addHandler(logging.StreamHandler(sys.stdout))
-    logger.setLevel(logging.INFO)
+        help="prefix directory for installation")
+    parser.add_option(
+        "-v", '--verbose', dest="verbosity", action="count", default=0,
+        help="be verbose, use multiple times to increase verbosity level")
 
     (options, args) = parser.parse_args()
+    logger.addHandler(logging.StreamHandler(sys.stdout))
+    logger.setLevel(VERBOSE_LVL(options.verbosity))
+
     try:
         logger.info(u'Reading configuration %s' % options.config)
         config = Configuration.read(options.config)
