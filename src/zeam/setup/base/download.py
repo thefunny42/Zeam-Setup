@@ -71,6 +71,8 @@ class Downloader(object):
 
 
 class ArchiveDirectory(object):
+    """This represent a directory with a list of archives.
+    """
 
     def __init__(self, path):
         self.path = path

@@ -111,11 +111,16 @@ def setup():
     """Main entry point of the setup script.
     """
     parser = OptionParser()
-    parser.add_option("-c", "--configuration", dest="config",
-                      help="Configuration file to use (default to setup.cfg)",
-                      default='setup.cfg')
-    parser.add_option("-p", "--prefix", dest="prefix",
-                      help="Prefix directory for installation")
+    parser.add_option(
+        "-c", "--configuration", dest="config",
+        help="Configuration file to use (default to setup.cfg)",
+        default='setup.cfg')
+    parser.add_option(
+        "-i", '--install', dest="install",
+        help="Install a file or directory in the current environment")
+    parser.add_option(
+        "-p", "--prefix", dest="prefix",
+        help="Prefix directory for installation")
 
     # XXX Improve this logger configuration
     logger.addHandler(logging.StreamHandler(sys.stdout))

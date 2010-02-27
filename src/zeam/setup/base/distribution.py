@@ -94,7 +94,8 @@ class Requirements(object):
 
         # Parse requirements
         for requirement in requirements:
-            for operator, version in REQUIREMENT_PARSE.findall(requirement):
+            for operator, version in REQUIREMENT_PARSE.findall(
+                version_requirement):
                 parsed_requirements.append(
                     (REQUIREMENT_OPERATORS(operator),
                      Version.parse(version)))
@@ -105,6 +106,9 @@ class Requirements(object):
 
 
 class Software(object):
+    """A software is composed by a list of release of the same
+    software.
+    """
 
     def __init__(self, name):
         self.name = name
@@ -127,13 +131,18 @@ class Release(object):
                  pyversion=None, platform=None):
         self.name = name
         self.version = Version.parse(version)
+        self.summary = ''
+        self.author = ''
+        self.author_email = ''
+        self.license = ''
+        self.classifiers = []
         self.format = format
         self.url = url
         self.pyversion = pyversion
         self.platform = platform
         self.path = None
         self.entry_points = {}
-        self.requires = []
+        self.requirements = []
 
     def is_active(self):
         """Return true of the release is currently usable by the
@@ -222,18 +231,23 @@ class DevelopmentRelease(Release):
 
         self.name = egginfo['name'].as_text()
         self.version = Version.parse(egginfo['version'].as_text())
+        self.summary = egginfo.get('summary', '').as_text()
+        self.author = egginfo.get('author', '').as_text()
+        self.author_email = egginfo.get('author_email', '').as_text()
+        self.license = egginfo.get('license', '').as_text()
+        self.classifiers = egginfo.get('classifier', '').as_list()
         self.format = None
         self.url = path
         self.pyversion = None
         self.platform = None
-        self.requires = Requirements.parse(
+        self.requirements = Requirements.parse(
             egginfo.get('requires', '').as_list())
 
         # Source path of the extension
         source_path = os.path.join(path, egginfo.get('source', '.').as_text())
         if not os.path.isdir(source_path):
             raise PackageError(path, 'Invalid source path "%s"' % source_path)
-        self.path = source_path
+        self.path = os.path.abspath(source_path)
 
         # Entry points
         self.entry_points = {}
@@ -244,12 +258,38 @@ class DevelopmentRelease(Release):
                 self.entry_points[category_name] = info.as_dict()
 
 
+class DistributionSetEntry(object):
+    """Cache entry in a distribution set.
+    """
+
+    def __init__(self, distribution_set, name):
+        self.distribution_set = distribution_set
+        self.name = name
+
+    def resolve(self):
+        """This resolves all dependencies, by finding corresponding
+        releases.
+        """
+
+class DistributionSet(object):
+    """Represent a possible set of releases that can be used together.
+    """
+
+    def __init__(self, source):
+        self.source = source
+        self.entries = {}
+        self.requirements = Requirements()
+
+    def search(self, name):
+        pass
+
+
 class Environment(object):
-    """Represent a set of released packages that can be used together.
+    """Represent the set of release used together.
     """
 
     def __init__(self, default_executable=None):
-        self.releases = {}
+        self.installed = {}
         self.default_executable = default_executable
 
     def add(self, release):
@@ -257,13 +297,13 @@ class Environment(object):
         """
         if not isinstance(release, Release):
             raise ValueError(u'Can only add release to an environment')
-        if release.name not in self.releases:
+        if release.name not in self.installed:
             # XXX look for requires
-            self.releases[release.name] = release
+            self.installed[release.name] = release
         else:
             raise InstallationError(
                 u'Release %s and %s added in the environment' % (
-                    repr(release), repr(self.releases[release.name])))
+                    repr(release), repr(self.installed[release.name])))
 
     def get_entry_point(self, group, name):
         """Return the entry point value called name for the given group.
@@ -276,22 +316,22 @@ class Environment(object):
             entry_name = name_parts[1]
         else:
             InstallationError('Invalid entry point designation %s' % name)
-        if package not in self.releases:
+        if package not in self.installed:
             raise PackageError(u"Package %s not available" % package)
-        release = self.releases[package]
+        release = self.installed[package]
         return release.get_entry_point(group, entry_name)
 
     def list_entry_points(self, group, *package_names):
         """List package package_name entry point in the given group.
         """
         if not package_names:
-            package_names = self.releases.keys()
+            package_names = self.installed.keys()
         entry_points = {}
         for package_name in package_names:
-            if package_name not in self.releases:
+            if package_name not in self.installed:
                 raise PackageError(
                     u"No package called %s in the environment" % package_name)
-            package = self.releases[package_name]
+            package = self.installed[package_name]
             package_entry_points = package.entry_points.get(group, None)
             if package_entry_points is not None:
                 for name, destination in package_entry_points.items():
@@ -310,7 +350,7 @@ class Environment(object):
         logger.info('Creating script %s' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
-        printer.pprint(map(lambda r: r.path, self.releases.values()))
+        printer.pprint(map(lambda r: r.path, self.installed.values()))
         script_fd = open(script_path, 'w')
         script_fd.write(SCRIPT_TEMPLATE % {
                 'executable': executable,
