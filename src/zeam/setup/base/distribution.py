@@ -209,22 +209,39 @@ def read_pkg_info(path):
     information as a dictionnary.
     """
     metadata = {}
+
+    def add_metadata(key, value):
+        value = value.strip()
+        if value == 'UNKNOWN':
+            value = ''
+        key = key.strip().lower()
+        if metadata.has_key(key):
+            if isinstance(metadata[key], list):
+                metadata[key].append(value)
+            else:
+                metadata[key] = [metadata[key], value]
+        else:
+            metadata[key] = value
+
     key = None
     value = None
-    pkg_info = open(os.path.join(path, 'PKG-INFO'), 'r')
+    try:
+        pkg_info = open(os.path.join(path, 'PKG-INFO'), 'r')
+    except IOError:
+        raise PackageError('Invalid EGG-INFO directory at %s' % path)
     for line in pkg_info.readlines():
         if line and line[0] in '#;':
             continue
         if line[0].isspace():
             if key is None and value is None:
-                raise ValueError('Invalid PKG-INFO file at %s' % path)
+                raise PackageError('Invalid PKG-INFO file at %s' % path)
             value += '\n' + line[0]
         else:
             if key is not None and value is not None:
-                metadata[key.strip().lower()] = value.strip()
+                add_metadata(key, value)
             key, value = line.split(':', 1)
     if key is not None:
-        metadata[key.strip().lower()] = value.strip()
+        add_metadata(key, value)
     return metadata
 
 
@@ -241,7 +258,7 @@ class EnvironmentRelease(Release):
         self.author = pkg_info.get('author', '')
         self.author_email = pkg_info.get('author-email', '')
         self.license = pkg_info.get('license', '')
-        self.classifiers = []
+        self.classifiers = pkg_info.get('classifier', '')
         self.format = None
         self.url = None
         self.pyversion = None

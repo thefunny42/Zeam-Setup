@@ -84,12 +84,13 @@ class Installed(object):
         self.environment = environment
 
     def run(self):
+        # It's not errors, but the moment we use the log facily to
+        # report information.
         installed = self.environment.installed.items()
         installed.sort(key=lambda (k,v):k)
+        logger.error("Installed packages:")
         for name, package in installed:
-            # It's not really an error, but the moment we use the log
-            # facily to report information.
-            logger.error("- %s version %s" % (package.name, package.version))
+            logger.error("- %s, version %s" % (package.name, package.version))
             if package.summary:
                 logger.warning("  %s" % package.summary)
 
