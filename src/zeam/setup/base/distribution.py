@@ -62,6 +62,15 @@ class Version(object):
             parsed_version.append(part)
         return klass(*parsed_version)
 
+    def __lt__(self, other):
+        return self.version < other
+
+    def __gt__(self, other):
+        return self.version > other
+
+    def __eq__(self, other):
+        return self.version == other
+
     def __str__(self):
         rendered_version = []
         need_dot = False

@@ -26,6 +26,7 @@ def find_test_files(module_directory, module_name):
             yield path_to_module_name(
                 module_directory, module_name, path, 'tests.py')
         if path.endswith('tests'):
+            filenames.sort()
             for filename in filenames:
                 if filename.startswith('test_') and filename.endswith('.py'):
                     yield path_to_module_name(
