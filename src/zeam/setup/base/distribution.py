@@ -15,6 +15,8 @@ logger = logging.getLogger('zeam.setup')
 
 VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
 VERSION_REPLACE = {'pre':'c', 'preview':'c', '-':'final-', 'rc':'c',}.get
+REQUIREMENT_NAME_PARSE = re.compile(
+    r'^(?P<name>[\w.]+)\s*(?P<requirements>.*)$')
 REQUIREMENT_PARSE = re.compile(
     r'(?P<operator>[<>=!]=)\s*(?P<version>[\da-z.\-]+)\s*,?')
 REQUIREMENT_OPERATORS = {'==': operator.eq, '>=': operator.ge,
@@ -70,9 +72,39 @@ class Version(object):
                 rendered_version.append('.')
             need_dot = False
             if part[0] == '0':
-                rendered_version.append(part.strip('0'))
+                rendered_version.append(part.strip('0') or '0')
                 need_dot = True
         return ''.join(rendered_version)
+
+
+class Requirement(object):
+    """Represent a requirement.
+    """
+
+    def __init__(self, name, versions):
+        self.name = name
+        self.versions = versions
+
+    @classmethod
+    def parse(cls, requirement):
+        groups = REQUIREMENT_NAME_PARSE.match(requirement)
+        version_requirements = []
+        for operator, version in REQUIREMENT_PARSE.findall(
+            groups.group('requirements')):
+            version_requirements.append(
+                (REQUIREMENT_OPERATORS(operator),
+                 Version.parse(version)))
+
+        return cls(groups.group('name'), version_requirements)
+
+    def match(self, release):
+        return False
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return '<Requirement %s>' % (self.name)
 
 
 class Requirements(object):
@@ -82,11 +114,8 @@ class Requirements(object):
     def __init__(self, *requirements):
         self.requirements = requirements
 
-    def match(self, release):
-        return False
-
     @classmethod
-    def parse(klass, requirements):
+    def parse(cls, requirements):
         parsed_requirements = []
         # We can parse a list of requirements
         if not isinstance(requirements, list):
@@ -94,11 +123,10 @@ class Requirements(object):
 
         # Parse requirements
         for requirement in requirements:
-            for operator, version in REQUIREMENT_PARSE.findall(requirement):
-                parsed_requirements.append(
-                    (REQUIREMENT_OPERATORS(operator),
-                     Version.parse(version)))
-        return klass(*parsed_requirements)
+            parsed_requirements.append(
+                Requirement.parse(requirement))
+
+        return cls(*parsed_requirements)
 
     def __str__(self):
         return ''
@@ -368,7 +396,7 @@ class Environment(object):
 
     def install(self, name, directory):
         # XXX Testing
-        self.source.install(name, directory)
+        self.source.install(Requirement.parse(name), directory)
 
     def add(self, release):
         """Try to add a new release in the environment.

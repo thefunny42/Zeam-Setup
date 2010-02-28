@@ -14,11 +14,17 @@ HTML_LINK = re.compile(
 logger = logging.getLogger('zeam.setup')
 
 
+def is_remote_uri(uri):
+    """Tell you if the given uri is remote:
+    """
+    # XXX Todo check for SSL availability
+    return uri.startswith('http://') or uri.startswith('https://')
+
+
 def open_uri(uri):
     """Open the given file or uri.
     """
-    # XXX Todo check for SSL availability
-    if uri.startswith('http://') or uri.startswith('https://'):
+    if is_remote_uri(uri):
         # XXX Todo add a caching subsystem
         try:
             logger.info("Accessing remote url %s" % uri)
@@ -31,22 +37,38 @@ def open_uri(uri):
         raise FileError(uri, e.args[1])
 
 
+def rewrite_links(base_uri, links):
+    """This rewrite a list of links as full uri, using base_uri as
+    source.
+    """
+    uri_parts = urlparse.urlparse(base_uri)
+    absolute_uri = uri_parts[0:2]
+    relative_path = uri_parts[2]
+    if not relative_path.endswith('/'):
+        relative_path = os.path.dirname(relative_path)
+    elif not relative_path:
+        relative_path = '/'
+
+    for url, name in links:
+        if url:
+            if url[0] == '/':
+                # Convert absolute URL to absolute URI
+                url = urlparse.urlunparse(absolute_uri + (url, '', '', '',))
+            elif not is_remote_uri(url):
+                url = urlparse.urlunparse(absolute_uri + (
+                        os.path.join(relative_path, url), '','', ''))
+        yield (name.strip().lower(), url,)
+
+
 def get_links(uri):
     """Read all available links from a page.
     """
-    links = []
-    uri_parts = urlparse.urlparse(uri)[0:2]
 
     input = open_uri(uri)
     html = input.read()
     input.close()
 
-    for url, name in HTML_LINK.findall(html):
-        if url and url[0] == '/':
-            # Convert relative URLs to absolute ones
-            url = urlparse.urlunparse(uri_parts + (url, '', '', '',))
-        links.append((name.strip().lower(), url,))
-    return dict(links)
+    return dict(rewrite_links(uri, HTML_LINK.findall(html)))
 
 
 def create_directory(directory):

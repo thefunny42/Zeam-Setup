@@ -8,7 +8,7 @@ import sys
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
-from zeam.setup.base.error import InstallationError
+from zeam.setup.base.error import InstallationError, display_error
 from zeam.setup.base.sources import Source
 from zeam.setup.base.utils import create_directory
 
@@ -58,6 +58,7 @@ def bootstrap_cfg(config, options):
     """Bootstrap the configuration settings. Mainly set things like
     network_timeout, prefix_directory, python_executable.
     """
+    __status__ = u"Initializing environment."
     setup = config['setup']
 
     # Export verbosity
@@ -144,6 +145,7 @@ def setup():
             previous_config = Configuration.read(previous_cfg_path)
 
         if options.install:
+            __status__ = u"Installing %s" % options.install
             environment.install(options.install, '.')
         else:
             all_commands = environment.list_entry_points('setup_commands')
@@ -163,7 +165,5 @@ def setup():
         config.write(zsetup_fd)
         zsetup_fd.close()
 
-    except InstallationError, e:
-        sys.stderr.write(e.msg())
-        sys.exit(-1)
-
+    except InstallationError, error:
+        display_error(error)

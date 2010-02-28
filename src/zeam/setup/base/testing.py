@@ -76,7 +76,8 @@ class Test(object):
         self.package_name = config['egginfo']['name'].as_text()
 
     def run(self):
-        logger.warning('Running tests...')
+        __status__ = u"Running tests for %s" % self.package_name
+        logger.warning(__status__)
         suite = unittest.TestSuite()
         suite.addTests(find_tests(self.package_name))
         verbosity = self.config['setup']['verbosity'].as_int()

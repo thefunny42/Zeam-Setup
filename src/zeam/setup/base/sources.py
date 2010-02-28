@@ -3,6 +3,7 @@ import logging
 import re
 
 from zeam.setup.base.distribution import UninstalledRelease, Software
+from zeam.setup.base.distribution import Requirement
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links, create_directory
 
@@ -66,11 +67,19 @@ class AvailableSoftware(object):
         for release in releases:
             self.add(release)
 
-    def __getitem__(self, name):
-        return self.software[name]
+    def __getitem__(self, requirement):
+        if isinstance(requirement, Requirement):
+            key = requirement.name
+        else:
+            key = requirement
+        return self.software[key]
 
-    def __contains__(self, name):
-        return name in self.software
+    def __contains__(self, requirement):
+        if isinstance(requirement, Requirement):
+            key = requirement.name
+        else:
+            key = requirement
+        return key in self.software
 
 
 class RemoteSource(object):
@@ -84,7 +93,7 @@ class RemoteSource(object):
         self.links = {}
         self.software = AvailableSoftware()
 
-    def __download(self, name, find_link, depth=0):
+    def download(self, requirement, find_link, depth=0):
         if depth > self.max_depth:
             return None
 
@@ -95,22 +104,24 @@ class RemoteSource(object):
             self.software.extend(get_releases_from_links(links))
 
         # Look for a software in the cache
-        if name in self.software:
-            return self.software[name]
+        if requirement in self.software:
+            return self.software[requirement]
 
         # No software, look for an another link with the name of the software
         links = self.links[find_link]
-        if name in links:
-            return self.download(name, links[name], depth + 1)
+        if requirement.name in links:
+            return self.download(
+                requirement, links[requirement.name], depth + 1)
         return None
 
-    def download(self, name, version=None):
-        name = name.lower()
+    def install(self, requirement, directory):
         for find_link in self.find_links:
-            stuff = self.__download(name, find_link, version=version)
-
-    def install(self, name, directory):
-        raise PackageNotFound(name)
+            __status__ = u"Locating remote source for %s on %s" % (
+                requirement, find_link)
+            package = self.download(requirement, find_link)
+            if package is not None:
+                return package
+        raise PackageNotFound(requirement)
 
     def __repr__(self):
         return '<Downloader Source for %s>' % str(list(self.find_links))
@@ -136,9 +147,11 @@ class LocalSource(object):
         self.software.extend(get_releases_from_directory(self.path))
         self.__loaded = True
 
-    def install(self, name, directory):
+    def install(self, requirement, directory):
+        __status__ = u"Locating local source for %s in %s" % (
+            requirement, self.path)
         self.load()
-        raise PackageNotFound(name)
+        raise PackageNotFound(requirement)
 
     def __repr__(self):
         return '<Archive Source at %s>' % self.path
@@ -162,15 +175,15 @@ class Source(object):
                         type, source_name))
             self.sources.append(SOURCE_PROVIDERS[type](source_config))
 
-    def install(self, name, directory):
+    def install(self, requirement, directory):
         """Install the given package name in the directory.
         """
         for source in self.sources:
             try:
-                return source.install(name, directory)
+                return source.install(requirement, directory)
             except PackageNotFound:
                 continue
-        raise PackageNotFound(name)
+        raise PackageNotFound(repr(requirement))
 
     def __repr__(self):
         return '<Source %s>' % ', '.join(map(repr, self.sources))
