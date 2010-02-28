@@ -1,7 +1,7 @@
 
 import unittest
 
-from zeam.setup.base.distribution import Version, Requirement
+from zeam.setup.base.version import Version, Requirement
 
 
 class VersionTestCase(unittest.TestCase):
@@ -39,7 +39,7 @@ class RequirementTestCase(unittest.TestCase):
     """
 
     def test_parse(self):
-        """Test requirement parsing.
+        """Test requirement parsing
         """
         req = Requirement.parse('test.software')
         self.assertEqual(req.name, 'test.software')
