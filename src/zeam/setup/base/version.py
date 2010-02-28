@@ -128,5 +128,11 @@ class Requirements(object):
 
         return cls(*parsed_requirements)
 
+    def __len__(self):
+        return len(self.requirements)
+
     def __str__(self):
-        return ''
+        return '\n'.join(map(str, self.requirements))
+
+    def __repr__(self):
+        return '<Requirements %s>' % ', '.join(map(str, self.requirements))
