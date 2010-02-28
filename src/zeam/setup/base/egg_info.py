@@ -3,6 +3,7 @@ import os
 import logging
 
 from zeam.setup.base.distribution import DevelopmentRelease
+from zeam.setup.base.utils import create_directory
 
 logger = logging.getLogger('zeam.setup')
 
@@ -51,8 +52,7 @@ def write_egg_info(package, writers=[write_pkg_info,
     logger.warning('Writing EGG-INFO in %s for %s' % (
             package.path, package.name))
     path = os.path.join(package.path, 'EGG-INFO')
-    if not os.path.isdir(path):
-        os.mkdir(path)
+    create_directory(path)
 
     for writer in writers:
         writer(path, package)

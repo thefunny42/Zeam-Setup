@@ -10,6 +10,7 @@ from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
 from zeam.setup.base.error import InstallationError
 from zeam.setup.base.sources import Source
+from zeam.setup.base.utils import create_directory
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
@@ -51,16 +52,6 @@ def get_previous_cfg_path(config):
     if not os.path.isdir(zsetup_dest):
         os.makedirs(zsetup_dest)
     return os.path.join(zsetup_dest, 'installed.cfg')
-
-
-def create_directory(directory):
-    """Create a directory called directory if it doesn't exits
-    already.
-    """
-    directory = directory.strip()
-    if not os.path.isdir(directory):
-        logger.info('Creating directory %s' % directory)
-        os.makedirs(directory)
 
 
 def bootstrap_cfg(config, options):
@@ -128,6 +119,9 @@ def setup():
     parser.add_option(
         "-v", '--verbose', dest="verbosity", action="count", default=0,
         help="be verbose, use multiple times to increase verbosity level")
+    parser.add_option(
+        "-i", '--install', dest="install",
+        help="install a given package in the environment")
 
     (options, args) = parser.parse_args()
     logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -146,18 +140,21 @@ def setup():
             logger.info(u'Loading previous configuration')
             previous_config = Configuration.read(previous_cfg_path)
 
-        all_commands = environment.list_entry_points('setup_commands')
-        command = all_commands['default']
-        if len(args):
-            try:
-                command = all_commands[args[0]]
-            except KeyError:
-                raise InstallationError(u'Unknow command %s' % args[0])
+        if options.install:
+            environment.install(options.install, '.')
+        else:
+            all_commands = environment.list_entry_points('setup_commands')
+            command = all_commands['default']
+            if len(args):
+                try:
+                    command = all_commands[args[0]]
+                except KeyError:
+                    raise InstallationError(u'Unknow command %s' % args[0])
 
-        command_class = environment.get_entry_point(
-            'setup_commands', command['name'])
-        processor = command_class(config, environment)
-        processor.run()
+            command_class = environment.get_entry_point(
+                'setup_commands', command['name'])
+            processor = command_class(config, environment)
+            processor.run()
 
         zsetup_fd = open(previous_cfg_path, 'w')
         config.write(zsetup_fd)

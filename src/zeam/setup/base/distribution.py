@@ -94,8 +94,7 @@ class Requirements(object):
 
         # Parse requirements
         for requirement in requirements:
-            for operator, version in REQUIREMENT_PARSE.findall(
-                version_requirement):
+            for operator, version in REQUIREMENT_PARSE.findall(requirement):
                 parsed_requirements.append(
                     (REQUIREMENT_OPERATORS(operator),
                      Version.parse(version)))
@@ -198,7 +197,7 @@ class Release(object):
             self.__class__.__name__,self.name, self.version)
 
 
-class DownloableRelease(Release):
+class UninstalledRelease(Release):
     """A release that you can download.
     """
     pass
@@ -366,6 +365,10 @@ class Environment(object):
         """Set the source used to find new software.
         """
         self.source = source
+
+    def install(self, name, directory):
+        # XXX Testing
+        self.source.install(name, directory)
 
     def add(self, release):
         """Try to add a new release in the environment.

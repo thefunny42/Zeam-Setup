@@ -2,9 +2,9 @@
 import logging
 import re
 
-from zeam.setup.base.distribution import DownloableRelease, Software
+from zeam.setup.base.distribution import UninstalledRelease, Software
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
-from zeam.setup.base.utils import get_links
+from zeam.setup.base.utils import get_links, create_directory
 
 logger = logging.getLogger('zeam.setup')
 
@@ -15,17 +15,62 @@ RELEASE_TARBALL = re.compile(
     re.IGNORECASE)
 
 
+def get_release_from_name(name, url=None):
+    """Return a not installed release from the given name.
+    """
+    info = RELEASE_TARBALL.match(name)
+    if info:
+        name = info.group('name').lower()
+        version = info.group('version')
+        format = info.group('format')
+        return UninstalledRelease(name, version, format, url)
+    return None
+
+
 def get_releases_from_links(links):
     """Get downloadable software from links.
     """
     for name, url in links.iteritems():
-        info = RELEASE_TARBALL.match(name)
-        if info:
-            name = info.group('name').lower()
-            yield DownloableRelease(name,
-                                    info.group('version'),
-                                    info.group('format'),
-                                    url)
+        release = get_release_from_name(name, url)
+        if release is not None:
+            yield release
+
+def get_releases_from_directory(directory):
+    """Get a list of release from a directory.
+    """
+    for filename in os.listdir(directory):
+        if not os.path.isfile(filename):
+            continue
+        release = get_release_from_name(name, os.path.join(directory, name))
+        if release is not None:
+            yield release
+
+
+class AvailableSoftware(object):
+    """Represent the available software.
+    """
+
+    def __init__(self):
+        self.software = {}
+
+    def add(self, release):
+        """Add a software to the available ones.
+        """
+        software = self.software.setdefault(
+            release.name, Software(release.name))
+        software.add(release)
+
+    def extend(self, releases):
+        """Extend the available software by adding a list of releases to it.
+        """
+        for release in releases:
+            self.add(release)
+
+    def __getitem__(self, name):
+        return self.software[name]
+
+    def __contains__(self, name):
+        return name in self.software
 
 
 class RemoteSource(object):
@@ -35,31 +80,28 @@ class RemoteSource(object):
     def __init__(self, config):
         self.config = config
         self.find_links = config['urls'].as_list()
-        self.__max_depth = config.get('max_depth', '3').as_int()
-        self.__links_cache = {}
-        self.__software_cache = {}
+        self.max_depth = config.get('max_depth', '3').as_int()
+        self.links = {}
+        self.software = AvailableSoftware()
 
     def __download(self, name, find_link, depth=0):
-        if depth > self.__max_depth:
+        if depth > self.max_depth:
             return None
 
-        if find_link not in self.__links_cache:
+        if find_link not in self.links:
             links = get_links(find_link)
-            self.__links_cache[find_link] = links
+            self.links[find_link] = links
             # Add found software in the cache
-            for release in get_releases_from_links(links):
-                cache = self.__software_cache.setdefault(
-                    release.name, Software(release.name))
-                cache.add(release)
+            self.software.extend(get_releases_from_links(links))
 
         # Look for a software in the cache
-        if name in self.__software_cache:
-            return self.__software_cache[name]
+        if name in self.software:
+            return self.software[name]
 
         # No software, look for an another link with the name of the software
-        links = self.__links_cache[find_link]
+        links = self.links[find_link]
         if name in links:
-            return self.__download(name, links[name], depth + 1)
+            return self.download(name, links[name], depth + 1)
         return None
 
     def download(self, name, version=None):
@@ -82,8 +124,20 @@ class LocalSource(object):
     def __init__(self, config):
         self.config = config
         self.path = config['directory'].as_text()
+        self.software = AvailableSoftware()
+        self.__loaded = True
+
+    def load(self):
+        """Internally load available archives in the directory.
+        """
+        if self.__loaded:
+            return
+        create_directory(self.path)
+        self.software.extend(get_releases_from_directory(self.path))
+        self.__loaded = True
 
     def install(self, name, directory):
+        self.load()
         raise PackageNotFound(name)
 
     def __repr__(self):
