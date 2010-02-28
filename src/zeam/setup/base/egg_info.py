@@ -1,6 +1,7 @@
 
-import os
 import logging
+import os
+import sys
 
 from zeam.setup.base.distribution import DevelopmentRelease
 from zeam.setup.base.utils import create_directory
@@ -59,7 +60,7 @@ def write_egg_info(package, writers=[write_pkg_info,
 
 
 class EggInfo(object):
-    """Create egg information for a package.
+    """Command used to create egg information for a package.
     """
 
     writers = [write_pkg_info,
@@ -76,7 +77,7 @@ class EggInfo(object):
 
 
 class Installed(object):
-    """List installed software.
+    """Command used to list installed software.
     """
 
     def __init__(self, config, environment):
@@ -88,6 +89,7 @@ class Installed(object):
         # report information.
         installed = self.environment.installed.items()
         installed.sort(key=lambda (k,v):k)
+        logger.error("Running Python %s" % sys.version)
         logger.error("Installed packages:")
         for name, package in installed:
             logger.error("- %s, version %s" % (package.name, package.version))

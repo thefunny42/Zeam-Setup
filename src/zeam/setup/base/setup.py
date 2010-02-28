@@ -60,6 +60,9 @@ def bootstrap_cfg(config, options):
     """
     setup = config['setup']
 
+    # Export verbosity
+    setup['verbosity'] = str(options.verbosity)
+
     # Network timeout
     if 'network_timeout' in setup:
         timeout = setup['network_timeout'].as_int()
