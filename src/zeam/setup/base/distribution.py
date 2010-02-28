@@ -355,11 +355,17 @@ class Environment(object):
     def __init__(self, default_executable=None):
         self.installed = {}
         self.default_executable = default_executable
+        self.source = None
 
         if self.default_executable == sys.executable:
             for path in sys.path:
                 if os.path.isdir(os.path.join(path, 'EGG-INFO')):
                     self.add(EnvironmentRelease(path))
+
+    def set_source(self, source):
+        """Set the source used to find new software.
+        """
+        self.source = source
 
     def add(self, release):
         """Try to add a new release in the environment.

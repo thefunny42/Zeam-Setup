@@ -9,6 +9,7 @@ import sys
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
 from zeam.setup.base.error import InstallationError
+from zeam.setup.base.sources import Source
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
@@ -109,6 +110,8 @@ def bootstrap_cfg(config, options):
     if 'develop' in setup:
         for path in setup['develop'].as_list():
             environment.add(DevelopmentRelease(path=path))
+    if 'sources' in setup:
+        environment.set_source(Source(config))
     return environment
 
 

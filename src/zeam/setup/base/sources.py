@@ -3,6 +3,7 @@ import logging
 import re
 
 from zeam.setup.base.distribution import DownloableRelease, Software
+from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links
 
 logger = logging.getLogger('zeam.setup')
@@ -17,7 +18,6 @@ RELEASE_TARBALL = re.compile(
 def get_releases_from_links(links):
     """Get downloadable software from links.
     """
-
     for name, url in links.iteritems():
         info = RELEASE_TARBALL.match(name)
         if info:
@@ -28,13 +28,14 @@ def get_releases_from_links(links):
                                     url)
 
 
-class Downloader(object):
-    """Download software from da internet.
+class RemoteSource(object):
+    """Download software from da internet, in order to install it.
     """
 
-    def __init__(self, find_links, max_depth=3):
-        self.find_links = find_links
-        self.__max_depth = max_depth
+    def __init__(self, config):
+        self.config = config
+        self.find_links = config['urls'].as_list()
+        self.__max_depth = config.get('max_depth', '3').as_int()
         self.__links_cache = {}
         self.__software_cache = {}
 
@@ -66,17 +67,56 @@ class Downloader(object):
         for find_link in self.find_links:
             stuff = self.__download(name, find_link, version=version)
 
+    def install(self, name, directory):
+        raise PackageNotFound(name)
+
     def __repr__(self):
-        return '<Downloader for %s>' % str(list(self.find_links))
+        return '<Downloader Source for %s>' % str(list(self.find_links))
 
 
-class ArchiveDirectory(object):
-    """This represent a directory with a list of archives.
+class LocalSource(object):
+    """This represent a directory with a list of archives, that can be
+    used to install software.
     """
 
-    def __init__(self, path):
-        self.path = path
+    def __init__(self, config):
+        self.config = config
+        self.path = config['directory'].as_text()
+
+    def install(self, name, directory):
+        raise PackageNotFound(name)
 
     def __repr__(self):
-        return '<Archive Directory at %s>' % self.path
+        return '<Archive Source at %s>' % self.path
 
+
+SOURCE_PROVIDERS = {'local': LocalSource,
+                    'remote': RemoteSource}
+
+
+class Source(object):
+    """This manage software sources.
+    """
+
+    def __init__(self, config, section_name='setup'):
+        self.sources = []
+        for source_name in config[section_name]['sources'].as_list():
+            source_config = config['source:' + source_name]
+            type = source_config['type'].as_text()
+            if type not in SOURCE_PROVIDERS:
+                raise ConfigurationError('Unknow source type %s for %s' % (
+                        type, source_name))
+            self.sources.append(SOURCE_PROVIDERS[type](source_config))
+
+    def install(self, name, directory):
+        """Install the given package name in the directory.
+        """
+        for source in self.sources:
+            try:
+                return source.install(name, directory)
+            except PackageNotFound:
+                continue
+        raise PackageNotFound(name)
+
+    def __repr__(self):
+        return '<Source %s>' % ', '.join(map(repr, self.sources))

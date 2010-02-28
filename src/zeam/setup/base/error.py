@@ -3,7 +3,6 @@
 class InstallationError(Exception):
     """Installation happening while installation.
     """
-
     name = u'Installation error'
 
     def __init__(self, *args):
@@ -20,19 +19,22 @@ class InstallationError(Exception):
 class PackageError(InstallationError):
     """An error occurring while processing a package.
     """
-
     name = u'Package error'
+
+
+class PackageNotFound(PackageError):
+    """A package cannot be found.
+    """
+    name = u'Package not found'
 
 
 class ConfigurationError(InstallationError):
     """Configuration error.
     """
-
     name = u'Configuration error'
 
 
 class FileError(ConfigurationError):
     """Error while accesing a file.
     """
-
     name = u"File error"
