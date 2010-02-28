@@ -44,8 +44,16 @@ class RequirementTestCase(unittest.TestCase):
         req = Requirement.parse('test.software')
         self.assertEqual(req.name, 'test.software')
         self.assertEqual(req.versions, [])
+        self.assertEqual(str(req), 'test.software')
 
-        req = Requirement.parse('MySoft==2.3,<=2.4')
+        req = Requirement.parse('MySoft ==2.3, <=2.4')
         self.assertEqual(req.name, 'MySoft')
         self.assertEqual(len(req.versions), 2)
+        self.assertEqual(str(req), 'MySoft==2.3,<=2.4')
+
+        req = Requirement.parse('Zope2>=2.12.3dev')
+        self.assertEqual(req.name, 'Zope2')
+        self.assertEqual(len(req.versions), 1)
+        self.assertEqual(str(req.versions[0][1]), '2.12.3dev')
+        self.assertEqual(str(req), 'Zope2>=2.12.3dev')
 

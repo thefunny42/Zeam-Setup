@@ -6,10 +6,12 @@ VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
 VERSION_REPLACE = {'pre':'c', 'preview':'c', '-':'final-', 'rc':'c',}.get
 REQUIREMENT_NAME_PARSE = re.compile(
     r'^(?P<name>[\w.]+)\s*(?P<requirements>.*)$')
-REQUIREMENT_PARSE = re.compile(
+REQUIREMENT_VERSION_PARSE = re.compile(
     r'(?P<operator>[<>=!]=)\s*(?P<version>[\da-z.\-]+)\s*,?')
-REQUIREMENT_OPERATORS = {'==': operator.eq, '>=': operator.ge,
-                         '!=': operator.ne, '<=': operator.le}.get
+REQUIREMENT_TO_OPERATORS = {'==': operator.eq, '>=': operator.ge,
+                            '!=': operator.ne, '<=': operator.le}.get
+OPERATORS_TO_REQUIREMENT = {operator.eq: '==', operator.ge: '>=',
+                            operator.ne: '!=', operator.le: '<='}.get
 
 
 class Version(object):
@@ -81,10 +83,10 @@ class Requirement(object):
     def parse(cls, requirement):
         groups = REQUIREMENT_NAME_PARSE.match(requirement)
         version_requirements = []
-        for operator, version in REQUIREMENT_PARSE.findall(
+        for operator, version in REQUIREMENT_VERSION_PARSE.findall(
             groups.group('requirements')):
             version_requirements.append(
-                (REQUIREMENT_OPERATORS(operator),
+                (REQUIREMENT_TO_OPERATORS(operator),
                  Version.parse(version)))
 
         return cls(groups.group('name'), version_requirements)
@@ -93,10 +95,16 @@ class Requirement(object):
         return False
 
     def __str__(self):
-        return self.name
+        if not self.versions:
+            return self.name
+        specificators = []
+        for operator, version in self.versions:
+            specificators.append(
+                OPERATORS_TO_REQUIREMENT(operator) + str(version))
+        return ''.join((self.name, ','.join(specificators)))
 
     def __repr__(self):
-        return '<Requirement %s>' % (self.name)
+        return '<Requirement %s>' % str(self)
 
 
 class Requirements(object):
