@@ -94,5 +94,11 @@ class Installed(object):
         for name, package in installed:
             logger.error("- %s, version %s" % (package.name, package.version))
             if package.summary:
+                logger.warning("  Description:")
                 logger.warning("  %s" % package.summary)
+            requires = package.requirements.requirements
+            if requires:
+                logger.info("  Requires:")
+                for dependency in requires:
+                    logger.info("  + %s" % dependency)
 

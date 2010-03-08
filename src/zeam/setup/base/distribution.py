@@ -59,6 +59,7 @@ class Release(object):
         self.path = None
         self.entry_points = {}
         self.requirements = []
+        self.extras = {}
 
     def is_active(self):
         """Return true of the release is currently usable by the
@@ -161,6 +162,39 @@ def read_pkg_info(path):
     return metadata
 
 
+def read_pkg_requires(path):
+    """Read a package requires.txt
+    """
+    try:
+        data = open(os.path.join(path, 'requires.txt'), 'r')
+    except IOError:
+        return Requirements(), {}
+    lines = []
+    requires = []
+    extras = {}
+    current = None
+    for line in data.readlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line[0] == '[' and line[-1] == ']':
+            # New extra
+            if current is None:
+                requires = lines
+            else:
+                extras[current] = Requirements.parse(lines)
+            lines = []
+            current = line[1:-1]
+        else:
+            lines.append(line)
+    # Store last extra
+    if current is None:
+        requires = lines
+    else:
+        extras[current] = Requirements.parse(lines)
+    return Requirements.parse(requires), extras
+
+
 class EnvironmentRelease(Release):
     """A release already present in the environment.
     """
@@ -181,7 +215,7 @@ class EnvironmentRelease(Release):
         self.platform = None
         self.path = os.path.abspath(path)
         self.entry_points = {}
-        self.requirements = []
+        self.requirements, self.extras = read_pkg_requires(egg_info)
 
 
 class DevelopmentRelease(Release):
@@ -222,6 +256,7 @@ class DevelopmentRelease(Release):
         self.platform = None
         self.requirements = Requirements.parse(
             egginfo.get('requires', '').as_list())
+        self.extras = {}
 
         # Source path of the extension
         source_path = os.path.join(path, egginfo.get('source', '.').as_text())
