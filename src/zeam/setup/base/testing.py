@@ -4,6 +4,8 @@ import warnings
 import unittest
 import logging
 
+from zeam.setup.base.error import InstallationError
+
 logger = logging.getLogger('zeam.setup')
 
 

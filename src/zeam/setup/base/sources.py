@@ -1,9 +1,10 @@
 
 import logging
+import os
 import re
 
 from zeam.setup.base.distribution import UninstalledRelease, Software
-from zeam.setup.base.distribution import Requirement
+from zeam.setup.base.version import Requirement
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links, create_directory
 
@@ -42,7 +43,8 @@ def get_releases_from_directory(directory):
     for filename in os.listdir(directory):
         if not os.path.isfile(filename):
             continue
-        release = get_release_from_name(name, os.path.join(directory, name))
+        release = get_release_from_name(
+            filename, os.path.join(directory, filename))
         if release is not None:
             yield release
 
