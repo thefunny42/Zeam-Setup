@@ -59,7 +59,7 @@ def read_pkg_requires(path):
     current = None
     for line in data.readlines():
         line = line.strip()
-        if not line:
+        if not line or line[0] in '#;':
             continue
         if line[0] == '[' and line[-1] == ']':
             # New extra
@@ -82,7 +82,42 @@ def read_pkg_requires(path):
 def read_pkg_entry_points(path):
     """Read pkg-info entry points file.
     """
-    return {}
+    try:
+        data = open(os.path.join(path, 'entry_points.txt'), 'r')
+    except IOError:
+        return {}
+    entry_points = {}
+    points = {}
+    section_name = None
+    for line_number, line in enumerate(data.readlines()):
+        line = line.strip()
+        if not line or line[0] in '#;':
+            continue
+        if line[0] == '[' and line[-1] == ']':
+            if section_name is not None:
+                entry_points[section_name] = points
+            points = {}
+            section_name = line[1:-1]
+        else:
+            error_msg = u'Invalid line %d of entry_points.txt file ' \
+                u'in EGG-INFO directory at %s' % (line_number, path)
+            if section_name is None:
+                raise PackageError(error_msg)
+            parts = line.split('=')
+            if len(parts) != 2:
+                raise PackageError(error_msg)
+            name = parts[0].strip()
+            module = parts[1].strip()
+            if not name or not module:
+                raise PackageError(error_msg)
+            if name not in points:
+                points[name] = module
+            else:
+                raise PackageError("Duplicate entry points %s defined at %s" % (
+                        name, path))
+    if section_name is not None and points:
+        entry_points[section_name] =  points
+    return entry_points
 
 
 class EggRelease(Release):
@@ -105,5 +140,5 @@ class EggRelease(Release):
         self.pyversion = None
         self.platform = None
         self.path = os.path.abspath(path)
-        self.entry_points = {}
+        self.entry_points = read_pkg_entry_points(egg_info)
         self.requirements, self.extras = read_pkg_requires(egg_info)
