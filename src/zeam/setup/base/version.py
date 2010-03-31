@@ -50,11 +50,20 @@ class Version(object):
     def __lt__(self, other):
         return self.version < other
 
+    def __le__(self, other):
+        return self.version <= other
+
     def __gt__(self, other):
         return self.version > other
 
+    def __ge__(self, other):
+        return self.version >= other
+
     def __eq__(self, other):
         return self.version == other
+
+    def __ne__(self, other):
+        return self.version != other
 
     def __str__(self):
         rendered_version = []
@@ -92,7 +101,12 @@ class Requirement(object):
         return cls(groups.group('name'), version_requirements)
 
     def match(self, release):
-        return False
+        if release.name != self.name:
+            return False
+        for op, version in self.versions:
+            if not op(release.version, version):
+                return False
+        return True
 
     def __str__(self):
         if not self.versions:

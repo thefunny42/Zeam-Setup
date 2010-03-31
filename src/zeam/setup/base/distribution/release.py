@@ -1,11 +1,12 @@
 
+import bisect
 import logging
 import os
 import sys
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import PackageError, InstallationError
-from zeam.setup.base.version import Version, Requirements
+from zeam.setup.base.version import Version, Requirement, Requirements
 
 logger = logging.getLogger('zeam.setup')
 
@@ -15,14 +16,27 @@ class Software(object):
     software.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, releases=None):
         self.name = name
-        self.releases = []
+        self.releases = releases
+        if self.releases is None:
+            self.releases = []
+        assert isinstance(self.releases, list), u"Releases must be a list"
+        self.releases.sort()
 
     def add(self, release):
         if release.name != self.name:
-            raise InstallationError('Invalid release added to collection')
-        self.releases.append(release)
+            raise InstallationError(u'Invalid release added to collection')
+        bisect.insort(self.releases, release)
+
+    def __getitem__(self, requirement):
+        if not isinstance(requirement, Requirement):
+            raise KeyError(requirement)
+        return self.__class__(
+            self.name, filter(requirement.match, self.releases))
+
+    def __len__(self):
+        return len(self.releases)
 
     def __repr__(self):
         return '<Software %s>' % self.name
@@ -32,7 +46,7 @@ class Release(object):
     """Represent a release of a software.
     """
 
-    def __init__(self, name, version, format, url,
+    def __init__(self, name, version, format='tar.gz', url='http://google.com',
                  pyversion=None, platform=None):
         self.name = name
         self.version = Version.parse(version)
@@ -49,6 +63,15 @@ class Release(object):
         self.entry_points = {}
         self.requirements = []
         self.extras = {}
+
+    def __lt__(self, other):
+        return self.version < other
+
+    def __gt__(self, other):
+        return self.version > other
+
+    def __eq__(self, other):
+        return self.version == other
 
     def is_active(self):
         """Return true of the release is currently usable by the
@@ -101,7 +124,7 @@ class Release(object):
 
     def __repr__(self):
         return '<%s for %s version %s>' % (
-            self.__class__.__name__,self.name, self.version)
+            self.__class__.__name__, self.name, self.version)
 
 
 class UninstalledRelease(Release):

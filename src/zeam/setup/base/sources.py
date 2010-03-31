@@ -69,19 +69,16 @@ class AvailableSoftware(object):
         for release in releases:
             self.add(release)
 
-    def __getitem__(self, requirement):
-        if isinstance(requirement, Requirement):
-            key = requirement.name
-        else:
-            key = requirement
+    def __getitem__(self, key):
+        if isinstance(key, Requirement):
+            return self.software[key.name][key]
         return self.software[key]
 
     def __contains__(self, requirement):
-        if isinstance(requirement, Requirement):
-            key = requirement.name
-        else:
-            key = requirement
-        return key in self.software
+        try:
+            return len(self[requirement]) != 0
+        except KeyError:
+            return False
 
 
 class RemoteSource(object):

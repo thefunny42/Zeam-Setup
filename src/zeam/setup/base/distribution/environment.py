@@ -69,7 +69,8 @@ class Environment(object):
 
     def install(self, name, directory):
         # XXX Testing
-        self.source.install(Requirement.parse(name), directory)
+        package = self.source.install(Requirement.parse(name), directory)
+        print package.releases
 
     def add(self, release):
         """Try to add a new release in the environment.
