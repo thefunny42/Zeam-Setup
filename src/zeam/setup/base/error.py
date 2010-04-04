@@ -70,6 +70,12 @@ class ConfigurationError(InstallationError):
 
 
 class FileError(ConfigurationError):
-    """Error while accesing a file.
+    """Error while accessing a file.
     """
     name = u"File error"
+
+
+class DownloadError(InstallationError):
+    """Error while downloading a file.
+    """
+    name = u"Download error"

@@ -69,14 +69,15 @@ class Environment(object):
 
     def install(self, name, directory):
         # XXX Testing
-        package = self.source.install(Requirement.parse(name), directory)
-        print package.releases
+        to_install = [Requirement.parse(name)]
+        while to_install:
+            requirement = to_install.pop()
+            package = self.source.install(requirement, directory)
 
     def add(self, release):
         """Try to add a new release in the environment.
         """
         if not isinstance(release, Release):
-            import pdb ; pdb.set_trace()
             raise ValueError(u'Can only add release to an environment')
         if release.name not in self.installed:
             # XXX look for requires

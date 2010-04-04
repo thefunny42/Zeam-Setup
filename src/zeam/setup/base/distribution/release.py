@@ -29,6 +29,12 @@ class Software(object):
             raise InstallationError(u'Invalid release added to collection')
         bisect.insort(self.releases, release)
 
+    def get_most_recent(self):
+        """Return the most recent packages.
+        """
+        # Since self.releases is sorted it should be the last one
+        return self.releases and self.releases[-1] or None
+
     def __getitem__(self, requirement):
         if not isinstance(requirement, Requirement):
             raise KeyError(requirement)
@@ -46,8 +52,7 @@ class Release(object):
     """Represent a release of a software.
     """
 
-    def __init__(self, name, version, format='tar.gz', url='http://google.com',
-                 pyversion=None, platform=None):
+    def __init__(self, name, version):
         self.name = name
         self.version = Version.parse(version)
         self.summary = ''
@@ -55,10 +60,10 @@ class Release(object):
         self.author_email = ''
         self.license = ''
         self.classifiers = []
-        self.format = format
-        self.url = url
-        self.pyversion = pyversion
-        self.platform = platform
+        self.format = None
+        self.url = None
+        self.pyversion = None
+        self.platform = None
         self.path = None
         self.entry_points = {}
         self.requirements = []
@@ -125,14 +130,6 @@ class Release(object):
     def __repr__(self):
         return '<%s for %s version %s>' % (
             self.__class__.__name__, self.name, self.version)
-
-
-class UninstalledRelease(Release):
-    """A release that you can download.
-    """
-    pass
-
-
 
 
 class DevelopmentRelease(Release):
