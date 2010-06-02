@@ -29,17 +29,32 @@ class Software(object):
             raise InstallationError(u'Invalid release added to collection')
         bisect.insort(self.releases, release)
 
-    def get_most_recent(self):
-        """Return the most recent packages.
+    def get_most_recent_release(self):
+        """Return the most recent release.
         """
         # Since self.releases is sorted it should be the last one
         return self.releases and self.releases[-1] or None
 
+    def get_releases_for(self, requirement, pyversion=None, platform=None):
+        """Filter out releases that doesn't match the criterias.
+        """
+
+        def releases_filter(release):
+            if release.pyversion is not None:
+                if pyversion != release.pyversion:
+                    return False
+            if release.platform is not None:
+                if platform != release.platform:
+                    return False
+            return requirement.match(release)
+
+        return self.__class__(
+            self.name, filter(releases_filter, self.releases))
+
     def __getitem__(self, requirement):
         if not isinstance(requirement, Requirement):
             raise KeyError(requirement)
-        return self.__class__(
-            self.name, filter(requirement.match, self.releases))
+        return self.filter(requirement)
 
     def __len__(self):
         return len(self.releases)
@@ -52,7 +67,7 @@ class Release(object):
     """Represent a release of a software.
     """
 
-    def __init__(self, name, version):
+    def __init__(self, name, version, pyversion=None, platform=None):
         self.name = name
         self.version = Version.parse(version)
         self.summary = ''
@@ -62,8 +77,8 @@ class Release(object):
         self.classifiers = []
         self.format = None
         self.url = None
-        self.pyversion = None
-        self.platform = None
+        self.pyversion = pyversion
+        self.platform = platform
         self.path = None
         self.entry_points = {}
         self.requirements = []

@@ -48,31 +48,49 @@ class DistributionSet(object):
         pass
 
 
+def get_output_from(cmd):
+    process = os.popen(cmd, 'r')
+    output = process.read().strip()
+    process.close()
+    return output
+
+
+class PythonInterpreter(object):
+    """Wrap and gives information about a python interpreter.
+    """
+
+    def __init__(self, path):
+        self.__path = path
+        self.__version = get_output_from(
+            "%s -c \"print '.'.join(map(str, __import__('sys').version_info[:2]))\"" % path)
+        self.__platform = get_output_from(
+            "%s -c \"print __import__('sys').platform\"" % path)
+
+    def __str__(self):
+        return self.__path
+
+    def __repr__(self):
+        return self.__path
+
+    def get_pyversion(self):
+        return self.__version
+
+    def get_platform(self):
+        return self.__platform
+
+
 class Environment(object):
     """Represent the set of release used together.
     """
 
-    def __init__(self, default_executable=None):
+    def __init__(self, default_interpretor=None):
         self.installed = {}
-        self.default_executable = default_executable
-        self.source = None
+        self.default_interpretor = PythonInterpreter(default_interpretor)
 
-        if self.default_executable == sys.executable:
+        if self.default_interpretor == sys.executable:
             for path in sys.path:
                 if os.path.isdir(os.path.join(path, 'EGG-INFO')):
                     self.add(EggRelease(path))
-
-    def set_source(self, source):
-        """Set the source used to find new software.
-        """
-        self.source = source
-
-    def install(self, name, directory):
-        # XXX Testing
-        to_install = [Requirement.parse(name)]
-        while to_install:
-            requirement = to_install.pop()
-            package = self.source.install(requirement, directory)
 
     def add(self, release):
         """Try to add a new release in the environment.
@@ -132,7 +150,7 @@ class Environment(object):
         """Create a script at the given path with the given body.
         """
         if executable is None:
-            executable = self.default_executable
+            executable = self.default_interpretor
         logger.warning('Creating script %s' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)

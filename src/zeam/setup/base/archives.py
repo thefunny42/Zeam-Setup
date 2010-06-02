@@ -1,4 +1,5 @@
 
+import os
 import tarfile
 import zipfile
 
@@ -9,15 +10,30 @@ class ZipArchive(object):
 
     def __init__(self, filename, mode):
         self.filename = filename
+        self.format = os.path.splitext(self.filename)[-1]
         self.__handle = zipfile.ZipFile(filename, mode)
 
     def add(self, filename, dest_filename):
         self.__handle.write(filename, dest_filename)
 
     def extract(self, destination):
+        if self.format == '.egg':
+            # Eggs are not in a directory for themselves...
+            # Add a directory
+            destination = os.path.join(
+                destination,
+                os.path.splitext(os.path.basename(self.filename))[0])
+
         for filename in self.__handle.namelist():
-            target_path = os.path.join(destination, filename)
-            output = open(target_path, 'wb')
+            target_filename = os.path.join(destination, filename)
+
+            # Create directory for target_filename
+            target_path = os.path.dirname(target_filename)
+            if not os.path.exists(target_path):
+                os.makedirs(target_path)
+
+            # Extract the file
+            output = open(target_filename, 'wb')
             output.write(self.__handle.read(filename))
             output.close()
 

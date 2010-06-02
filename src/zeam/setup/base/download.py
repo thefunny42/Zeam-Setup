@@ -45,6 +45,8 @@ def verify_checksum(path, checksum):
     if not is_valid:
         logger.info("Checksum %s mismatch expected %s." % (
                 computed_checksum, checksum))
+    else:
+        logger.debug("Checksum %s valid for %s" % (checksum, path))
     return is_valid
 
 
@@ -91,4 +93,4 @@ class DownloadManager(object):
         if not verify_checksum(target_path, checksum):
             raise DownloadError, u"File %s is downloaded but " \
                 u" the checksum is different." % ( base_filename)
-        return url
+        return target_path

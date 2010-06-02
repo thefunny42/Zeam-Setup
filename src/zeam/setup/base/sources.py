@@ -14,8 +14,8 @@ from zeam.setup.base.version import Requirement
 logger = logging.getLogger('zeam.setup')
 
 RELEASE_TARBALL = re.compile(
-    r'^(?P<name>[^-]+)-(?P<version>.*)'
-    r'(-py(?P<pyversion>[^-])(-(?P<platform>[\w]+))?)?'
+    r'^(?P<name>[^-]+)-(?P<version>[^-]*)'
+    r'(-py(?P<pyversion>[^-]+)(-(?P<platform>[\w]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)
 
@@ -28,7 +28,10 @@ def get_release_from_name(source, name, url=None):
         name = info.group('name').lower()
         version = info.group('version')
         format = info.group('format')
-        return source.factory(source, name, version, format, url)
+        pyversion = info.group('pyversion')
+        platform = info.group('platform')
+        return source.factory(
+            source, name, version, format, url, pyversion, platform)
     return None
 
 
@@ -77,11 +80,11 @@ class AvailableSoftware(object):
             return self.software[key.name][key]
         return self.software[key]
 
-    def __contains__(self, requirement):
-        try:
-            return len(self[requirement]) != 0
-        except KeyError:
-            return False
+    def get_releases_for(self, requirement, pyversion=None, platform=None):
+        if not requirement.name in self.software:
+            return []
+        return self.software[requirement.name].get_releases_for(
+            requirement, pyversion=pyversion, platform=platform)
 
 
 class RemoteSource(object):
@@ -104,10 +107,13 @@ class RemoteSource(object):
         create_directory(directory)
         return directory
 
-    def get_download_packages(self, requirement, find_link, depth=0):
+    def get_download_packages(
+        self, requirement, find_link, interpretor, depth=0):
         if depth > self.max_depth:
             return None
 
+        pyversion = interpretor.get_pyversion()
+        platform = interpretor.get_platform()
         if find_link not in self.links:
             links = get_links(find_link)
             self.links[find_link] = links
@@ -115,21 +121,24 @@ class RemoteSource(object):
             self.software.extend(get_releases_from_links(self, links))
 
         # Look for a software in the cache
-        if requirement in self.software:
-            return self.software[requirement]
+        releases = self.software.get_releases_for(
+            requirement, pyversion, platform)
+        if releases:
+            return releases
 
         # No software, look for an another link with the name of the software
         links = self.links[find_link]
         if requirement.name in links:
             return self.get_download_packages(
-                requirement, links[requirement.name], depth + 1)
+                requirement, links[requirement.name], interpretor, depth + 1)
         return None
 
-    def search(self, requirement):
+    def search(self, requirement, interpretor):
         for find_link in self.find_links:
             __status__ = u"Locating remote source for %s on %s" % (
                 requirement, find_link)
-            packages = self.get_download_packages(requirement, find_link)
+            packages = self.get_download_packages(
+                requirement, find_link, interpretor)
             if packages is not None:
                 return packages
         raise PackageNotFound(requirement)
@@ -159,7 +168,7 @@ class LocalSource(object):
         self.software.extend(get_releases_from_directory(self.path))
         self.__loaded = True
 
-    def search(self, requirement):
+    def search(self, requirement, interpretor):
         __status__ = u"Locating local source for %s in %s" % (
             requirement, self.path)
         self.load()
@@ -171,7 +180,6 @@ class LocalSource(object):
 
 SOURCE_PROVIDERS = {'local': LocalSource,
                     'remote': RemoteSource}
-
 
 class Source(object):
     """This manage software sources.
@@ -187,28 +195,45 @@ class Source(object):
                         type, source_name))
             self.sources.append(SOURCE_PROVIDERS[type](source_config))
 
-    def install(self, requirement, directory):
-        """Install the given package name in the directory.
-        """
-        packages = self.search(requirement)
-        logger.debug(u"Package versions found for %s: %s." % (
-                requirement.name,
-                ', '.join(map(lambda p: str(p.version), packages.releases))))
-        package = packages.get_most_recent()
-        logger.info(u"Picking version %s for %s." % (
-                str(package.version), requirement.name))
-        return package.install(directory)
-
-
-    def search(self, requirement):
+    def search(self, requirement, interpretor):
         """Search of a given package at the given location.
         """
         for source in self.sources:
             try:
-                return source.search(requirement)
+                return source.search(requirement, interpretor)
             except PackageNotFound:
                 continue
         raise PackageNotFound(repr(requirement))
 
     def __repr__(self):
         return '<Source %s>' % ', '.join(map(repr, self.sources))
+
+
+class PackageInstaller(object):
+    """Install new packages.
+    """
+
+    def __init__(self, environment, source, target_directory):
+        self.environment = environment
+        self.source = source
+        self.target_directory = os.path.abspath(target_directory)
+        self.newly_installed = set()
+        self.missing = set()
+
+    def install(self, requirement):
+        """Install the given package name in the directory.
+        """
+        candidate_packages = self.source.search(
+            requirement, self.environment.default_interpretor)
+        logger.debug(u"Package versions found for %s: %s." % (
+                requirement.name,
+                ', '.join(map(lambda p: str(p.version),
+                              candidate_packages.releases))))
+        source_package = candidate_packages.get_most_recent_release()
+        logger.info(u"Picking version %s for %s." % (
+                str(source_package.version), requirement.name))
+        installed_package = source_package.install(
+            self.target_directory, self.install)
+        self.newly_installed.add(requirement)
+        return installed_package
+

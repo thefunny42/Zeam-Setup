@@ -142,6 +142,9 @@ class Requirements(object):
 
         return cls(*parsed_requirements)
 
+    def __iter__(self):
+        return iter(self.requirements)
+
     def __len__(self):
         return len(self.requirements)
 
