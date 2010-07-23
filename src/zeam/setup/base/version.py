@@ -248,7 +248,9 @@ class Requirement(object):
         version_requirements = list(self.versions)
         version_requirements.extend(other.versions)
         return self.__class__(
-            self.name, reduce_requirements(version_requirements))
+            self.name,
+            reduce_requirements(version_requirements),
+            self.extras + other.extras)
 
     def __repr__(self):
         return '<Requirement %s>' % str(self)

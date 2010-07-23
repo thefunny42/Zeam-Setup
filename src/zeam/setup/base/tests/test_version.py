@@ -196,6 +196,29 @@ class RequirementTestCase(unittest.TestCase):
                 msg=u'"%s" + "%s" != "%s" (got %s, test %d)' % (
                     first, second, expected, result, index))
 
+    def test_add_extras(self):
+        """Test than extras are keeping and extending while adding
+        two requirements together.
+        """
+        TESTS = [
+            ['zeam[nuclear] <=2.1', 'zeam >=1.9',
+             'zeam[nuclear]>=1.9,<=2.1'],
+            ['zeam[nuclear] <=2.1', 'zeam[web,tests]',
+             'zeam[nuclear,web,tests]<=2.1'],
+            ]
+
+        for index, test_entry in enumerate(TESTS):
+            first, second, expected = test_entry
+            req_first = Requirement.parse(first)
+            req_second = Requirement.parse(second)
+
+            req_result = req_first + req_second
+            result = str(req_result)
+            self.assertEqual(
+                result, expected,
+                msg=u'"%s" + "%s" != "%s" (got %s, test %d)' % (
+                    first, second, expected, result, index))
+
     def test_add_reduce_failed(self):
         """Test than when adding two incompatible requirements
         together an error is raised.
