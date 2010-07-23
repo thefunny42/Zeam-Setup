@@ -150,7 +150,7 @@ def setup():
         if options.install:
             __status__ = u"Installing %s" % options.install
             installer = PackageInstaller(
-                environment, Source(config), '.')
+                environment, Source(config), 'tmp')
             installer.install(Requirement.parse(options.install))
         else:
             all_commands = environment.list_entry_points('setup_commands')

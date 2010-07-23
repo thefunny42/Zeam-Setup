@@ -181,7 +181,10 @@ class LocalSource(object):
         __status__ = u"Locating local source for %s in %s" % (
             requirement, self.path)
         self.load()
-        packages = self.software.get_releases_for(requirement)
+        pyversion = interpretor.get_pyversion()
+        platform = interpretor.get_platform()
+        packages = self.software.get_releases_for(
+            requirement, pyversion, platform)
         if packages:
             return packages
         raise PackageNotFound(requirement)

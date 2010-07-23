@@ -72,10 +72,12 @@ class RequirementTestCase(unittest.TestCase):
         req = Requirement.parse('test.software')
         self.assertEquals(req.name, 'test.software')
         self.assertEquals(req.versions, [])
+        self.assertEquals(req.extras, [])
         self.assertEquals(str(req), 'test.software')
 
         req = Requirement.parse('MySoft ==2.3, <=2.4')
         self.assertEquals(req.name, 'MySoft')
+        self.assertEquals(req.extras, [])
         self.assertEquals(len(req.versions), 2)
         self.assertEquals(str(req), 'MySoft==2.3,<=2.4')
 
@@ -84,6 +86,27 @@ class RequirementTestCase(unittest.TestCase):
         self.assertEquals(len(req.versions), 1)
         self.assertEquals(str(req.versions[0][1]), '2.12.3dev')
         self.assertEquals(str(req), 'Zope2>=2.12.3dev')
+
+    def test_parse_extras(self):
+        """Test requirement parsing and printing with extras
+        """
+        req = Requirement.parse('CoolSoft[zca]')
+        self.assertEquals(req.name, 'CoolSoft')
+        self.assertEquals(req.extras, ['zca'])
+        self.assertEquals(req.versions, [])
+        self.assertEquals(str(req), 'CoolSoft[zca]')
+
+        req = Requirement.parse('NewSoft [testing,zope.testing , web]')
+        self.assertEquals(req.name, 'NewSoft')
+        self.assertEquals(req.extras, ['testing', 'zope.testing', 'web'])
+        self.assertEquals(req.versions, [])
+        self.assertEquals(str(req), 'NewSoft[testing,zope.testing,web]')
+
+        req = Requirement.parse('NewSoft [zope.testing , web] <=2.4, >=1.0')
+        self.assertEquals(req.name, 'NewSoft')
+        self.assertEquals(req.extras, ['zope.testing', 'web'])
+        self.assertEquals(len(req.versions), 2)
+        self.assertEquals(str(req), 'NewSoft[zope.testing,web]<=2.4,>=1')
 
     def test_match(self):
         """Test matching a requirement to a release

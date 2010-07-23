@@ -5,7 +5,7 @@ import operator
 VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
 VERSION_REPLACE = {'pre':'c', 'preview':'c', '-':'final-', 'rc':'c',}.get
 REQUIREMENT_NAME_PARSE = re.compile(
-    r'^(?P<name>[\w.]+)\s*(?P<requirements>.*)$')
+    r'^(?P<name>[\w.]+)\s*(\[(?P<extras>[\w\s.,]+)\])?\s*(?P<requirements>.*)$')
 REQUIREMENT_VERSION_PARSE = re.compile(
     r'(?P<operator>[<>=!]=)\s*(?P<version>[\da-z.\-]+)\s*,?')
 REQUIREMENT_TO_OPERATORS = {'==': operator.eq, '>=': operator.ge,
@@ -113,6 +113,8 @@ def reduce_requirements(reqs):
                     else:
                         del to_process[index]
         if op is operators.ge:
+            for index, other in enumerate(to_process):
+                other_op, other_version = other
             # check for other ge, version >= remove it else remove self
             # check for other le, version <= error
             pass
@@ -127,7 +129,7 @@ def reduce_requirements(reqs):
                     # check for other ne, version == remove self
                     if other_version == version:
                         del to_process[index]
-
+        new_reqs.append((op, version))
     return new_reqs
 
 
@@ -135,21 +137,27 @@ class Requirement(object):
     """Represent a requirement.
     """
 
-    def __init__(self, name, versions):
+    def __init__(self, name, versions, extras=None):
         self.name = name
         self.versions = versions
+        if extras is None:
+            extras = []
+        self.extras = extras
 
     @classmethod
     def parse(cls, requirement):
-        groups = REQUIREMENT_NAME_PARSE.match(requirement)
+        groups = REQUIREMENT_NAME_PARSE.match(requirement).groupdict()
         version_requirements = []
         for operator, version in REQUIREMENT_VERSION_PARSE.findall(
-            groups.group('requirements')):
+            groups['requirements']):
             version_requirements.append(
                 (REQUIREMENT_TO_OPERATORS(operator),
                  Version.parse(version)))
+        extras = groups.get('extras', None)
+        if extras:
+            extras = map(lambda s: s.strip(), extras.split(','))
+        return cls(groups['name'], version_requirements, extras)
 
-        return cls(groups.group('name'), version_requirements)
 
     def match(self, release):
         if release.name != self.name:
@@ -160,13 +168,16 @@ class Requirement(object):
         return True
 
     def __str__(self):
-        if not self.versions:
-            return self.name
-        specificators = []
-        for operator, version in self.versions:
-            specificators.append(
-                OPERATORS_TO_REQUIREMENT(operator) + str(version))
-        return ''.join((self.name, ','.join(specificators)))
+        name = self.name
+        if self.extras:
+            name += '[' + ','.join(self.extras) + ']'
+        if self.versions:
+            specificators = []
+            for operator, version in self.versions:
+                specificators.append(
+                    OPERATORS_TO_REQUIREMENT(operator) + str(version))
+            name += ','.join(specificators)
+        return name
 
     def __add__(self, other):
         if not isinstance(other, Requirement) or self.name != other.name:
