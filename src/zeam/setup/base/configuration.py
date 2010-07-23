@@ -44,7 +44,7 @@ class OptionParser(object):
         return None
 
     def add(self, line, text):
-        self.__lines.append((line, text,))
+        self.__lines.append((line, text + '\n',))
 
     def done(self, line):
         # XXX Review this
@@ -127,11 +127,21 @@ class Configuration(object):
         """Read a configuration file located at the given uri.
         """
         input = open_uri(uri)
-        configuration = klass(uri)
+        try:
+            return klass.read_lines(input.readlines, uri)
+        finally:
+            input.close()
+
+    @classmethod
+    def read_lines(klass, lines, origin):
+        """Read a configuration from the given string, that would be
+        refered by origin.
+        """
+        configuration = klass(origin)
         line_number = 0
         section = None
 
-        for text in input.readlines():
+        for text in lines():
             line_number += 1
             # Comment
             if not text.strip() or text[0] in '#;':
@@ -139,7 +149,7 @@ class Configuration(object):
 
             # New section
             new_section = SectionParser.new_section(
-                configuration, text, uri, line_number)
+                configuration, text, origin, line_number)
             if new_section is not None:
                 if section is not None:
                     section.done(line_number - 1)
@@ -149,13 +159,13 @@ class Configuration(object):
                     section.add(line_number, text)
                 else:
                     raise ConfigurationError(
-                        uri,
+                        origin,
                         u'Garbage text before section at line %d' % line_number)
-        input.close()
+
         if section is not None:
             section.done(line_number)
         else:
-            raise ConfigurationError(uri, u'No section defined')
+            raise ConfigurationError(origin, u'No section defined')
         return configuration
 
     def write(self, stream):

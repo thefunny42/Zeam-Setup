@@ -21,21 +21,21 @@ class RewriteLinkTestCase(unittest.TestCase):
 
         self.assertEquals(
             list(rewrite_links('http://test.com/test/', TEST_LINKS)),
-            [('example', 'http://example.com'),
-             ('news', 'http://test.com/test/news'),
-             ('other', 'http://test.com/other')])
+            [('Example', 'http://example.com'),
+             ('News', 'http://test.com/test/news'),
+             ('Other', 'http://test.com/other')])
         self.assertEquals(
             list(rewrite_links('http://test.com/test', TEST_LINKS)),
-            [('example', 'http://example.com'),
-             ('news', 'http://test.com/news'),
-             ('other', 'http://test.com/other')])
+            [('Example', 'http://example.com'),
+             ('News', 'http://test.com/news'),
+             ('Other', 'http://test.com/other')])
         self.assertEquals(
             list(rewrite_links('http://test.com/', TEST_LINKS)),
-            [('example', 'http://example.com'),
-             ('news', 'http://test.com/news'),
-             ('other', 'http://test.com/other')])
+            [('Example', 'http://example.com'),
+             ('News', 'http://test.com/news'),
+             ('Other', 'http://test.com/other')])
         self.assertEquals(
             list(rewrite_links('http://test.com', TEST_LINKS)),
-            [('example', 'http://example.com'),
-             ('news', 'http://test.com/news'),
-             ('other', 'http://test.com/other')])
+            [('Example', 'http://example.com'),
+             ('News', 'http://test.com/news'),
+             ('Other', 'http://test.com/other')])

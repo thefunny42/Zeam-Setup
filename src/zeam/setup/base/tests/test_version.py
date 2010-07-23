@@ -1,8 +1,10 @@
 
 import unittest
+import operator
 
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.version import Version, Requirement, Requirements
+from zeam.setup.base.version import InvalidRequirement
 
 
 class VersionTestCase(unittest.TestCase):
@@ -12,9 +14,11 @@ class VersionTestCase(unittest.TestCase):
     def test_parse(self):
         """Test version parsing
         """
-        for version in ['1.2a1', '0.12', '1dev']:
+        for version in ['1.2a1', '0.12', '1dev', '10', '1.10b2']:
             parsed_version = Version.parse(version)
             self.assertEqual(str(parsed_version), version)
+        self.assertEqual(str(Version.parse('3.5.0-1')), '3.5final-1')
+        self.assertEqual(str(Version.parse('1.dev')), '1dev')
 
     def test_comparaison_lt_or_gt(self):
         """Test strict comparaison between versions
@@ -93,6 +97,35 @@ class RequirementTestCase(unittest.TestCase):
 
         release = Release('MySoft', '1.0')
         self.failIf(req.match(release))
+
+    def test_hash(self):
+        """Test that requirements are hashable
+        """
+        req_origin = Requirement.parse("zeam >= 42.0")
+        req_lookup = Requirement.parse("zeam >= 42.0")
+        req_other = Requirement.parse("zeam >= 12.0")
+        self.assertEqual(req_origin, req_lookup)
+        self.assertEqual(hash(req_origin), hash(req_lookup))
+        self.assertNotEqual(req_origin, req_other)
+        self.assertNotEqual(hash(req_origin), hash(req_other))
+
+        data = {}
+        data[req_origin] = 10
+        self.assertEqual(data.get(req_lookup, None), 10)
+        self.assertEqual(data.get(req_other, None), None)
+
+    def test_add(self):
+        """Test adding two requirements together
+        """
+        req_one = Requirement.parse("zeam")
+        req_two = Requirement.parse("zeam <= 2.1")
+        req_other = Requirement.parse("something.else == 51.0")
+
+        self.assertRaises(InvalidRequirement, operator.add, req_one, 1)
+        self.assertRaises(InvalidRequirement, operator.add, req_one, req_other)
+
+        req_result = req_one + req_two
+        self.assertEqual(str(req_result), "zeam<=2.1")
 
 
 class RequirementsTestCase(unittest.TestCase):

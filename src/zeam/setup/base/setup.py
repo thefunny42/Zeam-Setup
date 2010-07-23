@@ -64,6 +64,7 @@ def bootstrap_cfg(config, options):
 
     # Export verbosity
     setup['verbosity'] = str(options.verbosity)
+    setup['offline'] = options.offline and 'on' or 'off'
 
     # Network timeout
     if 'network_timeout' in setup:
@@ -120,6 +121,9 @@ def setup():
         "-p", "--prefix", dest="prefix",
         help="prefix directory for installation")
     parser.add_option(
+        "-o", "--offline", dest="offline", action="store_true",
+        help="run without network access")
+    parser.add_option(
         "-v", '--verbose', dest="verbosity", action="count", default=0,
         help="be verbose, use multiple times to increase verbosity level")
     parser.add_option(
@@ -150,13 +154,14 @@ def setup():
             installer.install(Requirement.parse(options.install))
         else:
             all_commands = environment.list_entry_points('setup_commands')
-            command = all_commands['default']
             if len(args):
-                try:
-                    command = all_commands[args[0]]
-                except KeyError:
+                command = all_commands.get(args[0], None)
+                if command is None:
                     raise InstallationError(u'Unknow command %s' % args[0])
-
+            else:
+                command = all_commands.get('default', None)
+                if command is None:
+                    raise InstallationError(u'No command available')
             command_class = environment.get_entry_point(
                 'setup_commands', command['name'])
             processor = command_class(config, environment)

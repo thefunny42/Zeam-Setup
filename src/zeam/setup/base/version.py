@@ -14,6 +14,11 @@ OPERATORS_TO_REQUIREMENT = {operator.eq: '==', operator.ge: '>=',
                             operator.ne: '!=', operator.le: '<='}.get
 
 
+class InvalidRequirement(ValueError):
+    """Those requirement are invalids.
+    """
+
+
 class Version(object):
     """Represent a version of a software.
     """
@@ -75,9 +80,55 @@ class Version(object):
                 rendered_version.append('.')
             need_dot = False
             if part[0] == '0':
-                rendered_version.append(part.strip('0') or '0')
+                rendered_version.append(part.lstrip('0') or '0')
                 need_dot = True
         return ''.join(rendered_version)
+
+
+class IncompatibleRequirement(Exception):
+    pass
+
+
+def reduce_requirements(reqs):
+    """Reduce a list of version requirements to a shorter one if possible.
+    """
+    new_reqs = []
+    to_process = list(reqs)
+    while len(to_process):
+        current = to_process.pop()
+        op, version = current
+        if op is operators.eq:
+            for index, other in enumerate(to_process):
+                other_op, other_version = other
+                if other_op is operators.eq:
+                    # check for other eq, version == remove self, else error
+                    if other_version == version:
+                        del to_process[index]
+                    else:
+                        raise IncompatibleRequirement(current, other)
+                elif other_op is operators.ne:
+                    # check if != version == error else remove
+                    if other_version == version:
+                        raise IncompatibleRequirement(current, other)
+                    else:
+                        del to_process[index]
+        if op is operators.ge:
+            # check for other ge, version >= remove it else remove self
+            # check for other le, version <= error
+            pass
+        if op is operators.le:
+            # check for other le, version <= remove it else remove self
+            # check for other ge, version >= error
+            pass
+        if os is operators.ne:
+            for index, other in enumerate(to_process):
+                other_op, other_version = other
+                if other_op is operators.ne:
+                    # check for other ne, version == remove self
+                    if other_version == version:
+                        del to_process[index]
+
+    return new_reqs
 
 
 class Requirement(object):
@@ -117,9 +168,23 @@ class Requirement(object):
                 OPERATORS_TO_REQUIREMENT(operator) + str(version))
         return ''.join((self.name, ','.join(specificators)))
 
+    def __add__(self, other):
+        if not isinstance(other, Requirement) or self.name != other.name:
+            raise InvalidRequirement(other)
+        version_requirements = list(self.versions)
+        version_requirements.extend(other.versions)
+        return self.__class__(self.name, version_requirements)
+
     def __repr__(self):
         return '<Requirement %s>' % str(self)
 
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        if isinstance(other, Requirement):
+            return self.name == other.name and self.versions == other.versions
+        return False
 
 class Requirements(object):
     """Represent a list of requirements.

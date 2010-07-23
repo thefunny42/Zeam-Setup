@@ -32,6 +32,9 @@ class SourceTestCase(unittest.TestCase):
         source = MockSource()
 
         self.assertEqual(
+            get_release_from_name(source, 'ZODB3-3.9.1a10.tar.gz'),
+            (source, source, 'ZODB3', '3.9.1a10', 'tar.gz', None, None, None))
+        self.assertEqual(
             get_release_from_name(source, 'setup-0.1dev.tar.gz'),
             (source, source, 'setup', '0.1dev', 'tar.gz', None, None, None))
         self.assertEqual(

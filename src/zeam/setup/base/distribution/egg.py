@@ -5,6 +5,7 @@ from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.error import PackageError
 from zeam.setup.base.version import Requirements, Version
 
+
 def read_pkg_info(path):
     """Read the PKG-INFO file located at the given path and return the
     information as a dictionnary.
@@ -33,14 +34,16 @@ def read_pkg_info(path):
     for line in pkg_info.readlines():
         if line and line[0] in '#;':
             continue
-        if line[0].isspace():
-            if key is None and value is None:
-                raise PackageError('Invalid PKG-INFO file at %s' % path)
-            value += '\n' + line[0]
-        else:
+        if line[0].isupper():
             if key is not None and value is not None:
                 add_metadata(key, value)
             key, value = line.split(':', 1)
+        else:
+            if line[0].isspace():
+                line = line[1:]
+            if key is None or value is None:
+                raise PackageError('Invalid PKG-INFO file at %s' % path)
+            value += '\n' + line
     if key is not None:
         add_metadata(key, value)
     return metadata

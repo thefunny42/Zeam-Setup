@@ -72,6 +72,15 @@ class PythonInterpreter(object):
     def __repr__(self):
         return self.__path
 
+    def execute(self, module, *args):
+        """Run the given module with the given args.
+        """
+        command = [self.__path, module.__file__,]
+        command.extend(args)
+        command = ' '.join(command)
+        logger.debug(u"Executing %s" % command)
+        return get_output_from(command)
+
     def get_pyversion(self):
         return self.__version
 

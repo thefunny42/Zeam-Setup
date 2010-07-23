@@ -1,10 +1,13 @@
 
 import os
 
+from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.archives import ARCHIVE_MANAGER
+from zeam.setup.base.distribution import unsetuptoolize
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.distribution.egg import read_pkg_info, read_pkg_requires
 from zeam.setup.base.error import PackageError
+from zeam.setup.base.version import Requirements
 
 
 def get_egg_metadata_directory(directory, name):
@@ -36,7 +39,7 @@ class UninstalledRelease(Release):
         self.format = format
         self.url = url
 
-    def install(self, directory, install_missing, archive=None):
+    def install(self, directory, interpretor, install_missing, archive=None):
         if archive is None:
             archive = self.url
         factory = ARCHIVE_MANAGER.get(self.format, None)
@@ -70,8 +73,19 @@ class UninstalledRelease(Release):
         if not os.path.isdir(metadata_dir):
             print u"Missing package metadata for %s at %s" % (
                     self.name, metadata_dir)
-
-        self.requirements, self.extras = read_pkg_requires(metadata_dir)
+            config_source = interpretor.execute(
+                unsetuptoolize, '-d', source_location)
+            if not config_source:
+                print u"Missing configuration, giving up"
+                return None
+            config = Configuration.read_lines(
+                config_source.splitlines, source_location)
+            setuptool_config = config['setuptools']
+            if 'install_requires' in setuptool_config:
+                self.requirements = Requirements.parse(
+                    setuptool_config['install_requires'].as_list())
+        else:
+            self.requirements, self.extras = read_pkg_requires(metadata_dir)
         for requirement in self.requirements:
             install_missing(requirement)
         return None
@@ -81,8 +95,8 @@ class UndownloadedRelease(UninstalledRelease):
     """A release that you can download.
     """
 
-    def install(self, directory, install_missing):
+    def install(self, directory, interpretor, install_missing):
         archive = self.source.downloader.download(self.url)
         return super(UndownloadedRelease, self).install(
-            directory, install_missing, archive)
+            directory, interpretor, install_missing, archive)
 

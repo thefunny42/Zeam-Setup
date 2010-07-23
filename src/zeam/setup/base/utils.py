@@ -57,7 +57,7 @@ def rewrite_links(base_uri, links):
             elif not is_remote_uri(url):
                 url = urlparse.urlunparse(absolute_uri + (
                         os.path.join(relative_path, url), '','', ''))
-        yield (name.strip().lower(), url,)
+        yield (name.strip(), url,)
 
 
 def get_links(uri):

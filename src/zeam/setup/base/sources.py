@@ -25,7 +25,7 @@ def get_release_from_name(source, name, url=None):
     """
     info = RELEASE_TARBALL.match(name)
     if info:
-        name = info.group('name').lower()
+        name = info.group('name')
         version = info.group('version')
         format = info.group('format')
         pyversion = info.group('pyversion')
@@ -47,10 +47,10 @@ def get_releases_from_directory(source, directory):
     """Get a list of release from a directory.
     """
     for filename in os.listdir(directory):
-        if not os.path.isfile(filename):
+        full_filename = os.path.join(directory, filename)
+        if not os.path.isfile(full_filename):
             continue
-        release = get_release_from_name(
-            source, filename, os.path.join(directory, filename))
+        release = get_release_from_name(source, filename, full_filename)
         if release is not None:
             yield release
 
@@ -133,6 +133,12 @@ class RemoteSource(object):
                 requirement, links[requirement.name], interpretor, depth + 1)
         return None
 
+    def available(self, config):
+        setup_config = config['setup']
+        offline = 'offline' in setup_config and \
+            setup_config['offline'].as_bool()
+        return not offline
+
     def search(self, requirement, interpretor):
         for find_link in self.find_links:
             __status__ = u"Locating remote source for %s on %s" % (
@@ -157,7 +163,7 @@ class LocalSource(object):
         self.config = config
         self.path = config['directory'].as_text()
         self.software = AvailableSoftware()
-        self.__loaded = True
+        self.__loaded = False
 
     def load(self):
         """Internally load available archives in the directory.
@@ -165,13 +171,19 @@ class LocalSource(object):
         if self.__loaded:
             return
         create_directory(self.path)
-        self.software.extend(get_releases_from_directory(self.path))
+        self.software.extend(get_releases_from_directory(self, self.path))
         self.__loaded = True
+
+    def available(self, config):
+        return True
 
     def search(self, requirement, interpretor):
         __status__ = u"Locating local source for %s in %s" % (
             requirement, self.path)
         self.load()
+        packages = self.software.get_releases_for(requirement)
+        if packages:
+            return packages
         raise PackageNotFound(requirement)
 
     def __repr__(self):
@@ -187,6 +199,7 @@ class Source(object):
 
     def __init__(self, config, section_name='setup'):
         self.sources = []
+        self.config = config
         for source_name in config[section_name]['sources'].as_list():
             source_config = config['source:' + source_name]
             type = source_config['type'].as_text()
@@ -199,6 +212,8 @@ class Source(object):
         """Search of a given package at the given location.
         """
         for source in self.sources:
+            if not source.available(self.config):
+                continue
             try:
                 return source.search(requirement, interpretor)
             except PackageNotFound:
@@ -217,12 +232,13 @@ class PackageInstaller(object):
         self.environment = environment
         self.source = source
         self.target_directory = os.path.abspath(target_directory)
-        self.newly_installed = set()
-        self.missing = set()
+        self.newly_installed = dict()
 
     def install(self, requirement):
         """Install the given package name in the directory.
         """
+        if requirement in self.newly_installed:
+            return self.newly_installed[requirement]
         candidate_packages = self.source.search(
             requirement, self.environment.default_interpretor)
         logger.debug(u"Package versions found for %s: %s." % (
@@ -233,7 +249,9 @@ class PackageInstaller(object):
         logger.info(u"Picking version %s for %s." % (
                 str(source_package.version), requirement.name))
         installed_package = source_package.install(
-            self.target_directory, self.install)
-        self.newly_installed.add(requirement)
+            self.target_directory,
+            self.environment.default_interpretor,
+            self.install)
+        self.newly_installed[requirement] = installed_package
         return installed_package
 

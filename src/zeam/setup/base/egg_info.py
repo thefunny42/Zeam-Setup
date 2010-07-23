@@ -33,6 +33,7 @@ def write_missing_setuptool_files(path, package):
         file.write('\n')
         file.close()
 
+
 def write_entry_points(path, package):
     if package.entry_points:
         formatted_points = ''

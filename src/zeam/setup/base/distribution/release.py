@@ -54,7 +54,7 @@ class Software(object):
     def __getitem__(self, requirement):
         if not isinstance(requirement, Requirement):
             raise KeyError(requirement)
-        return self.filter(requirement)
+        return self.get_releases_for(requirement)
 
     def __len__(self):
         return len(self.releases)

@@ -62,6 +62,7 @@ class DownloadManager(object):
         into the directory. If the link includes an md5 checksum, it
         is compaired with the one obtained on the downloaded file.
         """
+        __status__ = u"Downloading %s" % url
         url_parts = urlparse.urlparse(url)
         checksum = get_checksum(url_parts)
         base_filename = os.path.basename(url_parts[2])
