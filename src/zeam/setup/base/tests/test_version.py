@@ -4,7 +4,7 @@ import operator
 
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.version import Version, Requirement, Requirements
-from zeam.setup.base.version import InvalidRequirement
+from zeam.setup.base.version import InvalidRequirement, IncompatibleRequirement
 
 
 class VersionTestCase(unittest.TestCase):
@@ -149,6 +149,79 @@ class RequirementTestCase(unittest.TestCase):
 
         req_result = req_one + req_two
         self.assertEqual(str(req_result), "zeam<=2.1")
+
+    def test_add_reduce(self):
+        """Test than when adding two requirements together
+        version are simplified.
+        """
+        TESTS = [
+            ['zeam ==1.1', 'zeam ==1.1', 'zeam==1.1'],
+            ['zeam ==1.1', 'zeam >=0.9', 'zeam==1.1'],
+            ['zeam ==1.1', 'zeam >=1.1', 'zeam==1.1'],
+            ['zeam ==1.1', 'zeam <=9.1', 'zeam==1.1'],
+            ['zeam ==1.1', 'zeam <=1.1', 'zeam==1.1'],
+            ['zeam !=1.1', 'zeam !=1.1', 'zeam!=1.1'],
+            ['zeam !=3.1', 'zeam <=1.1', 'zeam<=1.1'],
+            ['zeam !=3.1', 'zeam <=3.1', 'zeam<=3.1,!=3.1'],
+            ['zeam !=3.1', 'zeam <=4.1', 'zeam!=3.1,<=4.1'],
+            ['zeam !=3.1', 'zeam >=4.1', 'zeam>=4.1'],
+            ['zeam !=3.1', 'zeam >=1.1', 'zeam>=1.1,!=3.1'],
+            ['zeam !=3.1', 'zeam >=3.1', 'zeam>=3.1,!=3.1'],
+            ['zeam >=2.4,>=4.2', 'zeam >=3.1', 'zeam>=4.2'],
+            ['zeam >=2.4', 'zeam !=0.4', 'zeam>=2.4'],
+            ['zeam >=2.4', 'zeam !=4.4', 'zeam>=2.4,!=4.4'],
+            ['zeam >=2.4', 'zeam !=2.4', 'zeam!=2.4,>=2.4'],
+            ['zeam >=2.4', 'zeam ==4.4', 'zeam==4.4'],
+            ['zeam >=4.4', 'zeam ==4.4', 'zeam==4.4'],
+            ['zeam >=2.4', 'zeam <=4.4', 'zeam>=2.4,<=4.4'],
+            ['zeam >=2.4', 'zeam <=2.4', 'zeam<=2.4,>=2.4'],
+            ['zeam <=2.4', 'zeam ==1.4', 'zeam==1.4'],
+            ['zeam <=1.4', 'zeam ==1.4', 'zeam==1.4'],
+            ['zeam <=2.4', 'zeam !=1.4', 'zeam!=1.4,<=2.4'],
+            ['zeam <=2.4', 'zeam !=2.4', 'zeam!=2.4,<=2.4'],
+            ['zeam <=2.4', 'zeam !=4.4', 'zeam<=2.4'],
+            ['zeam <=2.4', 'zeam >=1.4', 'zeam>=1.4,<=2.4'],
+            ['zeam <=2.4', 'zeam >=2.4', 'zeam>=2.4,<=2.4'],
+            ]
+
+        for index, test_entry in enumerate(TESTS):
+            first, second, expected = test_entry
+            req_first = Requirement.parse(first)
+            req_second = Requirement.parse(second)
+
+            req_result = req_first + req_second
+            result = str(req_result)
+            self.assertEqual(
+                result, expected,
+                msg=u'"%s" + "%s" != "%s" (got %s, test %d)' % (
+                    first, second, expected, result, index))
+
+    def test_add_reduce_failed(self):
+        """Test than when adding two incompatible requirements
+        together an error is raised.
+        """
+        TESTS = [
+            ['zeam ==2.4', 'zeam ==1.1'],
+            ['zeam ==2.4', 'zeam !=2.4'],
+            ['zeam ==2.4', 'zeam <=1.1'],
+            ['zeam ==2.4', 'zeam >=4.1'],
+            ['zeam !=2.4', 'zeam ==2.4'],
+            ['zeam >=2.4', 'zeam <=1.1'],
+            ['zeam >=2.4', 'zeam ==1.1'],
+            ['zeam <=2.4', 'zeam >=5.1'],
+            ['zeam <=2.4', 'zeam ==5.1'],
+            ]
+
+        for first, second in TESTS:
+            req_first = Requirement.parse(first)
+            req_second = Requirement.parse(second)
+
+            try:
+                req_first + req_second
+            except IncompatibleRequirement:
+                continue
+            else:
+                self.fail(u'"%s" + "%s" should not work' % (first, second))
 
 
 class RequirementsTestCase(unittest.TestCase):

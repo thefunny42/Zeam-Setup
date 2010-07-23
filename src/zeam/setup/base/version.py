@@ -93,43 +93,107 @@ def reduce_requirements(reqs):
     """Reduce a list of version requirements to a shorter one if possible.
     """
     new_reqs = []
-    to_process = list(reqs)
-    while len(to_process):
-        current = to_process.pop()
+    consume_reqs = list(reqs)
+    while len(consume_reqs):
+        current = consume_reqs.pop()
         op, version = current
-        if op is operators.eq:
-            for index, other in enumerate(to_process):
+        keep_current = True
+
+        def reduce_reqs(other_reqs):
+            keep_req = True
+            for index, other in enumerate(other_reqs):
                 other_op, other_version = other
-                if other_op is operators.eq:
-                    # check for other eq, version == remove self, else error
-                    if other_version == version:
-                        del to_process[index]
-                    else:
-                        raise IncompatibleRequirement(current, other)
-                elif other_op is operators.ne:
-                    # check if != version == error else remove
-                    if other_version == version:
-                        raise IncompatibleRequirement(current, other)
-                    else:
-                        del to_process[index]
-        if op is operators.ge:
-            for index, other in enumerate(to_process):
-                other_op, other_version = other
-            # check for other ge, version >= remove it else remove self
-            # check for other le, version <= error
-            pass
-        if op is operators.le:
-            # check for other le, version <= remove it else remove self
-            # check for other ge, version >= error
-            pass
-        if os is operators.ne:
-            for index, other in enumerate(to_process):
-                other_op, other_version = other
-                if other_op is operators.ne:
+
+                if op is operator.eq:
+                    if other_op is operator.eq:
+                        # check for other eq, version == remove self, else error
+                        if other_version == version:
+                            del other_reqs[index]
+                        else:
+                            raise IncompatibleRequirement(current, other)
+                    elif other_op is operator.ne:
+                        # check if != version == error else remove
+                        if other_version == version:
+                            raise IncompatibleRequirement(current, other)
+                        else:
+                            del other_reqs[index]
+                    elif other_op is operator.le:
+                        # check if version is in range
+                        if other_version < version:
+                            raise IncompatibleRequirement(current, other)
+                        else:
+                            del other_reqs[index]
+                    elif other_op is operator.ge:
+                        # check if version is in range
+                        if other_version > version:
+                            raise IncompatibleRequirement(current, other)
+                        else:
+                            del other_reqs[index]
+
+                elif op is operator.ge:
+                    # check for other ge, version >= remove it else remove self
+                    if other_op is operator.ge:
+                        if version > other_version:
+                            del other_reqs[index]
+                        else:
+                            keep_req = False
+                    # check for other le, version <= error
+                    elif other_op is operator.le:
+                        if other_version < version:
+                            raise IncompatibleRequirement(current, other)
+                    # check for eq not in range
+                    elif other_op is operator.eq:
+                        if other_version < version:
+                            raise IncompatibleRequirement(current, other)
+                    # check for neq in range or remove it
+                    elif other_op is operator.ne:
+                        if other_version < version:
+                            del other_reqs[index]
+
+                elif op is operator.le:
+                    # check for other le, version <= remove it else remove self
+                    if other_op is operator.le:
+                        if other_version > version:
+                            del other_reqs[index]
+                        else:
+                            keep_req = False
+                    # check for other ge, version <= error
+                    elif other_op is operator.ge:
+                        if other_version > version:
+                            raise IncompatibleRequirement(current, other)
+                    # check for eq not in range
+                    elif other_op is operator.eq:
+                        if other_version > version:
+                            raise IncompatibleRequirement(current, other)
+                    # check for neq in range or remove it
+                    elif other_op is operator.ne:
+                        if other_version > version:
+                            del other_reqs[index]
+
+                if op is operator.ne:
                     # check for other ne, version == remove self
-                    if other_version == version:
-                        del to_process[index]
-        new_reqs.append((op, version))
+                    if other_op is operator.ne:
+                        if other_version == version:
+                            del other_reqs[index]
+                    # check for other eq, version == other, error
+                    elif other_op is operator.eq:
+                        if other_version == version:
+                            raise IncompatibleRequirement(current, other)
+                    # check for le, not in range remove
+                    elif other_op is operator.le:
+                        if other_version < version:
+                            keep_req = False
+                    # check for ge, not in range remove
+                    elif other_op is operator.ge:
+                        if other_version > version:
+                            keep_req = False
+            return keep_req
+
+        keep_current = reduce_reqs(new_reqs) and keep_current
+        keep_current = reduce_reqs(consume_reqs) and keep_current
+        if keep_current:
+            new_reqs.append((op, version))
+    new_reqs.sort(key=operator.itemgetter(1))
     return new_reqs
 
 
@@ -158,7 +222,6 @@ class Requirement(object):
             extras = map(lambda s: s.strip(), extras.split(','))
         return cls(groups['name'], version_requirements, extras)
 
-
     def match(self, release):
         if release.name != self.name:
             return False
@@ -184,7 +247,8 @@ class Requirement(object):
             raise InvalidRequirement(other)
         version_requirements = list(self.versions)
         version_requirements.extend(other.versions)
-        return self.__class__(self.name, version_requirements)
+        return self.__class__(
+            self.name, reduce_requirements(version_requirements))
 
     def __repr__(self):
         return '<Requirement %s>' % str(self)
