@@ -92,6 +92,7 @@ class IncompatibleRequirement(Exception):
 def reduce_requirements(reqs):
     """Reduce a list of version requirements to a shorter one if possible.
     """
+    # XXX there is probably a way to do it better.
     new_reqs = []
     consume_reqs = list(reqs)
     while len(consume_reqs):
@@ -205,7 +206,7 @@ class Requirement(object):
         self.name = name
         self.versions = versions
         if extras is None:
-            extras = []
+            extras = frozenset()
         self.extras = extras
 
     @classmethod
@@ -219,7 +220,7 @@ class Requirement(object):
                  Version.parse(version)))
         extras = groups.get('extras', None)
         if extras:
-            extras = map(lambda s: s.strip(), extras.split(','))
+            extras = frozenset(s.strip() for s in extras.split(','))
         return cls(groups['name'], version_requirements, extras)
 
     def match(self, release):
@@ -233,7 +234,7 @@ class Requirement(object):
     def __str__(self):
         name = self.name
         if self.extras:
-            name += '[' + ','.join(self.extras) + ']'
+            name += '[' + ','.join(sorted(self.extras)) + ']'
         if self.versions:
             specificators = []
             for operator, version in self.versions:
@@ -250,7 +251,7 @@ class Requirement(object):
         return self.__class__(
             self.name,
             reduce_requirements(version_requirements),
-            self.extras + other.extras)
+            self.extras | other.extras)
 
     def __repr__(self):
         return '<Requirement %s>' % str(self)
@@ -263,35 +264,51 @@ class Requirement(object):
             return self.name == other.name and self.versions == other.versions
         return False
 
+
 class Requirements(object):
     """Represent a list of requirements.
     """
 
     def __init__(self, *requirements):
-        self.requirements = requirements
+        self.__requirements = dict((r.name, r) for r in requirements)
+
+    @property
+    def requirements(self):
+        return self.__requirements.values()
 
     @classmethod
     def parse(cls, requirements):
-        parsed_requirements = []
         # We can parse a list of requirements
         if not isinstance(requirements, list):
             requirements = [requirements,]
 
-        # Parse requirements
-        for requirement in requirements:
-            parsed_requirements.append(
-                Requirement.parse(requirement))
-
-        return cls(*parsed_requirements)
+        return cls(*map(Requirement.parse, requirements))
 
     def __iter__(self):
-        return iter(self.requirements)
+        return self.__requirements.itervalues()
 
     def __len__(self):
-        return len(self.requirements)
+        return len(self.__requirements)
 
     def __str__(self):
-        return '\n'.join(map(str, self.requirements))
+        return '\n'.join(str(r) for name, r in
+                         sorted(self.__requirements.items(),
+                                key=operator.itemgetter(0)))
+
+    def __add__(self, other):
+        if not isinstance(other, Requirements):
+            raise ValueError(other)
+        reqs = {}
+        for other_req in other.requirements:
+            other_name = other_req.name
+            if other_name in self.__requirements:
+                reqs[other_name] = self.__requirements[other_name] + other_req
+            else:
+                reqs[other_name] = other_req
+        for name, req in self.__requirements.iteritems():
+            if name not in reqs:
+                reqs[name] = req
+        return self.__class__(*reqs.values())
 
     def __repr__(self):
         return '<Requirements %s>' % ', '.join(map(str, self.requirements))

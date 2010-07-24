@@ -72,12 +72,12 @@ class RequirementTestCase(unittest.TestCase):
         req = Requirement.parse('test.software')
         self.assertEquals(req.name, 'test.software')
         self.assertEquals(req.versions, [])
-        self.assertEquals(req.extras, [])
+        self.assertEquals(req.extras, set())
         self.assertEquals(str(req), 'test.software')
 
         req = Requirement.parse('MySoft ==2.3, <=2.4')
         self.assertEquals(req.name, 'MySoft')
-        self.assertEquals(req.extras, [])
+        self.assertEquals(req.extras, set())
         self.assertEquals(len(req.versions), 2)
         self.assertEquals(str(req), 'MySoft==2.3,<=2.4')
 
@@ -92,21 +92,21 @@ class RequirementTestCase(unittest.TestCase):
         """
         req = Requirement.parse('CoolSoft[zca]')
         self.assertEquals(req.name, 'CoolSoft')
-        self.assertEquals(req.extras, ['zca'])
+        self.assertEquals(req.extras, set(['zca']))
         self.assertEquals(req.versions, [])
         self.assertEquals(str(req), 'CoolSoft[zca]')
 
         req = Requirement.parse('NewSoft [testing,zope.testing , web]')
         self.assertEquals(req.name, 'NewSoft')
-        self.assertEquals(req.extras, ['testing', 'zope.testing', 'web'])
+        self.assertEquals(req.extras, set(['testing', 'zope.testing', 'web']))
         self.assertEquals(req.versions, [])
-        self.assertEquals(str(req), 'NewSoft[testing,zope.testing,web]')
+        self.assertEquals(str(req), 'NewSoft[testing,web,zope.testing]')
 
         req = Requirement.parse('NewSoft [zope.testing , web] <=2.4, >=1.0')
         self.assertEquals(req.name, 'NewSoft')
-        self.assertEquals(req.extras, ['zope.testing', 'web'])
+        self.assertEquals(req.extras, set(['zope.testing', 'web']))
         self.assertEquals(len(req.versions), 2)
-        self.assertEquals(str(req), 'NewSoft[zope.testing,web]<=2.4,>=1')
+        self.assertEquals(str(req), 'NewSoft[web,zope.testing]<=2.4,>=1')
 
     def test_match(self):
         """Test matching a requirement to a release
@@ -203,8 +203,12 @@ class RequirementTestCase(unittest.TestCase):
         TESTS = [
             ['zeam[nuclear] <=2.1', 'zeam >=1.9',
              'zeam[nuclear]>=1.9,<=2.1'],
+            ['zeam <=2.1', 'zeam[nuclear] >=1.9',
+             'zeam[nuclear]>=1.9,<=2.1'],
+            ['zeam[nuclear] <=2.1', 'zeam[nuclear,web] >=1.9',
+             'zeam[nuclear,web]>=1.9,<=2.1'],
             ['zeam[nuclear] <=2.1', 'zeam[web,tests]',
-             'zeam[nuclear,web,tests]<=2.1'],
+             'zeam[nuclear,tests,web]<=2.1'],
             ]
 
         for index, test_entry in enumerate(TESTS):
@@ -270,5 +274,43 @@ class RequirementsTestCase(unittest.TestCase):
         self.assertEquals(len(reqs), 3)
         self.assertEquals(len(reqs.requirements), 3)
         self.assertEquals(
-            str(reqs),
-            'zeam.form.base\nzeam.test>=2.1\nzope.testing<=3.7dev')
+            str(reqs).split('\n'),
+            ['zeam.form.base',
+             'zeam.test>=2.1',
+             'zope.testing<=3.7dev'])
+
+    def test_add(self):
+        """Test adding two sets of requirements together
+        """
+        reqs = Requirements.parse(
+            ['zeam.form.base',
+             'zeam.test>=2.1',
+             'zope.testing<=3.7dev'])
+        self.assertRaises(ValueError, operator.add, reqs, 42)
+        self.assertRaises(ValueError, operator.add, reqs, "zeam >= 1.1")
+
+        other_reqs = Requirements.parse(
+            ['zeam.form.ztk[test] >=1.0b1',
+             'zeam.test <=4.0, !=3.0'])
+
+        result_reqs = reqs + other_reqs
+
+        self.assertEquals(
+            str(result_reqs).split('\n'),
+            ['zeam.form.base',
+             'zeam.form.ztk[test]>=1b1',
+             'zeam.test>=2.1,!=3,<=4',
+             'zope.testing<=3.7dev'])
+
+    def test_add_fail(self):
+        """Test adding two incompatible set of requirements together
+        """
+        reqs = Requirements.parse(
+            ['zeam.form.base',
+             'zeam.test>=2.1'])
+        other_reqs = Requirements.parse(
+            ['zeam.form.ztk[test] >=1.0b1',
+             'zeam.test <=1.0'])
+
+        self.assertRaises(
+            IncompatibleRequirement, operator.add, reqs, other_reqs)
