@@ -62,7 +62,7 @@ def unsetuptoolize(filename='setup.py'):
 
     # Register our setuptools fonctions.
     import setuptools
-    setuptools.setup = export_setup('setuptols')
+    setuptools.setup = export_setup('setuptools')
     setuptools.Extension = export_setup('extension', True)
     setuptools.Feature = export_setup('feature', True)
     setuptools.find_packages = find_packages
