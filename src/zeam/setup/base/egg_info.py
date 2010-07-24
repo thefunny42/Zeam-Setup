@@ -33,6 +33,10 @@ def write_requires(path, package):
         file = open(os.path.join(path, 'requires.txt'), 'w')
         for requirement in requirements:
             file.write(str(requirement) + '\n')
+        for extra, requirements in package.extras.items():
+            file.write('\n\n[%s]\n' % extra)
+            for requirement in requirements:
+                file.write(str(requirement) + '\n')
         file.close()
 
 def write_missing_setuptool_files(path, package):

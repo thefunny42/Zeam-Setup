@@ -279,5 +279,7 @@ class PackageInstaller(object):
             self.environment.default_interpretor,
             self.install)
         self.newly_installed[requirement] = installed_package
+        if installed_package:
+            self.environment.add(installed_package)
         return installed_package
 

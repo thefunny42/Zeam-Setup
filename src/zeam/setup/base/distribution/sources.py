@@ -9,7 +9,8 @@ from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.archives import ARCHIVE_MANAGER
 from zeam.setup.base.distribution import unsetuptoolize
 from zeam.setup.base.distribution.release import Release
-from zeam.setup.base.distribution.egg import read_pkg_info, read_pkg_requires
+from zeam.setup.base.distribution.egg import (
+    read_pkg_info, read_pkg_requires, read_pkg_entry_points)
 from zeam.setup.base.egg_info import write_egg_info
 from zeam.setup.base.error import PackageError
 from zeam.setup.base.version import Requirements
@@ -164,6 +165,7 @@ class UninstalledRelease(Release):
             if 'autor_email' in setuptool_config:
                 self.author_email = setuptool_config['author_email'].as_text()
         else:
+            self.entry_points = read_pkg_entry_points(metadata_dir)
             self.requirements, self.extras = read_pkg_requires(metadata_dir)
         for requirement in self.requirements:
             install_missing(requirement)

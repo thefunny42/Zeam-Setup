@@ -8,6 +8,7 @@ import sys
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
+from zeam.setup.base.package import install_scripts
 from zeam.setup.base.error import InstallationError, display_error
 from zeam.setup.base.sources import Source, PackageInstaller
 from zeam.setup.base.utils import create_directory
@@ -162,7 +163,9 @@ def setup():
                 environment,
                 Source(config),
                 config['setup']['lib_directory'].as_text())
-            installer.install(Requirement.parse(options.install))
+            requirement = Requirement.parse(options.install)
+            installer.install(requirement)
+            install_scripts(environment, config['setup'], requirement.name)
         else:
             all_commands = environment.list_entry_points('setup_commands')
             if len(args):

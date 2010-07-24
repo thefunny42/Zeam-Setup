@@ -33,6 +33,31 @@ if _interactive:
 """
 
 
+def install_scripts(environment, config, package_name, args=None, wanted=None):
+    created_scripts = []
+    scripts = environment.list_entry_points('console_scripts', package_name)
+    python_executable = get_option_with_default(
+        'python_executable', config).as_text()
+    bin_directory = get_option_with_default(
+        'bin_directory', config).as_text()
+
+    if args is not None:
+        args = ', '.join(args)
+    else:
+        args = ''
+
+    for script_name, entry_point in scripts.items():
+        if wanted is not None and script_name not in wanted:
+            continue
+        package, callable = entry_point['destination'].split(':')
+        script_path = os.path.join(bin_directory, script_name)
+        script_body = SCRIPT_BODY % {
+            'args': args, 'package': package, 'callable': callable,}
+        created_scripts.append(environment.create_script(
+                script_path, script_body, executable=python_executable))
+    return created_scripts
+
+
 class Package(Recipe):
     """Install console_scripts of a package.
     """
@@ -42,35 +67,16 @@ class Package(Recipe):
         self.package_name = get_package_name(config).as_text()
 
     def install(self):
-        created_scripts = []
-        all_scripts = self.environment.list_entry_points(
-            'console_scripts', self.package_name)
-        python_executable = get_option_with_default(
-            'python_executable', self.config).as_text()
-        bin_directory = get_option_with_default(
-            'bin_directory', self.config).as_text()
-
-        wanted_scripts = self.config.get('scripts', None)
-        if wanted_scripts is not None:
-            wanted_scripts = wanted_scripts.as_list()
+        wanted = self.config.get('scripts', None)
+        if wanted is not None:
+            wanted = wanted_scripts.as_list()
 
         args = self.config.get('arguments', None)
         if args is not None:
-            args = ', '.join(args.as_list())
-        else:
-            args = ''
+            args = args.as_list()
 
-        for script_name, entry_point in all_scripts.items():
-            if wanted_scripts is not None and script_name not in wanted_scripts:
-                continue
-            package, callable = entry_point['destination'].split(':')
-            script_path = os.path.join(bin_directory, script_name)
-            script_body = SCRIPT_BODY % {
-                'args': args, 'package': package, 'callable': callable,}
-            created_scripts.append(self.environment.create_script(
-                script_path, script_body, executable=python_executable))
-
-        return created_scripts
+        return install_scripts(
+            self.environment, self.config, self.package_name, args, wanted)
 
     def uninstall(self):
         pass
