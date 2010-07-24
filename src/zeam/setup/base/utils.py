@@ -32,6 +32,7 @@ def open_uri(uri):
         except urllib2.URLError, e:
             raise FileError(uri, e.args[0].args[1])
     try:
+        logger.info(u"Reading local file %s" % uri)
         return open(uri, 'r')
     except IOError, e:
         raise FileError(uri, e.args[1])

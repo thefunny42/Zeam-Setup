@@ -1,9 +1,12 @@
 
 import os
 import re
+import logging
 
 from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.utils import open_uri
+
+logger = logging.getLogger('zeam.setup')
 
 
 SECTION_HEADER = re.compile(r'\[(?P<header>[^]]+)\]')

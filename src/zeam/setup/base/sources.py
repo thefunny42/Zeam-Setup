@@ -4,6 +4,7 @@ import os
 import re
 
 from zeam.setup.base.distribution import Software
+from zeam.setup.base.distribution.egg import EggRelease
 from zeam.setup.base.distribution.sources import (
     UninstalledRelease, UndownloadedRelease)
 from zeam.setup.base.download import DownloadManager
@@ -53,6 +54,17 @@ def get_releases_from_directory(source, directory):
         release = get_release_from_name(source, filename, full_filename)
         if release is not None:
             yield release
+
+def get_eggs_from_directory(source, directory):
+    """Get a list of egg releases from a directory
+    """
+    for filename in os.listdir(directory):
+        full_filename = os.path.join(directory, filename)
+        if not os.path.isdir(full_filename):
+            continue
+        info = RELEASE_TARBALL.match(full_filename)
+        if info:
+            yield source.factory(full_filename)
 
 
 class AvailableSoftware(object):
@@ -158,6 +170,8 @@ class LocalSource(object):
     used to install software.
     """
     factory = UninstalledRelease
+    type = 'Archive Source'
+    finder = get_releases_from_directory
 
     def __init__(self, config):
         self.config = config
@@ -171,7 +185,7 @@ class LocalSource(object):
         if self.__loaded:
             return
         create_directory(self.path)
-        self.software.extend(get_releases_from_directory(self, self.path))
+        self.software.extend(self.finder(self.path))
         self.__loaded = True
 
     def available(self, config):
@@ -190,11 +204,20 @@ class LocalSource(object):
         raise PackageNotFound(requirement)
 
     def __repr__(self):
-        return '<Archive Source at %s>' % self.path
+        return '<%s at %s>' % (self.type, self.path)
+
+
+class EggsSource(LocalSource):
+    """This manage installed sources.
+    """
+    factory = EggRelease
+    type = 'Eggs'
+    finder = get_eggs_from_directory
 
 
 SOURCE_PROVIDERS = {'local': LocalSource,
-                    'remote': RemoteSource}
+                    'remote': RemoteSource,
+                    'eggs': EggsSource,}
 
 class Source(object):
     """This manage software sources.

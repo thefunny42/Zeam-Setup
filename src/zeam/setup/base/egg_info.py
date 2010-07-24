@@ -27,6 +27,14 @@ def write_pkg_info(path, package):
     pkg_info.close()
 
 
+def write_requires(path, package):
+    requirements = package.requirements
+    if requirements:
+        file = open(os.path.join(path, 'requires.txt'), 'w')
+        for requirement in requirements:
+            file.write(str(requirement) + '\n')
+        file.close()
+
 def write_missing_setuptool_files(path, package):
     for filename in ['dependency_links.txt', 'not-zip-safe']:
         file = open(os.path.join(path, filename), 'w')
@@ -50,7 +58,8 @@ def write_entry_points(path, package):
 
 def write_egg_info(package, writers=[write_pkg_info,
                                      write_missing_setuptool_files,
-                                     write_entry_points]):
+                                     write_entry_points,
+                                     write_requires]):
     logger.warning('Writing EGG-INFO in %s for %s' % (
             package.path, package.name))
     path = os.path.join(package.path, 'EGG-INFO')
