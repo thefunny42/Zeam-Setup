@@ -6,28 +6,34 @@ import sys
 import parser
 import types
 
+def export_setup(export_name, increment_name=False):
+    names = []
+    def setup(*args, **kwargs):
+        config = ConfigParser.ConfigParser()
+        def serialize(name, data):
+            config.add_section(name)
+            for key, value in data.items():
+                if not key:
+                    key = '_'
+                if isinstance(value, list):
+                    value = '\n'.join(map(str, value))
+                if isinstance(value, dict):
+                    sub_name = 'section:' + key
+                    config.set(name, key, sub_name)
+                    serialize(sub_name, value)
+                else:
+                    config.set(name, key, value)
 
-def setup(*args, **kwargs):
-    if args:
-        return
-
-    config = ConfigParser.ConfigParser()
-    def serialize(name, data):
-        config.add_section(name)
-        for key, value in data.items():
-            if not key:
-                key = '_'
-            if isinstance(value, list):
-                value = '\n'.join(map(str, value))
-            if isinstance(value, dict):
-                sub_name = 'section:' + key
-                config.set(name, key, sub_name)
-                serialize(sub_name, value)
-            else:
-                config.set(name, key, value)
-
-    serialize('setuptools', kwargs)
-    config.write(sys.stdout)
+        name = export_name
+        if increment_name:
+            name += ':%d' % len(names)
+            names.append(name)
+        serialize(name, kwargs)
+        if args:
+            serialize(name + ':args', {'args': args})
+        config.write(sys.stdout)
+        return name
+    return setup
 
 
 def find_packages(*args, **kwargs):
@@ -56,12 +62,12 @@ def unsetuptoolize(filename='setup.py'):
 
     # Register our setuptools fonctions.
     import setuptools
-    setuptools.setup = setup
-    setuptools.Extension = setup
-    setuptools.Feature = setup
+    setuptools.setup = export_setup('setuptols')
+    setuptools.Extension = export_setup('extension', True)
+    setuptools.Feature = export_setup('feature', True)
     setuptools.find_packages = find_packages
     setuptools.extension = sys.modules['setuptools.extension']
-    setuptools.extension.Extension = setup
+    setuptools.extension.Extension = export_setup('extension', True)
 
     # Load and execute the code that will call back our setup method.
     source_file = open(filename, 'r')
