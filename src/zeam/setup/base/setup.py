@@ -66,11 +66,17 @@ def bootstrap_cfg(config, options):
     setup['verbosity'] = str(options.verbosity)
     setup['offline'] = options.offline and 'on' or 'off'
 
+    def set_timeout(timeout):
+        logger.info(u'Setting networking timeout to %d seconds' % timeout)
+        socket.setdefaulttimeout(timeout)
+
     # Network timeout
-    if 'network_timeout' in setup:
+    if options.timeout:
+        set_timeout(options.timeout)
+    elif 'network_timeout' in setup:
         timeout = setup['network_timeout'].as_int()
         if timeout:
-            socket.settimeout(timeout)
+            set_timeout(timeout)
 
     # Prefix directory
     new_prefix = None
@@ -123,6 +129,9 @@ def setup():
     parser.add_option(
         "-o", "--offline", dest="offline", action="store_true",
         help="run without network access")
+    parser.add_option(
+        "-t", "--timeout", dest="timeout", type="int",
+        help="timeout on network access")
     parser.add_option(
         "-v", '--verbose', dest="verbosity", action="count", default=0,
         help="be verbose, use multiple times to increase verbosity level")

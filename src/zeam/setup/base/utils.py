@@ -30,7 +30,7 @@ def open_uri(uri):
             logger.info("Accessing remote url %s" % uri)
             return urllib2.urlopen(uri)
         except urllib2.URLError, e:
-            raise FileError(uri, e.msg)
+            raise FileError(uri, e.args[0].args[1])
     try:
         return open(uri, 'r')
     except IOError, e:

@@ -49,7 +49,10 @@ def unsetuptoolize(filename='setup.py'):
         filename = os.path.join(directory, filename)
 
     # Create a setuptool module to prevent to load it
-    sys.modules['setuptools'] = types.ModuleType('setuptools')
+    sys.modules['setuptools'] = types.ModuleType(
+        'setuptools')
+    sys.modules['setuptools.extension'] = types.ModuleType(
+        'extension')
 
     # Register our setuptools fonctions.
     import setuptools
@@ -57,15 +60,21 @@ def unsetuptoolize(filename='setup.py'):
     setuptools.Extension = setup
     setuptools.Feature = setup
     setuptools.find_packages = find_packages
+    setuptools.extension = sys.modules['setuptools.extension']
+    setuptools.extension.Extension = setup
 
     # Load and execute the code that will call back our setup method.
     source_file = open(filename, 'r')
-    source = source_file.read()
+    source = "\ndef _unsetuptoolthatcrap():\n"
+    for line in source_file.readlines():
+        source += "    " + line
+    source += "\n\n_unsetuptoolthatcrap()"
     source_file.close()
     code = parser.suite(source)
     globs = globals()
+    globs['__doc__'] = "This package have been unsetuptooled"
     globs['__file__'] = filename
-    exec(code.compile(), globs, {})
+    exec(code.compile(filename), globs, {})
 
     # We are still here, not a setuptool script
     sys.exit(1)
