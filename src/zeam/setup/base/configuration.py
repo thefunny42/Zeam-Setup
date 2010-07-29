@@ -223,6 +223,9 @@ class Configuration(object):
     def __contains__(self, key):
         return self.sections.__contains__(key)
 
+    def items(self):
+        return self.sections.iteritems():
+
 
 class Section(object):
     """Section of a configuration file.
@@ -286,6 +289,9 @@ class Section(object):
 
     def __contains__(self, key):
         return self.options.__contains__(key)
+
+    def items(self):
+        return self.options.iteritems():
 
     def _write(self, stream):
         stream.write('[' + self.name + ']\n')
