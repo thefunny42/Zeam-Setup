@@ -224,7 +224,7 @@ class Configuration(object):
         return self.sections.__contains__(key)
 
     def items(self):
-        return self.sections.iteritems():
+        return self.sections.iteritems()
 
 
 class Section(object):
@@ -291,7 +291,7 @@ class Section(object):
         return self.options.__contains__(key)
 
     def items(self):
-        return self.options.iteritems():
+        return self.options.iteritems()
 
     def _write(self, stream):
         stream.write('[' + self.name + ']\n')
