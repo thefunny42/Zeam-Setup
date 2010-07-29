@@ -150,6 +150,9 @@ class Configuration(object):
             if not text.strip() or text[0] in '#;':
                 continue
 
+            # Some sources gives '\n' at the end of the lines, someother don't
+            text = text.rstrip()
+
             # New section
             new_section = SectionParser.new_section(
                 configuration, text, origin, line_number)
