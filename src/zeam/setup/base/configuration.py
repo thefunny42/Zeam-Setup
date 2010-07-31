@@ -102,7 +102,7 @@ class SectionParser(object):
                 else:
                     raise ConfigurationError(
                         location,
-                        'Garbage text before option at line %s' % line_number)
+                        u'garbage text before option at line %s' % line_number)
         if option is not None:
             option.done(line_number)
 
@@ -175,6 +175,8 @@ class Configuration(object):
         return configuration
 
     def write(self, stream):
+        """Serialize the configuration on the stream in a readable format.
+        """
         section_names = self.sections.keys()
         section_names.sort()
         for name in section_names:
@@ -224,6 +226,8 @@ class Configuration(object):
         return self.sections.__contains__(key)
 
     def items(self):
+        """Iter on sections.
+        """
         return self.sections.iteritems()
 
 
@@ -291,6 +295,8 @@ class Section(object):
         return self.options.__contains__(key)
 
     def items(self):
+        """Iter on options.
+        """
         return self.options.iteritems()
 
     def _write(self, stream):
@@ -301,6 +307,8 @@ class Section(object):
             self.options[name]._write(stream)
 
     def as_dict(self):
+        """Return the content of the section as a dictionnary.
+        """
         return dict([(key, self.options[key].as_text())
                      for key in self.options.keys()])
 
@@ -339,6 +347,8 @@ class Option(object):
         return value
 
     def set_value(self, value):
+        """Set the value of the option.
+        """
         self.__value = value
 
     def register(self, func):
@@ -350,6 +360,8 @@ class Option(object):
             stream.write('\n')
 
     def as_text(self):
+        """Return the value as plain raw text.
+        """
         return self.__get_value().strip()
 
     def as_bool(self):
@@ -364,6 +376,8 @@ class Option(object):
             u'option %s is not a boolean: %s' % (self.name, value))
 
     def as_int(self):
+        """Return the value as an integer.
+        """
         value = self.__get_value()
         try:
             return int(value)
@@ -373,6 +387,42 @@ class Option(object):
                 u'option %s is not an integer: %s' % (self.name, value))
 
     def as_list(self):
+        """Return the value's lines as a list.
+        """
         return filter(lambda s: len(s),
                       map(lambda s: s.strip(),
                           self.__get_value().split('\n')))
+
+    def as_words(self):
+        """Return value as a list of word. You can wrap a word with a
+        pair of " to escape spaces in it, or you can use \ just before
+        (to write " write \", for \ write \\).
+        """
+        words = []
+        word = ""
+        is_escaped = False
+        is_previous_backslash = False
+        for letter in self.__get_value():
+            if letter == '\\':
+                if not is_previous_backslash:
+                    is_previous_backslash = True
+                    continue
+            if not is_previous_backslash and letter == '"':
+                is_escaped = not is_escaped
+                continue
+            if (not is_escaped and
+                not is_previous_backslash and
+                letter.isspace()):
+                if word:
+                    words.append(word)
+                    word = ""
+                continue
+            word += letter
+            is_previous_backslash = False
+        if is_escaped or is_previous_backslash:
+            raise ConfigurationError(
+                self.__location,
+                u"malformed last word for option %s" % self.name)
+        if word:
+            words.append(word)
+        return words

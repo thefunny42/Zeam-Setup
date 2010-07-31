@@ -84,5 +84,9 @@ class Test(object):
         suite = unittest.TestSuite()
         suite.addTests(find_tests(self.package_name))
         verbosity = self.config['setup']['verbosity'].as_int()
+        # Disable logger except for error while running the tests.
+        log_level = logger.level
+        logger.setLevel(logging.FATAL)
         results = unittest.TextTestRunner(verbosity=verbosity).run(suite)
+        logger.setLevel(log_level)
 
