@@ -94,12 +94,19 @@ class Environment(object):
 
     def __init__(self, default_interpretor=None):
         self.installed = {}
+        self.__installer = None
         self.default_interpretor = PythonInterpreter(default_interpretor)
 
         if self.default_interpretor == sys.executable:
             for path in sys.path:
                 if os.path.isdir(os.path.join(path, 'EGG-INFO')):
                     self.add(EggRelease(path))
+
+    def set_installer(self, installer):
+        self.__installer = installer
+
+    def install(self, *packages):
+        return self.__installer.install(*packages)
 
     def add(self, release):
         """Try to add a new release in the environment.

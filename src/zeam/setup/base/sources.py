@@ -11,6 +11,7 @@ from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links, create_directory
 from zeam.setup.base.version import Requirement
+from zeam.setup.base.vcs import VCS
 
 logger = logging.getLogger('zeam.setup')
 
@@ -215,22 +216,65 @@ class EggsSource(LocalSource):
     finder = get_eggs_from_directory
 
 
+class VCSSource(object):
+    """This sources fetch the code from various popular version
+    control system.
+    """
+
+    def __init__(self, config):
+        __status__ = u"Initializing remote development sources."
+        self.config = config
+        self.directory = config['directory'].as_text()
+        self.sources = {}
+        self.enabled = config['available'].as_list()
+        for section_name in config['sources'].as_list():
+            section = config.configuration['vcs:' + section_name]
+            for package_name, source_info in section.items():
+                parsed_source_info = source_info.as_words()
+                if len(parsed_source_info) < 2:
+                    raise ConfigurationError(
+                        source_info.location,
+                        u"Malformed source description for package %s" % (
+                            package_name))
+                vcs_type = parsed_source_info[0]
+                uri = parsed_source_info[1]
+                if vcs_type not in VCS:
+                    raise ConfigurationError(
+                        source_info.location,
+                        u"Unknown VCS system '%s' for package %s" % (
+                            vcs_type, package_name))
+                self.sources[package_name] = VCS[vcs_type](uri, self.directory)
+
+    def available(self, config):
+        # This source provider is always available
+        return True
+
+    def search(self, requirement, interpretor):
+        raise PackageNotFound(requirement)
+
+    def __repr__(self):
+        return '<VCSSource at %s>' % (self.type, self.path)
+
+
 SOURCE_PROVIDERS = {'local': LocalSource,
                     'remote': RemoteSource,
-                    'eggs': EggsSource,}
+                    'eggs': EggsSource,
+                    'vcs': VCSSource}
 
 class Source(object):
     """This manage software sources.
     """
 
     def __init__(self, config, section_name='setup'):
+        __status__ = u"Initializing software sources."
         self.sources = []
         self.config = config
         for source_name in config[section_name]['sources'].as_list():
             source_config = config['source:' + source_name]
             type = source_config['type'].as_text()
             if type not in SOURCE_PROVIDERS:
-                raise ConfigurationError('Unknow source type %s for %s' % (
+                raise ConfigurationError(
+                    u'Unknow source type %s for %s' % (
                         type, source_name))
             self.sources.append(SOURCE_PROVIDERS[type](source_config))
 
@@ -265,6 +309,9 @@ class PackageInstaller(object):
         """
         if requirement in self.newly_installed:
             return self.newly_installed[requirement]
+        if requirement.name in self.environment.installed:
+            # XXX Review this
+            return self.environment.installed
         candidate_packages = self.source.search(
             requirement, self.environment.default_interpretor)
         logger.debug(u"Package versions found for %s: %s." % (

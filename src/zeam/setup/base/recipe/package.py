@@ -1,8 +1,9 @@
 
 import os
 
-from zeam.setup.base.recipe import Recipe
+from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name, get_option_with_default
+from zeam.setup.base.version import Requirement
 
 
 SCRIPT_BODY = """
@@ -41,13 +42,10 @@ def install_scripts(environment, config, package_name, args=None, wanted=None):
     bin_directory = get_option_with_default(
         'bin_directory', config).as_text()
 
-    if args is not None:
-        args = ', '.join(args)
-    else:
-        args = ''
+    args = ', '.join(args)
 
     for script_name, entry_point in scripts.items():
-        if wanted is not None and script_name not in wanted:
+        if wanted and script_name not in wanted:
             continue
         package, callable = entry_point['destination'].split(':')
         script_path = os.path.join(bin_directory, script_name)
@@ -64,19 +62,28 @@ class Package(Recipe):
 
     def __init__(self, environment, config):
         super(Package, self).__init__(environment, config)
-        self.package_name = get_package_name(config).as_text()
+
+        if 'packages' not in config:
+            self.packages = [get_package_name(config).as_text()]
+        else:
+            self.packages = config['packages'].as_list()
+
+        self.wanted = []
+        if 'scripts' in config:
+            self.wanted = self.config['scripts'].as_list()
+
+        self.args = []
+        if 'args' in config:
+            self.args = self.config['args'].as_list()
 
     def install(self):
-        wanted = self.config.get('scripts', None)
-        if wanted is not None:
-            wanted = wanted_scripts.as_list()
-
-        args = self.config.get('arguments', None)
-        if args is not None:
-            args = args.as_list()
-
-        return install_scripts(
-            self.environment, self.config, self.package_name, args, wanted)
+        scripts = []
+        for package in self.packages:
+            self.environment.install(Requirement.parse(package))
+            scripts.extend(install_scripts(
+                    self.environment, self.config, package,
+                    self.args, self.wanted))
+        return scripts
 
     def uninstall(self):
         pass

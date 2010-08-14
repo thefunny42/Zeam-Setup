@@ -20,7 +20,7 @@ def format_location(filename, start_line, end_line=None):
     """Format location information to report it.
     """
     location = u'%s: line %d' % (filename, start_line)
-    if end_line is not None:
+    if end_line is not None and end_line != start_line:
         location += u' to %d' % end_line
     return location
 
@@ -241,8 +241,12 @@ class Section(object):
         self.__location = location
         self.options = {}
 
+    @property
+    def location(self):
+        return self.__location
+
     def __copy__(self):
-        new_section = self.__class__(self.name, location=self.__location)
+        new_section = self.__class__(self.name, location=self.location)
         for option_name in self.options.keys():
             new_section[option_name] = self.options[option_name]
         return new_section
@@ -269,7 +273,7 @@ class Section(object):
                     return Option('default', default)
                 return default
             raise ConfigurationError(
-                self.__location,
+                self.location,
                 u'Missing option %s in section %s' % (key, self.name))
 
     get = __getitem__
@@ -324,8 +328,12 @@ class Option(object):
         self.__value = value
         self.__access_callbacks = []
 
+    @property
+    def location(self):
+        return self.__location
+
     def __copy__(self):
-        return self.__class__(self.name, self.__value, location=self.__location)
+        return self.__class__(self.name, self.__value, location=self.location)
 
     def __get_value(self):
         # XXX Should cache this
@@ -372,7 +380,7 @@ class Option(object):
         if bool in ('off', 'false', '0',):
             return False
         raise ConfigurationError(
-            self.__location,
+            self.location,
             u'option %s is not a boolean: %s' % (self.name, value))
 
     def as_int(self):
@@ -383,7 +391,7 @@ class Option(object):
             return int(value)
         except ValueError:
             raise ConfigurationError(
-                self.__location,
+                self.location,
                 u'option %s is not an integer: %s' % (self.name, value))
 
     def as_list(self):
@@ -421,7 +429,7 @@ class Option(object):
             is_previous_backslash = False
         if is_escaped or is_previous_backslash:
             raise ConfigurationError(
-                self.__location,
+                self.location,
                 u"malformed last word for option %s" % self.name)
         if word:
             words.append(word)

@@ -75,6 +75,12 @@ class FileError(ConfigurationError):
     name = u"File error"
 
 
+class NetworkError(FileError):
+    """Error while accessing a file over the network.
+    """
+    name = u"Network error"
+
+
 class DownloadError(InstallationError):
     """Error while downloading a file.
     """

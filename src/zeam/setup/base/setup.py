@@ -8,7 +8,7 @@ import sys
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.distribution import Environment, DevelopmentRelease
-from zeam.setup.base.package import install_scripts
+from zeam.setup.base.recipe.package import install_scripts
 from zeam.setup.base.error import InstallationError, display_error
 from zeam.setup.base.sources import Source, PackageInstaller
 from zeam.setup.base.utils import create_directory
@@ -114,6 +114,12 @@ def bootstrap_cfg(config, options):
     if 'develop' in setup:
         for path in setup['develop'].as_list():
             environment.add(DevelopmentRelease(path=path))
+    # Add an installer
+    installer = PackageInstaller(
+        environment,
+        Source(config),
+        config['setup']['lib_directory'].as_text())
+    environment.set_installer(installer)
     return environment
 
 
@@ -159,12 +165,8 @@ def setup():
 
         if options.install:
             __status__ = u"Installing %s" % options.install
-            installer = PackageInstaller(
-                environment,
-                Source(config),
-                config['setup']['lib_directory'].as_text())
             requirement = Requirement.parse(options.install)
-            installer.install(requirement)
+            environment.install(requirement)
             install_scripts(environment, config['setup'], requirement.name)
         else:
             all_commands = environment.list_entry_points('setup_commands')

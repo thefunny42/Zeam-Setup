@@ -4,8 +4,9 @@ import re
 import os
 import urllib2
 import urlparse
+import subprocess
 
-from zeam.setup.base.error import FileError, ConfigurationError
+from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 
 HTML_LINK = re.compile(
     r'<[aA][^>]*[hH][rR][eE][fF]=["\'](?P<url>[^"\']+)["\'][^>]*>'
@@ -13,6 +14,14 @@ HTML_LINK = re.compile(
 
 logger = logging.getLogger('zeam.setup')
 
+
+def have_cmd(*cmd):
+    try:
+        subprocess.Popen(cmd)
+    except OSError, error:
+        if error.args[0] == '2':
+            return False
+    return True
 
 def is_remote_uri(uri):
     """Tell you if the given uri is remote:
@@ -30,7 +39,7 @@ def open_uri(uri):
             logger.info("Accessing remote url %s" % uri)
             return urllib2.urlopen(uri)
         except urllib2.URLError, e:
-            raise FileError(uri, e.args[0].args[1])
+            raise NetworkError(uri, e.args[0].args[1])
     try:
         logger.info(u"Reading local file %s" % uri)
         return open(uri, 'r')
