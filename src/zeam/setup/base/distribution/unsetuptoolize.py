@@ -6,7 +6,7 @@ import sys
 import parser
 import types
 
-def export_setup(export_name, increment_name=False):
+def export_setup(export_name, stream, increment_name=False):
     names = []
     def setup(*args, **kwargs):
         config = ConfigParser.ConfigParser()
@@ -31,7 +31,7 @@ def export_setup(export_name, increment_name=False):
         serialize(name, kwargs)
         if args:
             serialize(name + ':args', {'args': args})
-        config.write(sys.stdout)
+        config.write(stream)
         return name
     return setup
 
@@ -48,11 +48,19 @@ def unsetuptoolize(filename='setup.py'):
 
     (options, args) = opt_parser.parse_args()
 
+    sys.argv = [filename]
     if options.directory:
         directory = os.path.abspath(options.directory)
         sys.path.append(directory)
         os.chdir(directory)
         filename = os.path.join(directory, filename)
+
+    # Redirect output somewhere
+    config_out = os.fdopen(os.dup(1), 'w')
+    script_out = os.tmpfile()
+    script_err = os.tmpfile()
+    os.dup2(script_out.fileno(), 1)
+    os.dup2(script_err.fileno(), 2)
 
     # Create a setuptool module to prevent to load it
     sys.modules['setuptools'] = types.ModuleType(
@@ -62,28 +70,37 @@ def unsetuptoolize(filename='setup.py'):
 
     # Register our setuptools fonctions.
     import setuptools
-    setuptools.setup = export_setup('setuptools')
-    setuptools.Extension = export_setup('extension', True)
-    setuptools.Feature = export_setup('feature', True)
+    setuptools.setup = export_setup('setuptools', config_out)
+    setuptools.Extension = export_setup('extension', config_out, True)
+    setuptools.Feature = export_setup('feature', config_out, True)
     setuptools.find_packages = find_packages
     setuptools.extension = sys.modules['setuptools.extension']
-    setuptools.extension.Extension = export_setup('extension', True)
+    setuptools.extension.Extension = export_setup('extension', config_out, True)
 
     # Load and execute the code that will call back our setup method.
     source_file = open(filename, 'r')
-    source = "\ndef _unsetuptoolthatcrap():\n"
+    source = "\ndef _unsetuptoolwrapper():\n"
     for line in source_file.readlines():
         source += "    " + line
-    source += "\n\n_unsetuptoolthatcrap()"
+    source += "\n\n_unsetuptoolwrapper()"
     source_file.close()
     code = parser.suite(source)
     globs = globals()
-    globs['__doc__'] = "This package have been unsetuptooled"
+    globs['__doc__'] = "This package have been unsetuptooled by Zeam Corp"
     globs['__file__'] = filename
     exec(code.compile(filename), globs, {})
 
-    # We are still here, not a setuptool script
-    sys.exit(1)
+    config = ConfigParser.ConfigParser()
+    config.add_section('output')
+    sys.stdout.flush()
+    script_out.seek(0)
+    config.set('output', 'stdout', script_out.read())
+    sys.stderr.flush()
+    script_err.seek(0)
+    config.set('output', 'stderr', script_err.read())
+    config.write(config_out)
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
