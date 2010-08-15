@@ -90,6 +90,7 @@ def unsetuptoolize(filename='setup.py'):
     globs['__file__'] = filename
     exec(code.compile(filename), globs, {})
 
+    # Include script output and error output
     config = ConfigParser.ConfigParser()
     config.add_section('output')
     sys.stdout.flush()
