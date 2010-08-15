@@ -1,6 +1,7 @@
 
-from zeam.setup.base.vcs.subversion import Subversion
-from zeam.setup.base.vcs.git import Git
+from zeam.setup.base.vcs.vcs import VCSRegistry
+from zeam.setup.base.vcs.subversion import SubversionFactory
+from zeam.setup.base.vcs.git import GitFactory
 
-VCS = {'svn': Subversion,
-       'git': Git}
+VCS = VCSRegistry({'svn': SubversionFactory(),
+                   'git': GitFactory()})

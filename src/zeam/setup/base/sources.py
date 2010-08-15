@@ -16,7 +16,7 @@ from zeam.setup.base.vcs import VCS
 logger = logging.getLogger('zeam.setup')
 
 RELEASE_TARBALL = re.compile(
-    r'^(?P<name>[^-]+)-(?P<version>[^-]*)'
+    r'^(?P<name>[^-]+)-(?P<version>[^-]*(-[\d]+)?)'
     r'(-py(?P<pyversion>[^-]+)(-(?P<platform>[\w]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)
@@ -236,20 +236,24 @@ class VCSSource(object):
                         source_info.location,
                         u"Malformed source description for package %s" % (
                             package_name))
-                vcs_type = parsed_source_info[0]
                 uri = parsed_source_info[1]
-                if vcs_type not in VCS:
-                    raise ConfigurationError(
-                        source_info.location,
-                        u"Unknown VCS system '%s' for package %s" % (
-                            vcs_type, package_name))
-                self.sources[package_name] = VCS[vcs_type](uri, self.directory)
+                vcs = VCS.get(parsed_source_info[0], package_name, source_info)
+                directory = os.path.join(self.directory, package_name)
+                self.sources[package_name] = vcs(uri, directory)
 
     def available(self, config):
         # This source provider is always available
         return True
 
     def search(self, requirement, interpretor):
+        name = requirement.name
+        if name in self.enabled:
+            if name not in self.sources:
+                raise ConfigurationError(
+                    u"Package %s is marked as available with a VCS source, "
+                    u"but no VCS source is configured for it" % name)
+            source = self.sources[name]
+            source.install()
         raise PackageNotFound(requirement)
 
     def __repr__(self):

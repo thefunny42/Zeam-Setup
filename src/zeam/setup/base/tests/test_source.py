@@ -58,3 +58,9 @@ class SourceTestCase(unittest.TestCase):
         self.assertEqual(
             get_release_from_name(source, 'setup-1.0-py2.7-win32.egg'),
             (source, source, 'setup', '1.0', 'egg', None, '2.7', 'win32'))
+        self.assertEqual(
+            get_release_from_name(source, 'setup-3.5.0-1.tar.gz'),
+            (source, source, 'setup', '3.5.0-1', 'tar.gz', None, None, None))
+        self.assertEqual(
+            get_release_from_name(source, 'setup-3.5.0-1-py2.6-mac.tar.gz'),
+            (source, source, 'setup', '3.5.0-1', 'tar.gz', None, '2.6', 'mac'))

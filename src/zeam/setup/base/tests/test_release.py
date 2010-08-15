@@ -42,5 +42,5 @@ class SoftwareTestCase(unittest.TestCase):
         self.assertEqual(len(match), 2)
         self.assertEqual(
             map(str, match.releases),
-            ['<Release for MySoft version 2>',
+            ['<Release for MySoft version 2.0>',
              '<Release for MySoft version 2.1>'])

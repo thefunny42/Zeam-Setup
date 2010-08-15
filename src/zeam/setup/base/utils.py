@@ -16,15 +16,36 @@ logger = logging.getLogger('zeam.setup')
 
 
 def have_cmd(*cmd):
+    """Test if a command is available.
+    """
     try:
-        subprocess.Popen(cmd)
+        logger.debug('Testing command: %s', ' '.join(cmd))
+        process = subprocess.Popen(
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        process.communicate()
     except OSError, error:
         if error.args[0] == '2':
             return False
     return True
 
+
+def get_cmd_output(*cmd, **opts):
+    """Run an external command and return its result (output, error
+    output, return code).
+    """
+    path = opts.get('path', None)
+    debug_msg = 'Running command: %s' % ' '.join(cmd)
+    if path:
+        debug_msg += ' [in %s]' % (path)
+    logger.debug(debug_msg)
+    process = subprocess.Popen(
+        cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=path)
+    stdout, stderr = process.communicate()
+    return stdout, stderr, process.returncode
+
+
 def is_remote_uri(uri):
-    """Tell you if the given uri is remote:
+    """Tell you if the given uri is remote.
     """
     # XXX Todo check for SSL availability
     return uri.startswith('http://') or uri.startswith('https://')

@@ -6,10 +6,10 @@ import stat
 import sys
 import pprint
 
-from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.distribution.egg import EggRelease
+from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.error import PackageError, InstallationError
-from zeam.setup.base.version import Requirement, Requirements
+from zeam.setup.base.utils import get_cmd_output
 
 logger = logging.getLogger('zeam.setup')
 
@@ -22,49 +22,20 @@ sys.path[0:0] = %(modules_path)s
 """
 
 
-class DistributionSetEntry(object):
-    """Cache entry in a distribution set.
-    """
-
-    def __init__(self, distribution_set, name):
-        self.distribution_set = distribution_set
-        self.name = name
-
-    def resolve(self):
-        """This resolves all dependencies, by finding corresponding
-        releases.
-        """
-
-class DistributionSet(object):
-    """Represent a possible set of releases that can be used together.
-    """
-
-    def __init__(self, source):
-        self.source = source
-        self.entries = {}
-        self.requirements = Requirements()
-
-    def search(self, name):
-        pass
-
-
-def get_output_from(cmd):
-    process = os.popen(cmd, 'r')
-    output = process.read().strip()
-    process.close()
-    return output
-
-
 class PythonInterpreter(object):
     """Wrap and gives information about a python interpreter.
     """
 
     def __init__(self, path):
         self.__path = path
-        self.__version = get_output_from(
-            "%s -c \"print '.'.join(map(str, __import__('sys').version_info[:2]))\"" % path)
-        self.__platform = get_output_from(
-            "%s -c \"print __import__('sys').platform\"" % path)
+        version = get_cmd_output(
+            path,
+            "-c",
+            "print '.'.join(map(str, __import__('sys').version_info[:2]))")[0]
+        self.__version = version.strip()
+        self.__platform = get_cmd_output(
+            path, "-c",
+            "print __import__('sys').platform")[0].strip()
 
     def __str__(self):
         return self.__path
@@ -75,11 +46,9 @@ class PythonInterpreter(object):
     def execute(self, module, *args):
         """Run the given module with the given args.
         """
-        command = [self.__path, module.__file__,]
-        command.extend(args)
-        command = ' '.join(command)
-        logger.debug(u"Executing %s" % command)
-        return get_output_from(command)
+        cmd = [self.__path, module.__file__]
+        cmd.extend(args)
+        return get_cmd_output(*cmd)[0]
 
     def get_pyversion(self):
         return self.__version

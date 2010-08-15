@@ -12,6 +12,7 @@ import %(package)s
 if __name__ == '__main__':
   %(package)s.%(callable)s(%(args)s)
 """
+
 INTERPRETER_BODY = """
 _interactive = True
 if len(sys.argv) > 1:

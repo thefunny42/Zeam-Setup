@@ -5,6 +5,7 @@ import operator
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.version import Version, Requirement, Requirements
 from zeam.setup.base.version import InvalidRequirement, IncompatibleRequirement
+from zeam.setup.base.version import InvalidVersion
 
 
 class VersionTestCase(unittest.TestCase):
@@ -14,11 +15,19 @@ class VersionTestCase(unittest.TestCase):
     def test_parse(self):
         """Test version parsing
         """
-        for version in ['1.2a1', '0.12', '1dev', '10', '1.10b2']:
+        for version in ['1.2a1', '0.12', '1.10b2']:
             parsed_version = Version.parse(version)
             self.assertEqual(str(parsed_version), version)
         self.assertEqual(str(Version.parse('3.5.0-1')), '3.5final-1')
-        self.assertEqual(str(Version.parse('1.dev')), '1dev')
+        self.assertEqual(str(Version.parse('3.5final-1')), '3.5final-1')
+        self.assertEqual(str(Version.parse('3.5.post42')), '3.5final-42')
+        self.assertEqual(str(Version.parse('1b2.2')), '1.0b2.2')
+        self.assertEqual(str(Version.parse('1.dev')), '1.0dev')
+        self.assertEqual(str(Version.parse('1.0dev')), '1.0dev')
+        self.assertEqual(str(Version.parse('1.0.0dev')), '1.0dev')
+        self.assertEqual(str(Version.parse('10')), '10.0')
+
+        self.assertRaises(InvalidVersion, Version.parse, 'lol.best-of-world')
 
     def test_comparaison_lt_or_gt(self):
         """Test strict comparaison between versions
@@ -54,12 +63,12 @@ class VersionTestCase(unittest.TestCase):
     def test_sort(self):
         """Test version sorting
         """
-        versions = ['1.4', '0.1', '1.4a1', '2.0', '1.4b1']
+        versions = ['1.4', '0.1', '1.4a1', '2.0.0', '1.4b1']
         parsed_versions = map(Version.parse, versions)
         parsed_versions.sort()
         self.assertEqual(
             map(str, parsed_versions),
-            ['0.1', '1.4a1', '1.4b1', '1.4', '2'])
+            ['0.1', '1.4a1', '1.4b1', '1.4', '2.0'])
 
 
 class RequirementTestCase(unittest.TestCase):
@@ -106,7 +115,7 @@ class RequirementTestCase(unittest.TestCase):
         self.assertEquals(req.name, 'NewSoft')
         self.assertEquals(req.extras, set(['zope.testing', 'web']))
         self.assertEquals(len(req.versions), 2)
-        self.assertEquals(str(req), 'NewSoft[web,zope.testing]<=2.4,>=1')
+        self.assertEquals(str(req), 'NewSoft[web,zope.testing]<=2.4,>=1.0')
 
     def test_match(self):
         """Test matching a requirement to a release
@@ -298,8 +307,8 @@ class RequirementsTestCase(unittest.TestCase):
         self.assertEquals(
             str(result_reqs).split('\n'),
             ['zeam.form.base',
-             'zeam.form.ztk[test]>=1b1',
-             'zeam.test>=2.1,!=3,<=4',
+             'zeam.form.ztk[test]>=1.0b1',
+             'zeam.test>=2.1,!=3.0,<=4.0',
              'zope.testing<=3.7dev'])
 
     def test_add_fail(self):

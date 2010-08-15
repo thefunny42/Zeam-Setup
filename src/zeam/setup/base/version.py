@@ -3,7 +3,8 @@ import re
 import operator
 
 VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
-VERSION_REPLACE = {'pre':'c', 'preview':'c', '-':'final-', 'rc':'c',}.get
+VERSION_REPLACE = {
+    'pre':'c', 'preview':'c', '-':'final-', 'post': 'final-', 'rc':'c'}.get
 REQUIREMENT_NAME_PARSE = re.compile(
     r'^(?P<name>[\w.]+)\s*(\[(?P<extras>[\w\s.,]+)\])?\s*(?P<requirements>.*)$')
 REQUIREMENT_VERSION_PARSE = re.compile(
@@ -14,8 +15,16 @@ OPERATORS_TO_REQUIREMENT = {operator.eq: '==', operator.ge: '>=',
                             operator.ne: '!=', operator.le: '<='}.get
 
 
+class InvalidVersion(ValueError):
+    """This version is invalid.
+    """
+
 class InvalidRequirement(ValueError):
     """Those requirement are invalids.
+    """
+
+class IncompatibleRequirement(InvalidRequirement):
+    """Those reauirement are not compatible together.
     """
 
 
@@ -36,7 +45,7 @@ class Version(object):
                 part = VERSION_REPLACE(part, part)
                 if part[0] in '0123456789':
                     yield part.zfill(8)
-                else:
+                elif part != 'final':
                     yield '*' + part
             yield '*final'
 
@@ -46,9 +55,15 @@ class Version(object):
                 if part < '*final':   # remove '-' before a prerelease tag
                     while parsed_version and parsed_version[-1] == '*final-':
                         parsed_version.pop()
-                # remove trailing zeros from each series of numeric parts
-                while parsed_version and parsed_version[-1] == '00000000':
-                    parsed_version.pop()
+                # normalize trailing zero to one
+                if len(parsed_version) < 2:
+                    if not len(parsed_version):
+                        raise InvalidVersion(version)
+                    parsed_version.append('00000000')
+                else:
+                    while (len(parsed_version) > 2
+                           and parsed_version[-1] == '00000000'):
+                        parsed_version.pop()
             parsed_version.append(part)
         return klass(*parsed_version)
 
@@ -84,9 +99,8 @@ class Version(object):
                 need_dot = True
         return ''.join(rendered_version)
 
-
-class IncompatibleRequirement(Exception):
-    pass
+    def __repr__(self):
+        return '%s.parse(%r)' % (self.__class__.__name__, self.__str__())
 
 
 def reduce_requirements(reqs):

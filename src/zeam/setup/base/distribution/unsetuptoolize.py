@@ -88,17 +88,22 @@ def unsetuptoolize(filename='setup.py'):
     globs = globals()
     globs['__doc__'] = "This package have been unsetuptooled by Zeam Corp"
     globs['__file__'] = filename
-    exec(code.compile(filename), globs, {})
+    success = True
+    try:
+        exec(code.compile(filename), globs, {})
+    except:
+        success = False
 
     # Include script output and error output
     config = ConfigParser.ConfigParser()
-    config.add_section('output')
+    config.add_section('info')
     sys.stdout.flush()
     script_out.seek(0)
-    config.set('output', 'stdout', script_out.read())
+    config.set('info', 'stdout', script_out.read())
     sys.stderr.flush()
     script_err.seek(0)
-    config.set('output', 'stderr', script_err.read())
+    config.set('info', 'stderr', script_err.read())
+    config.set('info', 'complete', success)
     config.write(config_out)
 
     sys.exit(0)
