@@ -24,7 +24,7 @@ def have_cmd(*cmd):
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         process.communicate()
     except OSError, error:
-        if error.args[0] == '2':
+        if error.args[0] == 2:
             return False
     return True
 

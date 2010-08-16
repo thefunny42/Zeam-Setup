@@ -90,7 +90,10 @@ class Version(object):
         need_dot = False
         for part in self.version[:-1]:
             if part[0] == '*':
-                rendered_version.append(part[1:])
+                if part == '*final-':
+                    rendered_version.append('-')
+                else:
+                    rendered_version.append(part[1:])
             elif need_dot:
                 rendered_version.append('.')
             need_dot = False

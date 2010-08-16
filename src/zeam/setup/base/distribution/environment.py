@@ -28,11 +28,10 @@ class PythonInterpreter(object):
 
     def __init__(self, path):
         self.__path = path
-        version = get_cmd_output(
-            path,
-            "-c",
-            "print '.'.join(map(str, __import__('sys').version_info[:2]))")[0]
-        self.__version = version.strip()
+        self.__version = get_cmd_output(
+            path, "-c",
+            "print '.'.join(map(str, __import__('sys').version_info[:2]))"
+            )[0].strip()
         self.__platform = get_cmd_output(
             path, "-c",
             "print __import__('sys').platform")[0].strip()

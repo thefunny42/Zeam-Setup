@@ -18,9 +18,9 @@ class VersionTestCase(unittest.TestCase):
         for version in ['1.2a1', '0.12', '1.10b2']:
             parsed_version = Version.parse(version)
             self.assertEqual(str(parsed_version), version)
-        self.assertEqual(str(Version.parse('3.5.0-1')), '3.5final-1')
-        self.assertEqual(str(Version.parse('3.5final-1')), '3.5final-1')
-        self.assertEqual(str(Version.parse('3.5.post42')), '3.5final-42')
+        self.assertEqual(str(Version.parse('3.5.0-1')), '3.5-1')
+        self.assertEqual(str(Version.parse('3.5final-1')), '3.5-1')
+        self.assertEqual(str(Version.parse('3.5.post42')), '3.5-42')
         self.assertEqual(str(Version.parse('1b2.2')), '1.0b2.2')
         self.assertEqual(str(Version.parse('1.dev')), '1.0dev')
         self.assertEqual(str(Version.parse('1.0dev')), '1.0dev')

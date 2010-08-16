@@ -24,7 +24,7 @@ class Git(VCS):
 
 
 class GitFactory(VCSFactory):
-    name = 'git-core'
+    package_name = 'git-core'
 
     def __init__(self):
         self.__available = have_cmd('git', '--version')

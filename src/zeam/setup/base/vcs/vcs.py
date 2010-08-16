@@ -56,8 +56,9 @@ class VCSRegistry(object):
         if not factory.available():
             raise VCSConfigurationError(
                 source_info.location,
-                u"VCS system %d is not available, please install it first" % (
-                    factory.name))
+                u"VCS system '%s' is not available, "
+                u"please install '%s' first" % (
+                    name, factory.package_name))
         return factory
 
 

@@ -12,7 +12,7 @@ class Subversion(VCS):
 
 
 class SubversionFactory(VCSFactory):
-    name = 'subversion'
+    package_name = 'subversion'
 
     def __init__(self):
         self.__available = have_cmd('svn', '--version')
