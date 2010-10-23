@@ -3,16 +3,17 @@ import os
 
 from zeam.setup.base.egginfo.read import read_pkg_requires, read_pkg_info
 from zeam.setup.base.egginfo.read import read_pkg_entry_points
-from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.version import Version
 
 
-class EggRelease(Release):
-    """A release already present in the environment packaged as an
-    egg.
-    """
+class EggLoader(object):
 
-    def __init__(self, path):
+    def __init__(self, distribution):
+        self.distribution = distribution
+
+    def load(self):
+        path = self.distribution.path
+
         egg_info = os.path.join(path, 'EGG-INFO')
         pkg_info = read_pkg_info(egg_info)
         self.name = pkg_info['name']
@@ -30,6 +31,3 @@ class EggRelease(Release):
         self.entry_points = read_pkg_entry_points(egg_info)
         self.requirements, self.extras = read_pkg_requires(egg_info)
 
-    def install(self, directory, interpretor, install_missing, archive=None):
-        install_missing(self.requirements)
-        return self

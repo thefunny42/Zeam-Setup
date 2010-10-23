@@ -1,10 +1,12 @@
 
 import os
+import operator
 
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name, get_option_with_default
-from zeam.setup.base.version import Requirement
-
+from zeam.setup.base.version import Requirements
+from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.installer import PackageInstaller
 
 SCRIPT_BODY = """
 import %(package)s
@@ -35,13 +37,10 @@ if _interactive:
 """
 
 
-def install_scripts(environment, config, package_name, args=None, wanted=None):
+def install_scripts(releases, package_name, directory, args=None, wanted=None):
     created_scripts = []
-    scripts = environment.list_entry_points('console_scripts', package_name)
-    python_executable = get_option_with_default(
-        'python_executable', config).as_text()
-    bin_directory = get_option_with_default(
-        'bin_directory', config).as_text()
+    scripts = releases.list_entry_points('console_scripts', package_name)
+    interpretor = releases.interpretor
 
     args = ', '.join(args)
 
@@ -49,11 +48,11 @@ def install_scripts(environment, config, package_name, args=None, wanted=None):
         if wanted and script_name not in wanted:
             continue
         package, callable = entry_point['destination'].split(':')
-        script_path = os.path.join(bin_directory, script_name)
+        script_path = os.path.join(directory, script_name)
         script_body = SCRIPT_BODY % {
             'args': args, 'package': package, 'callable': callable,}
-        created_scripts.append(environment.create_script(
-                script_path, script_body, executable=python_executable))
+        created_scripts.append(releases.create_script(
+                script_path, script_body, executable=interpretor))
     return created_scripts
 
 
@@ -61,30 +60,32 @@ class Package(Recipe):
     """Install console_scripts of a package.
     """
 
-    def __init__(self, environment, config):
-        super(Package, self).__init__(environment, config)
+    def __init__(self, configuration):
+        super(Package, self).__init__(configuration)
 
-        if 'packages' not in config:
-            self.packages = [get_package_name(config).as_text()]
+        if 'packages' not in configuration:
+            self.packages = [get_package_name(configuration).as_text()]
         else:
-            self.packages = config['packages'].as_list()
+            self.packages = configuration['packages'].as_list()
 
         self.wanted = []
-        if 'scripts' in config:
-            self.wanted = self.config['scripts'].as_list()
+        if 'scripts' in configuration:
+            self.wanted = configuration['scripts'].as_list()
 
         self.args = []
-        if 'args' in config:
-            self.args = self.config['args'].as_list()
+        if 'args' in configuration:
+            self.args = configuration['args'].as_list()
 
     def install(self):
-        scripts = []
-        for package in self.packages:
-            self.environment.install(Requirement.parse(package))
-            scripts.extend(install_scripts(
-                    self.environment, self.config, package,
-                    self.args, self.wanted))
-        return scripts
+        directory = get_option_with_default(
+            'bin_directory', self.configuration).as_text()
+        working_set = WorkingSet(get_option_with_default(
+                'python_executable', self.configuration).as_text())
+        installer = PackageInstaller(self.configuration, working_set)
+        installer(Requirements.parse(self.packages))
+        create_scripts = lambda p: install_scripts(
+            working_set, p, directory, self.args, self.wanted)
+        return reduce(operator.add, map(create_scripts, self.packages))
 
     def uninstall(self):
         pass
@@ -98,10 +99,10 @@ class Interpreter(Recipe):
 
     def install(self):
         python_executable = get_option_with_default(
-            'python_executable', self.config).as_text()
+            'python_executable', self.configuration).as_text()
         bin_directory = get_option_with_default(
-            'bin_directory', self.config).as_text()
-        script_path = os.path.join(bin_directory, self.config.name)
+            'bin_directory', self.configuration).as_text()
+        script_path = os.path.join(bin_directory, self.configuration.name)
         return [self.environment.create_script(
                 script_path, INTERPRETER_BODY, executable=python_executable)]
 

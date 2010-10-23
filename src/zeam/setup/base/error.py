@@ -1,15 +1,17 @@
 
 import logging
+import pdb
 import sys
+import threading
 import traceback
 
 logger = logging.getLogger('zeam.setup')
 
+__reporting_lock = threading.Lock()
 
-def create_error_report(filename='error.log'):
+def create_report(trace, filename='error.log'):
     """Log last error in a file.
     """
-    trace = sys.exc_info()[2]
     try:
         error_file = open(filename, 'w')
         traceback.print_tb(trace, None, error_file)
@@ -18,21 +20,39 @@ def create_error_report(filename='error.log'):
         pass
 
 
-def display_error(error):
+def report_error(debug=False, fatal=True):
     """Display the last error, and quit.
     """
-    logger.critical(u'\nAn error happened:')
-    exc_info = sys.exc_info()
-    trace = exc_info[2]
-    while trace is not None:
-        locals = trace.tb_frame.f_locals
-        if '__status__' in locals:
-            logger.critical(u'While: %s' % locals['__status__'])
-        trace = trace.tb_next
+    try:
+        __reporting_lock.acquire()
+        logger.critical(u'\nAn error happened:')
+        exc_info = sys.exc_info()
+        type, error, traceback = exc_info
+        while traceback is not None:
+            locals = traceback.tb_frame.f_locals
+            if '__status__' in locals:
+                logger.critical(u'While: %s' % locals['__status__'])
+            traceback = traceback.tb_next
 
-    create_error_report()
-    logger.critical(error.msg())
-    sys.exit(-1)
+        type, error, traceback = exc_info
+        if not debug:
+            create_report(traceback)
+
+        if debug:
+            logger.critical(u'\nDebuging error:')
+            pdb.post_mortem(traceback)
+            if fatal:
+                sys.exit(0)
+        else:
+            if issubclass(type, InstallationError):
+                logger.critical(error.msg())
+            else:
+                logger.critical(
+                    u'\nUnexpected error. Please contact vendor with error.log')
+            if fatal:
+                sys.exit(-1)
+    finally:
+        __reporting_lock.release()
 
 
 class InstallationError(Exception):

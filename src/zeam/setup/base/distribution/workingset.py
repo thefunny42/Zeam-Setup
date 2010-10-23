@@ -26,7 +26,10 @@ class PythonInterpreter(object):
     """Wrap and gives information about a python interpreter.
     """
 
+    INTERPRETERS = {}
+
     def __init__(self, path):
+        assert path is not None
         self.__path = path
         self.__version = get_cmd_output(
             path, "-c",
@@ -35,6 +38,19 @@ class PythonInterpreter(object):
         self.__platform = get_cmd_output(
             path, "-c",
             "print __import__('sys').platform")[0].strip()
+
+    @classmethod
+    def detect(cls, path=None):
+        if path is None:
+            path = sys.executable
+        if path in cls.INTERPRETERS:
+            return cls.INTERPRETERS[path]
+        interpreter = cls(path)
+        cls.INTERPRETERS[path] = interpreter
+        return interpreter
+
+    def __eq__(self, string):
+        return str(self) == string
 
     def __str__(self):
         return self.__path
@@ -56,25 +72,19 @@ class PythonInterpreter(object):
         return self.__platform
 
 
-class Environment(object):
+class WorkingSet(object):
     """Represent the set of release used together.
     """
 
-    def __init__(self, default_interpretor=None):
+    def __init__(self, interpretor=None):
         self.installed = {}
         self.__installer = None
-        self.default_interpretor = PythonInterpreter(default_interpretor)
+        self.interpretor = PythonInterpreter.detect(interpretor)
 
-        if self.default_interpretor == sys.executable:
+        if self.interpretor == sys.executable:
             for path in sys.path:
                 if os.path.isdir(os.path.join(path, 'EGG-INFO')):
                     self.add(EggRelease(path))
-
-    def set_installer(self, installer):
-        self.__installer = installer
-
-    def install(self, *packages):
-        return self.__installer.install(*packages)
 
     def add(self, release):
         """Try to add a new release in the environment.
@@ -130,18 +140,16 @@ class Environment(object):
                                           'name': package_name + ':' + name}
         return entry_points
 
-    def create_script(self, script_path, script_body, executable=None):
+    def create_script(self, script_path, script_body):
         """Create a script at the given path with the given body.
         """
-        if executable is None:
-            executable = self.default_interpretor
         logger.warning('Creating script %s' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
         printer.pprint(map(lambda r: r.path, self.installed.values()))
         script_fd = open(script_path, 'w')
         script_fd.write(SCRIPT_TEMPLATE % {
-                'executable': executable,
+                'executable': self.interpretor,
                 'modules_path': modules_path.getvalue(),
                 'script': script_body})
         script_fd.close()

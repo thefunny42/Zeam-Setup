@@ -60,6 +60,3 @@ class VCSRegistry(object):
                 u"please install '%s' first" % (
                     name, factory.package_name))
         return factory
-
-
-

@@ -1,66 +1,13 @@
 
-import bisect
 import logging
 import os
 import sys
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import PackageError, InstallationError
-from zeam.setup.base.version import Version, Requirement, Requirements
+from zeam.setup.base.version import Version, Requirements
 
 logger = logging.getLogger('zeam.setup')
-
-
-class Software(object):
-    """A software is composed by a list of release of the same
-    software.
-    """
-
-    def __init__(self, name, releases=None):
-        self.name = name
-        self.releases = releases
-        if self.releases is None:
-            self.releases = []
-        assert isinstance(self.releases, list), u"Releases must be a list"
-        self.releases.sort()
-
-    def add(self, release):
-        if release.name != self.name:
-            raise InstallationError(u'Invalid release added to collection')
-        bisect.insort(self.releases, release)
-
-    def get_most_recent_release(self):
-        """Return the most recent release.
-        """
-        # Since self.releases is sorted it should be the last one
-        return self.releases and self.releases[-1] or None
-
-    def get_releases_for(self, requirement, pyversion=None, platform=None):
-        """Filter out releases that doesn't match the criterias.
-        """
-
-        def releases_filter(release):
-            if release.pyversion is not None:
-                if pyversion != release.pyversion:
-                    return False
-            if release.platform is not None:
-                if platform != release.platform:
-                    return False
-            return requirement.match(release)
-
-        return self.__class__(
-            self.name, filter(releases_filter, self.releases))
-
-    def __getitem__(self, requirement):
-        if not isinstance(requirement, Requirement):
-            raise KeyError(requirement)
-        return self.get_releases_for(requirement)
-
-    def __len__(self):
-        return len(self.releases)
-
-    def __repr__(self):
-        return '<Software %s>' % self.name
 
 
 class Release(object):

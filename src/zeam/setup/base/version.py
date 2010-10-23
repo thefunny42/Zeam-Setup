@@ -106,12 +106,12 @@ class Version(object):
         return '%s.parse(%r)' % (self.__class__.__name__, self.__str__())
 
 
-def reduce_requirements(reqs):
+def reduce_requirements(*reqs):
     """Reduce a list of version requirements to a shorter one if possible.
     """
     # XXX there is probably a way to do it better.
     new_reqs = []
-    consume_reqs = list(reqs)
+    consume_reqs = reduce(operator.add, reqs)
     while len(consume_reqs):
         current = consume_reqs.pop()
         op, version = current
@@ -240,13 +240,22 @@ class Requirement(object):
             extras = frozenset(s.strip() for s in extras.split(','))
         return cls(groups['name'], version_requirements, extras)
 
-    def match(self, release):
-        if release.name != self.name:
+    def match(self, other):
+        if other.name != self.name:
             return False
         for op, version in self.versions:
-            if not op(release.version, version):
+            if not op(other.version, version):
                 return False
         return True
+
+    def is_compatible(self, other):
+        """Tells you if two requirement are compatible together. It
+        can return True, a merged requirement or raise an exception if
+        they are not compatible.
+        """
+        assert isinstance(other, Requirement)
+        if self.name != other.name:
+            return True
 
     def __str__(self):
         name = self.name
@@ -263,11 +272,9 @@ class Requirement(object):
     def __add__(self, other):
         if not isinstance(other, Requirement) or self.name != other.name:
             raise InvalidRequirement(other)
-        version_requirements = list(self.versions)
-        version_requirements.extend(other.versions)
         return self.__class__(
             self.name,
-            reduce_requirements(version_requirements),
+            reduce_requirements(self.versions, other.versions),
             self.extras | other.extras)
 
     def __repr__(self):
@@ -287,11 +294,12 @@ class Requirements(object):
     """
 
     def __init__(self, *requirements):
-        self.__requirements = dict((r.name, r) for r in requirements)
+        self.__order = [r.name for r in requirements]
+        self.__data = dict((r.name, r) for r in requirements)
 
     @property
     def requirements(self):
-        return self.__requirements.values()
+        return self.__data.values()
 
     @classmethod
     def parse(cls, requirements):
@@ -301,31 +309,57 @@ class Requirements(object):
 
         return cls(*map(Requirement.parse, requirements))
 
+    def append(self, requirement):
+        name = requirement.name
+        if name in self.__data:
+            self.__data[name] += requirement
+        else:
+            self.__data[name] = requirement
+            self.__order.append(name)
+
+    def remove(self, requirement):
+        name = requirement.name
+        del self.__data[name]
+        self.__order.remove(name)
+
+    def pop(self):
+        name = self.__order.pop(0)
+        requirement = self.__data[name]
+        del self.__data[name]
+        return requirement
+
+    def __contains__(self, requirement):
+        contained = self.__data.get(requirement.name)
+        if contained is not None:
+            reduce_requirements(requirement.versions, contained.versions)
+            return True
+        return False
+
     def __iter__(self):
-        return self.__requirements.itervalues()
+        return self.__data.itervalues()
 
     def __len__(self):
-        return len(self.__requirements)
+        return len(self.__order)
 
     def __str__(self):
         return '\n'.join(str(r) for name, r in
-                         sorted(self.__requirements.items(),
+                         sorted(self.__data.items(),
                                 key=operator.itemgetter(0)))
 
     def __add__(self, other):
         if not isinstance(other, Requirements):
             raise ValueError(other)
-        reqs = {}
-        for other_req in other.requirements:
-            other_name = other_req.name
-            if other_name in self.__requirements:
-                reqs[other_name] = self.__requirements[other_name] + other_req
+        merged = {}
+        for requirement in other.requirements:
+            name = requirement.name
+            if name in self.__data:
+                merged[name] = self.__data[name] + requirement
             else:
-                reqs[other_name] = other_req
-        for name, req in self.__requirements.iteritems():
-            if name not in reqs:
-                reqs[name] = req
-        return self.__class__(*reqs.values())
+                merged[name] = requirement
+        for name, requirement in self.__data.iteritems():
+            if name not in merged:
+                merged[name] = requirement
+        return self.__class__(*merged.values())
 
     def __repr__(self):
         return '<Requirements %s>' % ', '.join(map(str, self.requirements))

@@ -112,6 +112,28 @@ class SectionParser(object):
 marker = object()
 
 
+class Utilities(object):
+    """Utility registry.
+    """
+
+    def __init__(self, configuration):
+        self.__configuration = configuration
+        self.__utilities = {}
+        self.__factories = {}
+
+    def register(self, name, factory):
+        self.__factories[name] = factory
+
+    def __getattr__(self, key):
+        if key in self.__utilities:
+            return self.__utilities[key]
+        if key in self.__factories:
+            utility = self.__factories[key](self.__configuration)
+            self.__utilities[key] = utility
+            return utility
+        raise AttributeError(key)
+
+
 class Configuration(object):
     """Configuration.
     """
@@ -119,6 +141,7 @@ class Configuration(object):
     def __init__(self, location):
         self.__location = location
         self.sections = {}
+        self.utilities = Utilities(self)
 
     def get_cfg_directory(self):
         """Return the directory where the config file resides.
@@ -240,6 +263,10 @@ class Section(object):
         self.configuration = configuration
         self.__location = location
         self.options = {}
+
+    @property
+    def utilities(self):
+        return self.configuration.utilities
 
     @property
     def location(self):

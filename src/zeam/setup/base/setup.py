@@ -6,13 +6,13 @@ import shutil
 import socket
 import sys
 
+from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.configuration import Configuration
-from zeam.setup.base.distribution import Environment, DevelopmentRelease
 from zeam.setup.base.recipe.package import install_scripts
-from zeam.setup.base.error import InstallationError, display_error
-from zeam.setup.base.sources import Source, PackageInstaller
+from zeam.setup.base.error import InstallationError, report_error
 from zeam.setup.base.utils import create_directory
 from zeam.setup.base.version import Requirement
+from zeam.setup.base.sources import Sources
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
@@ -109,18 +109,7 @@ def bootstrap_cfg(config, options):
     if 'python_executable' not in setup:
         setup['python_executable'] = sys.executable
 
-    # Create an environment with develop packages
-    environment = Environment(setup['python_executable'].as_text())
-    if 'develop' in setup:
-        for path in setup['develop'].as_list():
-            environment.add(DevelopmentRelease(path=path))
-    # Add an installer
-    installer = PackageInstaller(
-        environment,
-        Source(config),
-        config['setup']['lib_directory'].as_text())
-    environment.set_installer(installer)
-    return environment
+    config.utilities.register('sources', Sources)
 
 
 def setup():
@@ -143,6 +132,9 @@ def setup():
         "-v", '--verbose', dest="verbosity", action="count", default=0,
         help="be verbose, use multiple times to increase verbosity level")
     parser.add_option(
+        "-d", '--debug', dest="debug", action='store_true',
+        help="debug installation system on unexpected errors")
+    parser.add_option(
         "-i", '--install', dest="install",
         help="install a given package in the environment")
 
@@ -156,20 +148,21 @@ def setup():
         logger.info(u'Reading default configuration')
         config += Configuration.read(get_default_cfg_path())
 
-        environment = bootstrap_cfg(config, options)
+        bootstrap_cfg(config, options)
         previous_config = None
         previous_cfg_path = get_previous_cfg_path(config)
         if os.path.isfile(previous_cfg_path):
             logger.info(u'Loading previous configuration')
             previous_config = Configuration.read(previous_cfg_path)
 
+        releases = WorkingSet()
         if options.install:
-            __status__ = u"Installing %s" % options.install
+            __status__ = u"Installing %s." % options.install
             requirement = Requirement.parse(options.install)
             environment.install(requirement)
             install_scripts(environment, config['setup'], requirement.name)
         else:
-            all_commands = environment.list_entry_points('setup_commands')
+            all_commands = releases.list_entry_points('setup_commands')
             if len(args):
                 command = all_commands.get(args[0], None)
                 if command is None:
@@ -178,14 +171,14 @@ def setup():
                 command = all_commands.get('default', None)
                 if command is None:
                     raise InstallationError(u'No command available')
-            command_class = environment.get_entry_point(
+            command_class = releases.get_entry_point(
                 'setup_commands', command['name'])
-            processor = command_class(config, environment)
+            processor = command_class(config)
             processor.run()
 
         zsetup_fd = open(previous_cfg_path, 'w')
         config.write(zsetup_fd)
         zsetup_fd.close()
 
-    except InstallationError, error:
-        display_error(error)
+    except Exception, error:
+        report_error(options.debug, True)

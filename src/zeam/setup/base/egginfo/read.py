@@ -119,4 +119,3 @@ def read_pkg_entry_points(path):
     if section_name is not None and points:
         entry_points[section_name] =  points
     return entry_points
-

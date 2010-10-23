@@ -167,8 +167,7 @@ class UninstalledRelease(Release):
         else:
             self.entry_points = read_pkg_entry_points(metadata_dir)
             self.requirements, self.extras = read_pkg_requires(metadata_dir)
-        for requirement in self.requirements:
-            install_missing(requirement)
+        install_missing(self.requirements)
 
         self.path = os.path.join(directory, self.get_install_base_directory())
         install_py_packages(self.path, source_dir, find_packages(source_dir))

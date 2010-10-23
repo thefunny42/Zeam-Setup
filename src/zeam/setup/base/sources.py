@@ -1,16 +1,16 @@
 
+
 import logging
 import os
 import re
 
-from zeam.setup.base.distribution import Software
+from zeam.setup.base.distribution.collection import ReleaseSet
 from zeam.setup.base.distribution.egg import EggRelease
 from zeam.setup.base.distribution.sources import (
     UninstalledRelease, UndownloadedRelease)
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links, create_directory
-from zeam.setup.base.version import Requirement
 from zeam.setup.base.vcs import VCS
 
 logger = logging.getLogger('zeam.setup')
@@ -68,55 +68,24 @@ def get_eggs_from_directory(source, directory):
             yield source.factory(full_filename)
 
 
-class AvailableSoftware(object):
-    """Represent the available software.
-    """
-
-    def __init__(self):
-        self.software = {}
-
-    def add(self, release):
-        """Add a software to the available ones.
-        """
-        software = self.software.setdefault(
-            release.name, Software(release.name))
-        software.add(release)
-
-    def extend(self, releases):
-        """Extend the available software by adding a list of releases to it.
-        """
-        for release in releases:
-            self.add(release)
-
-    def __getitem__(self, key):
-        if isinstance(key, Requirement):
-            return self.software[key.name][key]
-        return self.software[key]
-
-    def get_releases_for(self, requirement, pyversion=None, platform=None):
-        if not requirement.name in self.software:
-            return []
-        return self.software[requirement.name].get_releases_for(
-            requirement, pyversion=pyversion, platform=platform)
-
 
 class RemoteSource(object):
     """Download software from da internet, in order to install it.
     """
     factory = UndownloadedRelease
 
-    def __init__(self, config):
-        self.config = config
-        self.find_links = config['urls'].as_list()
-        self.max_depth = config.get('max_depth', '3').as_int()
+    def __init__(self, options):
+        self.options = options
+        self.find_links = options['urls'].as_list()
+        self.max_depth = options.get('max_depth', '3').as_int()
         self.links = {}
-        self.software = AvailableSoftware()
+        self.software = ReleaseSet()
         self.downloader = DownloadManager(self.get_download_directory())
 
     def get_download_directory(self):
         """Return the created download directory.
         """
-        directory = self.config['download_directory'].as_text()
+        directory = self.options['download_directory'].as_text()
         create_directory(directory)
         return directory
 
@@ -146,8 +115,11 @@ class RemoteSource(object):
                 requirement, links[requirement.name], interpretor, depth + 1)
         return None
 
-    def available(self, config):
-        setup_config = config['setup']
+    def initialize(self):
+        pass
+
+    def available(self, configuration):
+        setup_config = configuration['setup']
         offline = 'offline' in setup_config and \
             setup_config['offline'].as_bool()
         return not offline
@@ -174,28 +146,23 @@ class LocalSource(object):
     type = 'Archive Source'
     finder = get_releases_from_directory
 
-    def __init__(self, config):
-        self.config = config
-        self.path = config['directory'].as_text()
-        self.software = AvailableSoftware()
-        self.__loaded = False
+    def __init__(self, options):
+        __status__ = u"Initializing local software sourcs."
+        self.options = options
+        self.path = options['directory'].as_text()
+        self.software = ReleaseSet()
 
-    def load(self):
-        """Internally load available archives in the directory.
-        """
-        if self.__loaded:
-            return
+    def initialize(self):
+        __status__ = u"Analysing local software source %s." % self.path
         create_directory(self.path)
         self.software.extend(self.finder(self.path))
-        self.__loaded = True
 
-    def available(self, config):
+    def available(self, configuration):
         return True
 
     def search(self, requirement, interpretor):
-        __status__ = u"Locating local source for %s in %s" % (
+        __status__ = u"Locating local source for %s in %s." % (
             requirement, self.path)
-        self.load()
         pyversion = interpretor.get_pyversion()
         platform = interpretor.get_platform()
         packages = self.software.get_releases_for(
@@ -221,14 +188,17 @@ class VCSSource(object):
     control system.
     """
 
-    def __init__(self, config):
+    def __init__(self, options):
         __status__ = u"Initializing remote development sources."
-        self.config = config
-        self.directory = config['directory'].as_text()
+        self.options = options
+        self.directory = options['directory'].as_text()
         self.sources = {}
-        self.enabled = config['available'].as_list()
-        for section_name in config['sources'].as_list():
-            section = config.configuration['vcs:' + section_name]
+        self.enabled = options['available'].as_list()
+
+    def initialize(self):
+        __status__ = u"Preparing remote development sources."
+        for section_name in self.options['sources'].as_list():
+            section = self.options.configuration['vcs:' + section_name]
             for package_name, source_info in section.items():
                 parsed_source_info = source_info.as_words()
                 if len(parsed_source_info) < 2:
@@ -241,7 +211,7 @@ class VCSSource(object):
                 directory = os.path.join(self.directory, package_name)
                 self.sources[package_name] = vcs(uri, directory)
 
-    def available(self, config):
+    def available(self, configuration):
         # This source provider is always available
         return True
 
@@ -265,28 +235,36 @@ SOURCE_PROVIDERS = {'local': LocalSource,
                     'eggs': EggsSource,
                     'vcs': VCSSource}
 
-class Source(object):
+class Sources(object):
     """This manage software sources.
     """
 
-    def __init__(self, config, section_name='setup'):
+    def __init__(self, configuration, section_name='setup'):
         __status__ = u"Initializing software sources."
         self.sources = []
-        self.config = config
-        for source_name in config[section_name]['sources'].as_list():
-            source_config = config['source:' + source_name]
+        self.configuration = configuration
+        for source_name in configuration[section_name]['sources'].as_list():
+            source_config = configuration['source:' + source_name]
             type = source_config['type'].as_text()
             if type not in SOURCE_PROVIDERS:
                 raise ConfigurationError(
                     u'Unknow source type %s for %s' % (
                         type, source_name))
             self.sources.append(SOURCE_PROVIDERS[type](source_config))
+        self.__initialized = False
+
+    def initialize(self):
+        if self.__initialized:
+            return
+        for source in self.sources:
+            source.initialize()
+        self.__initialized = True
 
     def search(self, requirement, interpretor):
         """Search of a given package at the given location.
         """
         for source in self.sources:
-            if not source.available(self.config):
+            if not source.available(self.configuration):
                 continue
             try:
                 return source.search(requirement, interpretor)
@@ -296,41 +274,4 @@ class Source(object):
 
     def __repr__(self):
         return '<Source %s>' % ', '.join(map(repr, self.sources))
-
-
-class PackageInstaller(object):
-    """Install new packages.
-    """
-
-    def __init__(self, environment, source, target_directory):
-        self.environment = environment
-        self.source = source
-        self.target_directory = os.path.abspath(target_directory)
-        self.newly_installed = dict()
-
-    def install(self, requirement):
-        """Install the given package name in the directory.
-        """
-        if requirement in self.newly_installed:
-            return self.newly_installed[requirement]
-        if requirement.name in self.environment.installed:
-            # XXX Review this
-            return self.environment.installed
-        candidate_packages = self.source.search(
-            requirement, self.environment.default_interpretor)
-        logger.debug(u"Package versions found for %s: %s." % (
-                requirement.name,
-                ', '.join(map(lambda p: str(p.version),
-                              candidate_packages.releases))))
-        source_package = candidate_packages.get_most_recent_release()
-        logger.info(u"Picking version %s for %s." % (
-                str(source_package.version), requirement.name))
-        installed_package = source_package.install(
-            self.target_directory,
-            self.environment.default_interpretor,
-            self.install)
-        self.newly_installed[requirement] = installed_package
-        if installed_package:
-            self.environment.add(installed_package)
-        return installed_package
 
