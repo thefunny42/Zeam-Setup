@@ -6,17 +6,25 @@ import sys
 import parser
 import types
 
+
 def export_setup(export_name, stream, increment_name=False):
     names = []
+
     def setup(*args, **kwargs):
         config = ConfigParser.ConfigParser()
+
+        def serialize_value(value):
+            if isinstance(value, list) or isinstance(value, tuple):
+                return ', '.join(map(str, value))
+            return str(value)
+
         def serialize(name, data):
             config.add_section(name)
             for key, value in data.items():
                 if not key:
                     key = '_'
-                if isinstance(value, list):
-                    value = '\n'.join(map(str, value))
+                if isinstance(value, list) or isinstance(value, tuple):
+                    value = '\n'.join(map(serialize_value, value))
                 if isinstance(value, dict):
                     sub_name = 'section:' + key
                     config.set(name, key, sub_name)
@@ -30,9 +38,10 @@ def export_setup(export_name, stream, increment_name=False):
             names.append(name)
         serialize(name, kwargs)
         if args:
-            serialize(name + ':args', {'args': args})
+            serialize(name + ':args', {'_': args})
         config.write(stream)
         return name
+
     return setup
 
 
@@ -96,7 +105,7 @@ def unsetuptoolize(filename='setup.py'):
 
     # Include script output and error output
     config = ConfigParser.ConfigParser()
-    config.add_section('info')
+    config.add_section('dump:info')
     sys.stdout.flush()
     script_out.seek(0)
     config.set('info', 'stdout', script_out.read())

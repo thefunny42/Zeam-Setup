@@ -47,6 +47,35 @@ def compile_py_files(source_dir):
         elif os.path.isdir(source_path):
             compile_py_files(source_path)
 
+def find_extensions(package_dir, source_prefix, section):
+    if 'ext_modules' not in section:
+        return
+    libraries = []
+    configuration = section.configuration
+    for name in section['ext_modules'].as_list():
+        ext_section =  configuration[name]
+        if 'name' in ext_section:
+            name = ext_section['name'].as_text()
+            sources = ext_section['sources'].as_list()
+        else:
+            args_section = configuration[name + ':args']
+            name, sources = args_section['_'].as_list()
+            sources = map(lambda s: s.strip(), sources.split(','))
+        name = name.replace('.', '/')
+        if source_prefix:
+            name = '/'.join((source_prefix, name))
+        depends = []
+        if 'depends' in ext_section:
+            depends = ext_section['depends'].as_list()
+        includes = []
+        if 'include_dirs' in ext_section:
+            includes = ext_section['include_dirs'].as_list()
+        libraries.append({'name':  name,
+                          'sources': sources,
+                          'depends': depends,
+                          'includes': includes})
+    return libraries
+
 
 def find_packages(source_dir):
     """Return a list of package contained in the given directory.
@@ -69,6 +98,7 @@ def install_py_packages(target_dir, source_dir, packages):
             os.path.join(source_dir, package), target_package_dir)
         compile_py_files(target_package_dir)
 
+from zeam.setup.base.distribution.autotools import create_autotools
 
 class UninstalledRelease(Release):
     """A release that you can install.
@@ -156,8 +186,9 @@ class UninstalledRelease(Release):
                 package_config = config[
                     setuptool_config['package_dir'].as_text()]
                 if '_' in package_config:
+                    source_prefix = package_config['_'].as_text()
                     source_dir = os.path.join(
-                        source_location, package_config['_'].as_text())
+                        source_location, source_prefix)
             if 'license' in setuptool_config:
                 self.license = setuptool_config['license'].as_text()
             if 'author' in setuptool_config:
@@ -167,6 +198,11 @@ class UninstalledRelease(Release):
         else:
             self.entry_points = read_pkg_entry_points(metadata_dir)
             self.requirements, self.extras = read_pkg_requires(metadata_dir)
+        if self.name == 'ZODB3':
+            libraries = find_extensions(
+                source_location, source_prefix, setuptool_config)
+            create_autotools(source_location, source_prefix, self, libraries)
+
         install_missing(self.requirements)
 
         self.path = os.path.join(directory, self.get_install_base_directory())

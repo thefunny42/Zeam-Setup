@@ -37,10 +37,11 @@ if _interactive:
 """
 
 
-def install_scripts(releases, package_name, directory, args=None, wanted=None):
+def install_scripts(
+    working_set, package_name, directory, args=None, wanted=None):
     created_scripts = []
-    scripts = releases.list_entry_points('console_scripts', package_name)
-    interpretor = releases.interpretor
+    scripts = working_set.list_entry_points('console_scripts', package_name)
+    interpretor = working_set.interpretor
 
     args = ', '.join(args)
 
@@ -50,8 +51,8 @@ def install_scripts(releases, package_name, directory, args=None, wanted=None):
         package, callable = entry_point['destination'].split(':')
         script_path = os.path.join(directory, script_name)
         script_body = SCRIPT_BODY % {
-            'args': args, 'package': package, 'callable': callable,}
-        created_scripts.append(releases.create_script(
+            'args': args, 'package': package, 'callable': callable}
+        created_scripts.append(working_set.create_script(
                 script_path, script_body, executable=interpretor))
     return created_scripts
 
