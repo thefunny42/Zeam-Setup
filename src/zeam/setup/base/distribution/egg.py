@@ -30,6 +30,3 @@ class EggRelease(Release):
         self.entry_points = read_pkg_entry_points(egg_info)
         self.requirements, self.extras = read_pkg_requires(egg_info)
 
-    def install(self, directory, interpretor, install_missing, archive=None):
-        install_missing(self.requirements)
-        return self

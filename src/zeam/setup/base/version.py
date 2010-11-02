@@ -240,11 +240,14 @@ class Requirement(object):
             extras = frozenset(s.strip() for s in extras.split(','))
         return cls(groups['name'], version_requirements, extras)
 
-    def match(self, other):
-        if other.name != self.name:
+    def match(self, release):
+        """Tells you if the given release match the requirement of
+        not.
+        """
+        if release.name != self.name:
             return False
         for op, version in self.versions:
-            if not op(other.version, version):
+            if not op(release.version, version):
                 return False
         return True
 

@@ -4,17 +4,6 @@ import os
 from zeam.setup.base.vcs.error import VCSConfigurationError, VCSError
 
 
-class VCSFactory(object):
-    """Create a new instance of a VCS worker.
-    """
-
-    def available(self):
-        raise NotImplementedError()
-
-    def __call__(self, uri, directory):
-        raise NotImplementedError()
-
-
 class VCS(object):
     """Base API to access a project in a VCS.
     """
@@ -39,6 +28,35 @@ class VCS(object):
 
     def update(self):
         raise NotImplementedError()
+
+
+class VCSFactory(object):
+    """Create a new instance of a VCS worker.
+    """
+
+    def available(self):
+        raise NotImplementedError()
+
+    def __call__(self, uri, directory):
+        raise NotImplementedError()
+
+
+class Develop(VCS):
+    """Develop VCS: no VCS, just do a symlink to the sources
+    """
+
+    def install(self):
+        if not os.path.exists(self.directory):
+            os.symlink(os.path.abspath(self.uri), self.directory)
+
+
+class DevelopFactory(VCSFactory):
+
+    def available(self):
+        return True
+
+    def __call__(self, uri, directory):
+        return Develop(uri, directory)
 
 
 class VCSRegistry(object):

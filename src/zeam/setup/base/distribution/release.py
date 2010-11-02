@@ -40,6 +40,10 @@ class Release(object):
     def __eq__(self, other):
         return self.version == other
 
+    def install(self, directory, interpretor, install_missing, archive=None):
+        install_missing(self.requirements)
+        return self
+
     def is_active(self):
         """Return true of the release is currently usable by the
         current process.
@@ -92,6 +96,7 @@ class Release(object):
     def __repr__(self):
         return '<%s for %s version %s>' % (
             self.__class__.__name__, self.name, self.version)
+
 
 
 class DevelopmentRelease(Release):

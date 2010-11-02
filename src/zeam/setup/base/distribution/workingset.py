@@ -8,6 +8,7 @@ import pprint
 
 from zeam.setup.base.distribution.egg import EggRelease
 from zeam.setup.base.distribution.release import Release
+from zeam.setup.base.version import Requirement, IncompatibleRequirement
 from zeam.setup.base.error import PackageError, InstallationError
 from zeam.setup.base.utils import get_cmd_output
 
@@ -85,6 +86,18 @@ class WorkingSet(object):
             for path in sys.path:
                 if os.path.isdir(os.path.join(path, 'EGG-INFO')):
                     self.add(EggRelease(path))
+
+    def __contains__(self, other):
+        if isinstance(other, Requirement):
+            release = self.installed.get(other.name)
+            if release is not None:
+                if not other.match(release):
+                    raise IncompatibleRequirement(other, release)
+                return True
+            return False
+        if isinstance(other, basestring):
+            return other in self.__installed
+        raise ValueError(other)
 
     def add(self, release):
         """Try to add a new release in the environment.

@@ -26,6 +26,7 @@ def create_makefile_am(working_dir, makefile_dir, sub_dirs, libraries):
     if makefile_dir in libraries:
         for library in libraries:
             name = os.path.basename(library['name'])
+            makefile.write("%s_SOURCES = %s\n" % library)
     makefile.close()
 
 def create_autotools(package_dir, source_prefix, egg, extensions):

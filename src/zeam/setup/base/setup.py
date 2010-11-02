@@ -8,10 +8,10 @@ import sys
 
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.configuration import Configuration
-from zeam.setup.base.recipe.package import install_scripts
 from zeam.setup.base.error import InstallationError, report_error
+from zeam.setup.base.recipe.commands import Installer
+from zeam.setup.base.egginfo.commands import EggInfo
 from zeam.setup.base.utils import create_directory
-from zeam.setup.base.version import Requirement
 from zeam.setup.base.sources import Sources
 
 DEFAULT_CONFIG_DIR = '.zsetup'
@@ -112,73 +112,94 @@ def bootstrap_cfg(config, options):
     config.utilities.register('sources', Sources)
 
 
-def setup():
-    """Main entry point of the setup script.
+class BootstrapCommand(object):
+    """Basic command to bootstrap the project.
     """
-    parser = OptionParser()
-    parser.add_option(
-        "-c", "--configuration", dest="config", default='setup.cfg',
-        help="configuration file to use (default to setup.cfg)")
-    parser.add_option(
-        "-p", "--prefix", dest="prefix",
-        help="prefix directory for installation")
-    parser.add_option(
-        "-o", "--offline", dest="offline", action="store_true",
-        help="run without network access")
-    parser.add_option(
-        "-t", "--timeout", dest="timeout", type="int",
-        help="timeout on network access")
-    parser.add_option(
-        "-v", '--verbose', dest="verbosity", action="count", default=0,
-        help="be verbose, use multiple times to increase verbosity level")
-    parser.add_option(
-        "-d", '--debug', dest="debug", action='store_true',
-        help="debug installation system on unexpected errors")
-    parser.add_option(
-        "-i", '--install', dest="install",
-        help="install a given package in the environment")
 
-    (options, args) = parser.parse_args()
-    logger.addHandler(logging.StreamHandler(sys.stdout))
-    logger.setLevel(VERBOSE_LVL(options.verbosity))
+    def options(self):
+        parser = OptionParser()
+        parser.add_option(
+            "-c", "--configuration", dest="config", default='setup.cfg',
+            help="configuration file to use (default to setup.cfg)")
+        parser.add_option(
+            "-p", "--prefix", dest="prefix",
+            help="prefix directory for installation")
+        parser.add_option(
+            "-o", "--offline", dest="offline", action="store_true",
+            help="run without network access")
+        parser.add_option(
+            "-t", "--timeout", dest="timeout", type="int",
+            help="timeout on network access")
+        parser.add_option(
+            "-v", '--verbose', dest="verbosity", action="count", default=0,
+            help="be verbose, use multiple times to increase verbosity level")
+        parser.add_option(
+            "-d", '--debug', dest="debug", action='store_true',
+            help="debug installation system on unexpected errors")
+        parser.add_option(
+            "-i", '--install', dest="install",
+            help="install a given package in the environment")
+        return parser
 
-    try:
-        logger.info(u'Reading configuration %s' % options.config)
-        config = Configuration.read(options.config)
-        logger.info(u'Reading default configuration')
-        config += Configuration.read(get_default_cfg_path())
+    def command(self, configuration, options, args):
+        """Pick a command and run it.
+        """
+        EggInfo(configuration).run()
+        Installer(configuration).run()
 
-        bootstrap_cfg(config, options)
-        previous_config = None
-        previous_cfg_path = get_previous_cfg_path(config)
-        if os.path.isfile(previous_cfg_path):
-            logger.info(u'Loading previous configuration')
-            previous_config = Configuration.read(previous_cfg_path)
+    def run(self):
+        """Main entry point of the setup script.
+        """
+        parser = self.options()
+        (options, args) = parser.parse_args()
+        logger.addHandler(logging.StreamHandler(sys.stdout))
+        logger.setLevel(VERBOSE_LVL(options.verbosity))
 
-        releases = WorkingSet()
-        if options.install:
-            __status__ = u"Installing %s." % options.install
-            requirement = Requirement.parse(options.install)
-            environment.install(requirement)
-            install_scripts(environment, config['setup'], requirement.name)
+        try:
+            logger.info(u'Reading configuration %s' % options.config)
+            configuration = Configuration.read(options.config)
+            logger.info(u'Reading default configuration')
+            configuration += Configuration.read(get_default_cfg_path())
+
+            bootstrap_cfg(configuration, options)
+            previous_config = None
+            previous_cfg_path = get_previous_cfg_path(configuration)
+            if os.path.isfile(previous_cfg_path):
+                logger.info(u'Loading previous configuration')
+                previous_config = Configuration.read(previous_cfg_path)
+
+            self.command(configuration, options, args)
+
+            zsetup_fd = open(previous_cfg_path, 'w')
+            configuration.write(zsetup_fd)
+            zsetup_fd.close()
+
+        except Exception, error:
+            report_error(options.debug, True)
+
+
+class SetupCommand(BootstrapCommand):
+    """Setup command.
+    """
+
+    def command(self, configuration, options, args):
+        """Pick a command and run it.
+        """
+        environment = WorkingSet()
+        all_commands = environment.list_entry_points('setup_commands')
+        if len(args):
+            command = all_commands.get(args[0], None)
+            if command is None:
+                raise InstallationError(u'Unknow command %s' % args[0])
         else:
-            all_commands = releases.list_entry_points('setup_commands')
-            if len(args):
-                command = all_commands.get(args[0], None)
-                if command is None:
-                    raise InstallationError(u'Unknow command %s' % args[0])
-            else:
-                command = all_commands.get('default', None)
-                if command is None:
-                    raise InstallationError(u'No command available')
-            command_class = releases.get_entry_point(
-                'setup_commands', command['name'])
-            processor = command_class(config)
-            processor.run()
+            command = all_commands.get('default', None)
+            if command is None:
+                raise InstallationError(u'No command available')
+        command_class = environment.get_entry_point(
+            'setup_commands', command['name'])
+        processor = command_class(configuration)
+        processor.run()
 
-        zsetup_fd = open(previous_cfg_path, 'w')
-        config.write(zsetup_fd)
-        zsetup_fd.close()
 
-    except Exception, error:
-        report_error(options.debug, True)
+def setup():
+    SetupCommand().run()

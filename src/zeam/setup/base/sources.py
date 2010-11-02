@@ -1,13 +1,13 @@
 
-
 import logging
 import os
 import re
 
-from zeam.setup.base.distribution.collection import ReleaseSet
+from zeam.setup.base.distribution.collection import ReleaseSet, ReleaseGroup
 from zeam.setup.base.distribution.egg import EggRelease
 from zeam.setup.base.distribution.sources import (
     UninstalledRelease, UndownloadedRelease)
+from zeam.setup.base.distribution.release import DevelopmentRelease
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links, create_directory
@@ -66,7 +66,6 @@ def get_eggs_from_directory(source, directory):
         info = RELEASE_TARBALL.match(full_filename)
         if info:
             yield source.factory(full_filename)
-
 
 
 class RemoteSource(object):
@@ -193,10 +192,13 @@ class VCSSource(object):
         self.options = options
         self.directory = options['directory'].as_text()
         self.sources = {}
-        self.enabled = options['available'].as_list()
+        self.enabled = None
+        if 'available' in options:
+            self.enabled = options['available'].as_list()
 
     def initialize(self):
         __status__ = u"Preparing remote development sources."
+        create_directory(self.directory)
         for section_name in self.options['sources'].as_list():
             section = self.options.configuration['vcs:' + section_name]
             for package_name, source_info in section.items():
@@ -217,13 +219,14 @@ class VCSSource(object):
 
     def search(self, requirement, interpretor):
         name = requirement.name
-        if name in self.enabled:
+        if not self.enabled or name in self.enabled:
             if name not in self.sources:
                 raise ConfigurationError(
                     u"Package %s is marked as available with a VCS source, "
                     u"but no VCS source is configured for it" % name)
             source = self.sources[name]
             source.install()
+            return ReleaseGroup(name, [DevelopmentRelease(source.directory)])
         raise PackageNotFound(requirement)
 
     def __repr__(self):

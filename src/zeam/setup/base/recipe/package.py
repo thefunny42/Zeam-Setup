@@ -52,8 +52,8 @@ def install_scripts(
         script_path = os.path.join(directory, script_name)
         script_body = SCRIPT_BODY % {
             'args': args, 'package': package, 'callable': callable}
-        created_scripts.append(working_set.create_script(
-                script_path, script_body, executable=interpretor))
+        created_scripts.append(
+            working_set.create_script(script_path, script_body))
     return created_scripts
 
 
@@ -93,19 +93,21 @@ class Package(Recipe):
 
 
 
-class Interpreter(Recipe):
+class Interpreter(Package):
     """Create an python interpreter able to run the current
     environment.
     """
 
     def install(self):
-        python_executable = get_option_with_default(
-            'python_executable', self.configuration).as_text()
-        bin_directory = get_option_with_default(
+        directory = get_option_with_default(
             'bin_directory', self.configuration).as_text()
-        script_path = os.path.join(bin_directory, self.configuration.name)
-        return [self.environment.create_script(
-                script_path, INTERPRETER_BODY, executable=python_executable)]
+        python_executable = get_option_with_default(
+                'python_executable', self.configuration).as_text()
+        working_set = WorkingSet(python_executable)
+        installer = PackageInstaller(self.configuration, working_set)
+        installer(Requirements.parse(self.packages))
+        script_path = os.path.join(directory, self.configuration.name)
+        return [working_set.create_script(script_path, INTERPRETER_BODY)]
 
     def uninstall(self):
         pass

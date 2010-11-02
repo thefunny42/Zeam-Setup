@@ -78,6 +78,8 @@ class PackageInstaller(object):
         self.__lock.acquire()
         worker_need_wake_up = len(self.__to_install) == 0
         for requirement in requirements:
+            if requirement in self.working_set:
+                continue
             if requirement in self.__installed:
                 continue
             if requirement in self.__being_installed:
@@ -96,17 +98,20 @@ class PackageInstaller(object):
         __status__ = u"Installing %r." % (requirements)
         if target_directory is None:
             target_directory = self.__lib_directory
-        self.__to_install += requirements
-        self.sources.initialize()
-        workers = []
-        for count in range(self.__worker_count):
-            worker = PackageInstallerWorker(self, target_directory)
-            worker.start()
-            workers.append(worker)
-        for worker in workers:
-            worker.join()
-        if self.__installation_failed is not None:
-            raise self.__installation_failed
+        for requirement in requirements:
+            if requirement not in self.working_set:
+                self.__to_install.append(requirement)
+        if self.__to_install:
+            self.sources.initialize()
+            workers = []
+            for count in range(self.__worker_count):
+                worker = PackageInstallerWorker(self, target_directory)
+                worker.start()
+                workers.append(worker)
+            for worker in workers:
+                worker.join()
+            if self.__installation_failed is not None:
+                raise self.__installation_failed
 
 
 class PackageInstallerWorker(threading.Thread):
