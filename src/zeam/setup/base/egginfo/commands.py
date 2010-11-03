@@ -3,7 +3,6 @@ import logging
 import sys
 
 from zeam.setup.base.distribution.workingset import WorkingSet
-from zeam.setup.base.distribution.release import DevelopmentRelease
 from zeam.setup.base.egginfo.write import write_egg_info
 
 logger = logging.getLogger('zeam.setup')
@@ -15,10 +14,9 @@ class EggInfo(object):
 
     def __init__(self, configuration):
         self.configuration = configuration
-        self.package = DevelopmentRelease(config=configuration)
 
     def run(self):
-        write_egg_info(self.package)
+        write_egg_info(self.configuration.utilities.package)
 
 
 class Installed(object):

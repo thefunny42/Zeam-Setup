@@ -4,7 +4,8 @@ import operator
 
 VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
 VERSION_REPLACE = {
-    'pre':'c', 'preview':'c', '-':'final-', 'post': 'final-', 'rc':'c'}.get
+    'alpha': 'a', 'beta': 'b', 'pre':'c', 'preview':'c', '-':'final-',
+    'post': 'final-', 'rc':'c'}.get
 REQUIREMENT_NAME_PARSE = re.compile(
     r'^(?P<name>[\w.]+)\s*(\[(?P<extras>[\w\s.,]+)\])?\s*(?P<requirements>.*)$')
 REQUIREMENT_VERSION_PARSE = re.compile(
@@ -36,9 +37,14 @@ class Version(object):
         self.version = version
 
     @classmethod
-    def parse(klass, version):
-        # This algo comes from setuptools
+    def parse(cls, version):
+        if not version:
+            return None
+        if isinstance(version, cls):
+            return version
+
         def split_version_in_parts():
+            # This comes from setuptools
             for part in VERSION_PARTS.split(version.lower()):
                 if not part or part == '.':
                     continue
@@ -65,7 +71,7 @@ class Version(object):
                            and parsed_version[-1] == '00000000'):
                         parsed_version.pop()
             parsed_version.append(part)
-        return klass(*parsed_version)
+        return cls(*parsed_version)
 
     def __lt__(self, other):
         return self.version < other

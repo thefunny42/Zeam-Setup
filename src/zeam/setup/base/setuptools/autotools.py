@@ -29,7 +29,8 @@ def create_makefile_am(working_dir, makefile_dir, sub_dirs, libraries):
             makefile.write("%s_SOURCES = %s\n" % library)
     makefile.close()
 
-def create_autotools(package_dir, source_prefix, egg, extensions):
+
+def create_autotools(distribution, source_prefix, extensions):
     makefiles = []
     libraries = {}
     sub_dirs = {}
@@ -54,14 +55,15 @@ def create_autotools(package_dir, source_prefix, egg, extensions):
             sub_dirs.setdefault(sub_dir, set()).add(parts[index])
     makefiles.sort()
 
-    configure_info = {'project_name': egg.name,
-                      'project_version': egg.version,
+    configure_info = {'project_name': distribution.name,
+                      'project_version': distribution.version,
                       'source_prefix': source_prefix,
                       'makefiles': ' '.join(makefiles)}
 
-    configure_ac = open(os.path.join(package_dir, 'configure.ac'), 'w')
+    configure_ac = open(os.path.join(
+            distribution.package_path, 'configure.ac'), 'w')
     configure_ac.write(CONFIGURE_AC_TEMPLATE % configure_info)
     configure_ac.close()
 
-    import pdb ; pdb.set_trace()
+
 

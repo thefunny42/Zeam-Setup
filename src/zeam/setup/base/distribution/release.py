@@ -1,11 +1,9 @@
 
 import logging
-import os
 import sys
 
-from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import PackageError, InstallationError
-from zeam.setup.base.version import Version, Requirements
+from zeam.setup.base.version import Version
 
 logger = logging.getLogger('zeam.setup')
 
@@ -14,7 +12,8 @@ class Release(object):
     """Represent a release of a software.
     """
 
-    def __init__(self, name, version, pyversion=None, platform=None):
+    def __init__(self, name=None, version=None, path=None,
+                 pyversion=None, platform=None, url=None, format=None):
         self.name = name
         self.version = Version.parse(version)
         self.summary = ''
@@ -22,11 +21,12 @@ class Release(object):
         self.author_email = ''
         self.license = ''
         self.classifiers = []
-        self.format = None
-        self.url = None
+        self.format = format
+        self.url = url
         self.pyversion = pyversion
         self.platform = platform
-        self.path = None
+        self.path = path
+        self.package_path = path
         self.entry_points = {}
         self.requirements = []
         self.extras = {}
@@ -39,10 +39,6 @@ class Release(object):
 
     def __eq__(self, other):
         return self.version == other
-
-    def install(self, directory, interpretor, install_missing, archive=None):
-        install_missing(self.requirements)
-        return self
 
     def is_active(self):
         """Return true of the release is currently usable by the
@@ -96,61 +92,5 @@ class Release(object):
     def __repr__(self):
         return '<%s for %s version %s>' % (
             self.__class__.__name__, self.name, self.version)
-
-
-
-class DevelopmentRelease(Release):
-    """A development release located on the file system.
-    """
-
-    def __init__(self, path=None, config=None):
-        if config is None:
-            if path is not None:
-                config = self.__load_egg_config(path)
-            else:
-                raise PackageError(
-                    u'Need a path or a config to create a development release')
-        elif path is None:
-            path = config.get_cfg_directory()
-        self.__load_egg_info(config, path)
-
-    def __load_egg_config(self, path):
-        path = os.path.abspath(path)
-        setup_cfg_path = os.path.join(path, 'setup.cfg')
-        if not os.path.isfile(setup_cfg_path):
-            raise PackageError(path, 'No setup.cfg information')
-        return Configuration.read(setup_cfg_path)
-
-    def __load_egg_info(self, config, path):
-        egginfo = config['egginfo']
-
-        self.name = egginfo['name'].as_text()
-        self.version = Version.parse(egginfo['version'].as_text())
-        self.summary = egginfo.get('summary', '').as_text()
-        self.author = egginfo.get('author', '').as_text()
-        self.author_email = egginfo.get('author_email', '').as_text()
-        self.license = egginfo.get('license', '').as_text()
-        self.classifiers = egginfo.get('classifier', '').as_list()
-        self.format = None
-        self.url = path
-        self.pyversion = None
-        self.platform = None
-        self.requirements = Requirements.parse(
-            egginfo.get('requires', '').as_list())
-        self.extras = {}
-
-        # Source path of the extension
-        source_path = os.path.join(path, egginfo.get('source', '.').as_text())
-        if not os.path.isdir(source_path):
-            raise PackageError(path, 'Invalid source path "%s"' % source_path)
-        self.path = os.path.abspath(source_path)
-
-        # Entry points
-        self.entry_points = {}
-        entry_points = egginfo.get('entry_points', None)
-        if entry_points is not None:
-            for category_name in entry_points.as_list():
-                info = config['entry_points:' + category_name]
-                self.entry_points[category_name] = info.as_dict()
 
 

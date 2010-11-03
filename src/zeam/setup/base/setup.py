@@ -7,12 +7,13 @@ import socket
 import sys
 
 from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.distribution.loader import current_package
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import InstallationError, report_error
 from zeam.setup.base.recipe.commands import Installer
 from zeam.setup.base.egginfo.commands import EggInfo
 from zeam.setup.base.utils import create_directory
-from zeam.setup.base.sources import Sources
+from zeam.setup.base.sources.sources import Sources
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
@@ -110,6 +111,7 @@ def bootstrap_cfg(config, options):
         setup['python_executable'] = sys.executable
 
     config.utilities.register('sources', Sources)
+    config.utilities.register('package', current_package)
 
 
 class BootstrapCommand(object):

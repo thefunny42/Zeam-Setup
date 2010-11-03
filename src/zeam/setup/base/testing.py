@@ -73,17 +73,16 @@ class Test(object):
     """Command used to run tests.
     """
 
-    def __init__(self, config, environment):
-        self.config = config
-        self.environment = environment
-        self.package_name = config['egginfo']['name'].as_text()
+    def __init__(self, configuration):
+        self.configuration = configuration
+        self.package_name = configuration['egginfo']['name'].as_text()
 
     def run(self):
         __status__ = u"Running tests for %s" % self.package_name
         logger.warning(__status__)
         suite = unittest.TestSuite()
         suite.addTests(find_tests(self.package_name))
-        verbosity = self.config['setup']['verbosity'].as_int()
+        verbosity = self.configuration['setup']['verbosity'].as_int()
         # Disable logger except for error while running the tests.
         log_level = logger.level
         logger.setLevel(logging.FATAL)

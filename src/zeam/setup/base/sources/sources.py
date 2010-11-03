@@ -3,14 +3,15 @@ import logging
 import os
 import re
 
-from zeam.setup.base.distribution.collection import ReleaseSet, ReleaseGroup
-from zeam.setup.base.distribution.egg import EggRelease
-from zeam.setup.base.distribution.sources import (
-    UninstalledRelease, UndownloadedRelease)
-from zeam.setup.base.distribution.release import DevelopmentRelease
+from zeam.setup.base.sources.collection import Installers, PackageInstallers
+from zeam.setup.base.sources.installers import (
+    UndownloadedPackageInstaller,
+    UninstalledPackageInstaller,
+    PackageInstaller)
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.utils import get_links, create_directory
+from zeam.setup.base.version import Version
 from zeam.setup.base.vcs import VCS
 
 logger = logging.getLogger('zeam.setup')
@@ -22,63 +23,65 @@ RELEASE_TARBALL = re.compile(
     re.IGNORECASE)
 
 
-def get_release_from_name(source, name, url=None):
-    """Return a not installed release from the given name.
+def get_installer_from_name(source, name, url=None, path=None):
+    """Return a not installed installer from the given name.
     """
     info = RELEASE_TARBALL.match(name)
     if info:
         name = info.group('name')
-        version = info.group('version')
+        version = Version.parse(info.group('version'))
         format = info.group('format')
         pyversion = info.group('pyversion')
         platform = info.group('platform')
         return source.factory(
-            source, name, version, format, url, pyversion, platform)
+            source,
+            name=name, version=version, format=format, url=url, path=path,
+            pyversion=pyversion, platform=platform)
     return None
 
 
-def get_releases_from_links(source, links):
+def get_installers_from_links(source, links):
     """Get downloadable software from links.
     """
     for name, url in links.iteritems():
-        release = get_release_from_name(source, name, url)
-        if release is not None:
-            yield release
+        installer = get_installer_from_name(source, name, url=url)
+        if installer is not None:
+            yield installer
 
-def get_releases_from_directory(source, directory):
-    """Get a list of release from a directory.
+def get_installers_from_directory(source, path):
+    """Get a list of installer from a directory.
     """
-    for filename in os.listdir(directory):
-        full_filename = os.path.join(directory, filename)
-        if not os.path.isfile(full_filename):
+    for filename in os.listdir(path):
+        full_path = os.path.join(path, filename)
+        if not os.path.isfile(full_path):
             continue
-        release = get_release_from_name(source, filename, full_filename)
-        if release is not None:
-            yield release
+        installer = get_installer_from_name(source, filename, url=full_path)
+        if installer is not None:
+            yield installer
 
-def get_eggs_from_directory(source, directory):
-    """Get a list of egg releases from a directory
+def get_eggs_from_directory(source, path):
+    """Get a list of egg installers from a directory
     """
-    for filename in os.listdir(directory):
-        full_filename = os.path.join(directory, filename)
-        if not os.path.isdir(full_filename):
+    for filename in os.listdir(path):
+        full_path = os.path.join(path, filename)
+        if not os.path.isdir(full_path):
             continue
-        info = RELEASE_TARBALL.match(full_filename)
-        if info:
-            yield source.factory(full_filename)
+        installer = get_installer_from_name(source, filename, path=full_path)
+        if installer is not None:
+            yield installer
 
 
 class RemoteSource(object):
     """Download software from da internet, in order to install it.
     """
-    factory = UndownloadedRelease
+    factory = UndownloadedPackageInstaller
 
     def __init__(self, options):
         self.options = options
         self.find_links = options['urls'].as_list()
         self.max_depth = options.get('max_depth', '3').as_int()
         self.links = {}
-        self.software = ReleaseSet()
+        self.installers = Installers()
         self.downloader = DownloadManager(self.get_download_directory())
 
     def get_download_directory(self):
@@ -99,13 +102,13 @@ class RemoteSource(object):
             links = get_links(find_link)
             self.links[find_link] = links
             # Add found software in the cache
-            self.software.extend(get_releases_from_links(self, links))
+            self.installers.extend(get_installers_from_links(self, links))
 
         # Look for a software in the cache
-        releases = self.software.get_releases_for(
+        installers = self.installers.get_installers_for(
             requirement, pyversion, platform)
-        if releases:
-            return releases
+        if installers:
+            return installers
 
         # No software, look for an another link with the name of the software
         links = self.links[find_link]
@@ -141,20 +144,20 @@ class LocalSource(object):
     """This represent a directory with a list of archives, that can be
     used to install software.
     """
-    factory = UninstalledRelease
+    factory = UninstalledPackageInstaller
     type = 'Archive Source'
-    finder = get_releases_from_directory
+    finder = get_installers_from_directory
 
     def __init__(self, options):
         __status__ = u"Initializing local software sourcs."
         self.options = options
         self.path = options['directory'].as_text()
-        self.software = ReleaseSet()
+        self.installers = Installers()
 
     def initialize(self):
         __status__ = u"Analysing local software source %s." % self.path
         create_directory(self.path)
-        self.software.extend(self.finder(self.path))
+        self.installers.extend(self.finder(self.path))
 
     def available(self, configuration):
         return True
@@ -164,7 +167,7 @@ class LocalSource(object):
             requirement, self.path)
         pyversion = interpretor.get_pyversion()
         platform = interpretor.get_platform()
-        packages = self.software.get_releases_for(
+        packages = self.installers.get_installers_for(
             requirement, pyversion, platform)
         if packages:
             return packages
@@ -177,7 +180,7 @@ class LocalSource(object):
 class EggsSource(LocalSource):
     """This manage installed sources.
     """
-    factory = EggRelease
+    factory = PackageInstaller
     type = 'Eggs'
     finder = get_eggs_from_directory
 
@@ -219,14 +222,15 @@ class VCSSource(object):
 
     def search(self, requirement, interpretor):
         name = requirement.name
-        if not self.enabled or name in self.enabled:
-            if name not in self.sources:
-                raise ConfigurationError(
-                    u"Package %s is marked as available with a VCS source, "
-                    u"but no VCS source is configured for it" % name)
+        if name in self.sources:
+            if self.enabled and name not in self.enabled:
+                raise PackageNotFound(requirement)
             source = self.sources[name]
+            # XXX This install should be wrapped around package installer
             source.install()
-            return ReleaseGroup(name, [DevelopmentRelease(source.directory)])
+            return PackageInstallers(
+                name, [PackageInstaller(
+                        self, name=name, path=source.directory)])
         raise PackageNotFound(requirement)
 
     def __repr__(self):

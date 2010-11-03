@@ -3,7 +3,7 @@ import logging
 import os.path
 import threading
 
-from zeam.setup.base.error import report_error
+from zeam.setup.base.error import PackageError, report_error
 from zeam.setup.base.version import Requirements
 
 logger = logging.getLogger('zeam.setup')
@@ -126,8 +126,14 @@ class PackageInstallerWorker(threading.Thread):
         self.sources = manager.sources
         self.target_directory = os.path.abspath(target_directory)
 
-    def install_dependencies(self, requirements):
-        self.manager.install_dependencies(requirements)
+    def install_dependencies(self, requirement, distribution):
+        install = self.manager.install_dependencies
+        install(distribution.requirements)
+        for extra in requirement.extras:
+            if extra not in distribution.extras:
+                raise PackageError(
+                    u'Require missing extra %s in %s' % (extra, distribution))
+            install(distribution.extras[extra])
 
     def install(self, requirement):
         """Install the given package name in the directory.
@@ -136,12 +142,13 @@ class PackageInstallerWorker(threading.Thread):
         candidate_packages = self.sources.search(
             requirement, self.interpretor)
         package = candidate_packages.get_most_recent()
-        logger.info(u"Picking version %s for %s." % (
+        logger.info(u"Humbly chosing version %s for %s." % (
                 str(package.version), requirement.name))
         return package.install(
             self.target_directory,
             self.interpretor,
-            self.install_dependencies)
+            lambda distribution: self.install_dependencies(
+                requirement, distribution))
 
     def run(self):
         """Install packages as long as you can.

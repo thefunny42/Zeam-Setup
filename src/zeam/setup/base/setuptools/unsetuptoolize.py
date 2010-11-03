@@ -48,6 +48,9 @@ def export_setup(export_name, stream, increment_name=False):
 def find_packages(*args, **kwargs):
     return []
 
+def use_setuptools():
+    return 'No way man'
+
 
 def unsetuptoolize(filename='setup.py'):
     opt_parser  = OptionParser()
@@ -72,6 +75,8 @@ def unsetuptoolize(filename='setup.py'):
     os.dup2(script_err.fileno(), 2)
 
     # Create a setuptool module to prevent to load it
+    sys.modules['ez_setup'] = types.ModuleType(
+        'ez_setup')
     sys.modules['setuptools'] = types.ModuleType(
         'setuptools')
     sys.modules['setuptools.extension'] = types.ModuleType(
@@ -85,6 +90,8 @@ def unsetuptoolize(filename='setup.py'):
     setuptools.find_packages = find_packages
     setuptools.extension = sys.modules['setuptools.extension']
     setuptools.extension.Extension = export_setup('extension', config_out, True)
+    import ez_setup
+    ez_setup.use_setuptools = use_setuptools
 
     # Load and execute the code that will call back our setup method.
     source_file = open(filename, 'r')

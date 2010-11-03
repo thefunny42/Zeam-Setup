@@ -62,7 +62,10 @@ class PythonInterpreter(object):
     def execute(self, module, *args):
         """Run the given module with the given args.
         """
-        cmd = [self.__path, module.__file__]
+        module_file = module.__file__
+        if module_file.endswith('.pyc'):
+            module_file = module_file[:-1]
+        cmd = [self.__path, module_file]
         cmd.extend(args)
         return get_cmd_output(*cmd)[0]
 
