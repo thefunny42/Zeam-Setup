@@ -5,7 +5,6 @@ import os
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.version import Version, Requirements
 from zeam.setup.base.error import PackageError
-from zeam.setup.base.distribution.release import Release
 
 
 class SetupLoader(object):
@@ -70,7 +69,3 @@ class SetupLoaderFactory(object):
             return SetupLoader(path=path)
         return None
 
-
-def current_package(configuration):
-    loader = SetupLoader(configuration=configuration)
-    return loader.load_configuration(Release())

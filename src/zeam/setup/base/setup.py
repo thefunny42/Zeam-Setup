@@ -7,7 +7,7 @@ import socket
 import sys
 
 from zeam.setup.base.distribution.workingset import WorkingSet
-from zeam.setup.base.distribution.loader import current_package
+from zeam.setup.base.distribution.release import current_package
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import InstallationError, report_error
 from zeam.setup.base.recipe.commands import Installer

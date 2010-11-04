@@ -6,8 +6,7 @@ import stat
 import sys
 import pprint
 
-from zeam.setup.base.distribution.egg import EggRelease
-from zeam.setup.base.distribution.release import Release
+from zeam.setup.base.distribution.release import Release, load_package
 from zeam.setup.base.version import Requirement, IncompatibleRequirement
 from zeam.setup.base.error import PackageError, InstallationError
 from zeam.setup.base.utils import get_cmd_output
@@ -87,8 +86,9 @@ class WorkingSet(object):
 
         if self.interpretor == sys.executable:
             for path in sys.path:
-                if os.path.isdir(os.path.join(path, 'EGG-INFO')):
-                    self.add(EggRelease(path))
+                package = load_package(path, self.interpretor)
+                if package is not None:
+                    self.add(package)
 
     def __contains__(self, other):
         if isinstance(other, Requirement):
@@ -103,12 +103,13 @@ class WorkingSet(object):
         raise ValueError(other)
 
     def add(self, release):
-        """Try to add a new release in the environment.
+        """Try to add a new release in the environment. This doesn't
+        add any dependencies by magic, you need to add them yourself
+        by hand.
         """
         if not isinstance(release, Release):
             raise ValueError(u'Can only add release to an environment')
         if release.name not in self.installed:
-            # XXX look for requires
             self.installed[release.name] = release
         else:
             installed = self.installed[release.name]
@@ -116,8 +117,10 @@ class WorkingSet(object):
                 self.installed[release.name] = release
             else:
                 raise InstallationError(
-                    u'Release %s and %s added in the environment' % (
-                        repr(release), repr(self.installed[release.name])))
+                    u'Two release %s (installed in %s) and '
+                    u'%s (installed in %s) added in the environment.' % (
+                        repr(release), release.package_path,
+                        repr(installed), release.package_path))
 
     def get_entry_point(self, group, name):
         """Return the entry point value called name for the given group.

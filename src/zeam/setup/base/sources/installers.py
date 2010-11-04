@@ -5,20 +5,13 @@ import tempfile
 import shutil
 import py_compile
 
-from zeam.setup.base.egginfo.loader import EggLoaderFactory
-from zeam.setup.base.setuptools.loader import SetuptoolsLoaderFactory
-from zeam.setup.base.distribution.loader import SetupLoaderFactory
 from zeam.setup.base.setuptools.autotools import AutomakeBuilder
 from zeam.setup.base.archives import ARCHIVE_MANAGER
-from zeam.setup.base.distribution.release import Release
+from zeam.setup.base.distribution.release import Release, load_metadata
 from zeam.setup.base.egginfo.write import write_egg_info
 from zeam.setup.base.error import PackageError
 
 logger = logging.getLogger('zeam.setup')
-
-LOADERS = [EggLoaderFactory(),
-           SetuptoolsLoaderFactory(),
-           SetupLoaderFactory()]
 
 
 def find_packages(source_dir):
@@ -85,19 +78,9 @@ class PackageInstaller(object):
     def __eq__(self, other):
         return self.version == other.version
 
-    def load_metadata(self, distribution, path, interpretor):
-        for factory in LOADERS:
-            loader = factory.available(path)
-            if loader is not None:
-                assert loader.load(distribution, interpretor) is distribution
-                break
-        else:
-            raise PackageError(
-                u"Unknow package type at %s" % (path))
-
     def install(self, path, interpretor, install_dependencies):
         distribution = Release(**self.informations)
-        self.load_metadata(distribution, distribution.path, interpretor)
+        load_metadata(distribution, distribution.path, interpretor)
         install_dependencies(distribution)
         return distribution
 

@@ -2,6 +2,9 @@
 import logging
 import sys
 
+from zeam.setup.base.egginfo.loader import EggLoaderFactory
+from zeam.setup.base.setuptools.loader import SetuptoolsLoaderFactory
+from zeam.setup.base.distribution.loader import SetupLoaderFactory, SetupLoader
 from zeam.setup.base.error import PackageError, InstallationError
 from zeam.setup.base.version import Version
 
@@ -93,5 +96,34 @@ class Release(object):
     def __repr__(self):
         return '<%s for %s version %s>' % (
             self.__class__.__name__, self.name, self.version)
+
+
+LOADERS = [EggLoaderFactory(),
+           SetuptoolsLoaderFactory(),
+           SetupLoaderFactory()]
+
+
+def load_metadata(distribution, path, interpretor):
+    for factory in LOADERS:
+        loader = factory.available(path)
+        if loader is not None:
+            assert loader.load(distribution, interpretor) is distribution
+            break
+    else:
+        raise PackageError(u"Unknow package type at %s" % (path))
+
+
+def load_package(path, interpretor):
+    release = Release()
+    try:
+        load_metadata(release, path, interpretor)
+    except PackageError:
+        return None
+    return release
+
+
+def current_package(configuration):
+    loader = SetupLoader(configuration=configuration)
+    return loader.load_configuration(Release())
 
 
