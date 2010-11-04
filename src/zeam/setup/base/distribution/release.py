@@ -30,6 +30,7 @@ class Release(object):
         self.entry_points = {}
         self.requirements = []
         self.extras = {}
+        self.extensions = []
 
     def __lt__(self, other):
         return self.version < other

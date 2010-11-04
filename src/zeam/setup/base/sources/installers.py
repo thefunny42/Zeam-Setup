@@ -8,6 +8,7 @@ import py_compile
 from zeam.setup.base.egginfo.loader import EggLoaderFactory
 from zeam.setup.base.setuptools.loader import SetuptoolsLoaderFactory
 from zeam.setup.base.distribution.loader import SetupLoaderFactory
+from zeam.setup.base.setuptools.autotools import AutomakeBuilder
 from zeam.setup.base.archives import ARCHIVE_MANAGER
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.egginfo.write import write_egg_info
@@ -18,6 +19,16 @@ logger = logging.getLogger('zeam.setup')
 LOADERS = [EggLoaderFactory(),
            SetuptoolsLoaderFactory(),
            SetupLoaderFactory()]
+
+
+def find_packages(source_dir):
+    """Return a list of package contained in the given directory.
+    """
+    for possible_package in os.listdir(source_dir):
+        possible_path = os.path.join(source_dir, possible_package)
+        if (os.path.isfile(os.path.join(possible_path, '__init__.py')) or
+            os.path.isfile(os.path.join(possible_path, '__init__.pyc'))):
+            yield possible_package
 
 
 def compile_py_files(source_dir):
@@ -31,16 +42,6 @@ def compile_py_files(source_dir):
             compile_py_files(source_path)
 
 
-def find_packages(source_dir):
-    """Return a list of package contained in the given directory.
-    """
-    for possible_package in os.listdir(source_dir):
-        possible_path = os.path.join(source_dir, possible_package)
-        if (os.path.isfile(os.path.join(possible_path, '__init__.py')) or
-            os.path.isfile(os.path.join(possible_path, '__init__.pyc'))):
-            yield possible_package
-
-
 def install_py_packages(target_dir, source_dir, packages):
     """Install Python packages from source_dir into target_dir.
     """
@@ -52,6 +53,7 @@ def install_py_packages(target_dir, source_dir, packages):
             logger.debug("Cleaning installation directory %s" % (
                     target_package_dir))
             shutil.rmtree(target_package_dir)
+        # XXX We should here copy only manifest files.
         shutil.copytree(
             os.path.join(source_dir, package), target_package_dir)
         compile_py_files(target_package_dir)
@@ -99,6 +101,8 @@ class PackageInstaller(object):
         install_dependencies(distribution)
         return distribution
 
+
+builder = AutomakeBuilder()
 
 class UninstalledPackageInstaller(PackageInstaller):
     """A release that you can install.
@@ -152,7 +156,22 @@ class UninstalledPackageInstaller(PackageInstaller):
         # Install files
         source_dir = distribution.path
         install_path = os.path.join(path, self.get_install_base_directory())
-        install_py_packages(install_path, source_dir, find_packages(source_dir))
+
+        # XXX This needs review
+        if distribution.extensions:
+            builder.build(distribution, install_path, interpretor)
+
+        try:
+            install_py_packages(
+                install_path, source_dir, find_packages(source_dir))
+
+            # XXX This needs review
+            if distribution.extensions:
+                builder.install(distribution, install_path, interpretor)
+        except:
+            #shutil.rmtree(install_path)
+            raise
+
         shutil.rmtree(build_dir)
 
         # Package path is now the installed path

@@ -1,66 +1,66 @@
 
 import unittest
 
-from zeam.setup.base.sources import get_release_from_name
+from zeam.setup.base.sources.sources import get_installer_from_name
 
 
 class MockSource(object):
-    """Fake source to trace which release is created.
+    """Fake source to trace which installer is created.
     """
-    factory = lambda *args: args
+    factory = lambda *args, **kwargs: kwargs
 
 
 class SourceTestCase(unittest.TestCase):
     """Test source acquiring and processing.
     """
 
-    def test_invalid_release_from_name(self):
-        """Test release name that doesn't parse
+    def test_invalid_installer_from_name(self):
+        """Test installer name that doesn't parse
         """
         source = MockSource()
 
         self.assertEqual(
-            get_release_from_name(source, 'setup.tar.gz'), None)
+            get_installer_from_name(source, 'setup.tar.gz'), None)
         self.assertEqual(
-            get_release_from_name(source, 'setup-0.1dev.html'), None)
+            get_installer_from_name(source, 'setup-0.1dev.html'), None)
         self.assertEqual(
-            get_release_from_name(source, 'setup-1.0-py2.7-win32.exe'), None)
+            get_installer_from_name(source, 'setup-1.0-py2.7-win32.exe'), None)
 
-    def test_release_from_name(self):
-        """Test release name parsing
+    def test_installer_from_name(self):
+        """Test installer name parsing
         """
         source = MockSource()
 
         self.assertEqual(
-            get_release_from_name(source, 'ZODB3-3.9.1a10.tar.gz'),
+            get_installer_from_name(source, 'ZODB3-3.9.1a10.tar.gz'),
             (source, source, 'ZODB3', '3.9.1a10', 'tar.gz', None, None, None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-0.1dev.tar.gz'),
+            get_installer_from_name(source, 'setup-0.1dev.tar.gz'),
             (source, source, 'setup', '0.1dev', 'tar.gz', None, None, None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-0.1dev-py2.4.tar.gz'),
+            get_installer_from_name(source, 'setup-0.1dev-py2.4.tar.gz'),
             (source, source, 'setup', '0.1dev', 'tar.gz', None, '2.4', None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-2.0beta1-py2.6.tar.gz'),
+            get_installer_from_name(source, 'setup-2.0beta1-py2.6.tar.gz'),
             (source, source, 'setup', '2.0beta1', 'tar.gz', None, '2.6', None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-2.0-py2.6-linux.tar.gz'),
+            get_installer_from_name(source, 'setup-2.0-py2.6-linux.tar.gz'),
             (source, source, 'setup', '2.0', 'tar.gz', None, '2.6', 'linux'))
         self.assertEqual(
-            get_release_from_name(source, 'setup-1.0-py2.7-win32.tar.gz'),
+            get_installer_from_name(source, 'setup-1.0-py2.7-win32.tar.gz'),
             (source, source, 'setup', '1.0', 'tar.gz', None, '2.7', 'win32'))
         self.assertEqual(
-            get_release_from_name(source, 'setup-1.0-py2.7.tgz'),
+            get_installer_from_name(source, 'setup-1.0-py2.7.tgz'),
             (source, source, 'setup', '1.0', 'tgz', None, '2.7', None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-1.0-py2.7.zip'),
+            get_installer_from_name(source, 'setup-1.0-py2.7.zip'),
             (source, source, 'setup', '1.0', 'zip', None, '2.7', None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-1.0-py2.7-win32.egg'),
+            get_installer_from_name(source, 'setup-1.0-py2.7-win32.egg'),
             (source, source, 'setup', '1.0', 'egg', None, '2.7', 'win32'))
         self.assertEqual(
-            get_release_from_name(source, 'setup-3.5.0-1.tar.gz'),
+            get_installer_from_name(source, 'setup-3.5.0-1.tar.gz'),
             (source, source, 'setup', '3.5.0-1', 'tar.gz', None, None, None))
         self.assertEqual(
-            get_release_from_name(source, 'setup-3.5.0-1-py2.6-mac.tar.gz'),
+            get_installer_from_name(source, 'setup-3.5.0-1-py2.6-mac.tar.gz'),
             (source, source, 'setup', '3.5.0-1', 'tar.gz', None, '2.6', 'mac'))

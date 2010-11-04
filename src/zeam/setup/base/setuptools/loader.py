@@ -38,8 +38,14 @@ class SetuptoolsLoader(object):
             includes = []
             if 'include_dirs' in ext_section:
                 includes = ext_section['include_dirs'].as_list()
+            macros = {}
+            if 'define_macros' in ext_section:
+                for macro in ext_section['define_macros'].as_list():
+                    key, value = map(lambda s: s.strip(), macro.split(',', 1))
+                    macros[key] = value
             libraries.append({'name':  name,
                               'sources': sources,
+                              'macros': macros,
                               'depends': depends,
                               'includes': includes})
         return libraries
@@ -88,6 +94,7 @@ class SetuptoolsLoader(object):
         if 'ext_modules' in setuptool_config:
             libraries = self.extensions(prefix, setuptool_config)
             create_autotools(distribution, prefix, libraries)
+            distribution.extensions = libraries
         return distribution
 
 

@@ -15,7 +15,9 @@ def export_setup(export_name, stream, increment_name=False):
 
         def serialize_value(value):
             if isinstance(value, list) or isinstance(value, tuple):
-                return ', '.join(map(str, value))
+                return ', '.join(map(serialize_value, value))
+            if not value:
+                return ''
             return str(value)
 
         def serialize(name, data):
@@ -49,7 +51,7 @@ def find_packages(*args, **kwargs):
     return []
 
 def use_setuptools():
-    return 'No way man'
+    return 'I would rather die than use this.'
 
 
 def unsetuptoolize(filename='setup.py'):
