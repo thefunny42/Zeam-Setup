@@ -16,25 +16,36 @@ class SetuptoolsLoader(object):
         self.path = path
 
     def extensions(self, prefix, section):
-        libraries = []
+        __status__ = u"Introspecting distutils/setuptools extensions."
+        extensions = []
         configuration = section.configuration
         for name in section['ext_modules'].as_list():
-            if name not in configuration:
-                continue
             ext_section =  configuration[name]
             if 'name' in ext_section:
                 name = ext_section['name'].as_text()
                 sources = ext_section['sources'].as_list()
             else:
                 args_section = configuration[name + ':args']
-                name, sources = args_section['_'].as_list()
-                sources = map(lambda s: s.strip(), sources.split(','))
+                args = args_section['_'].as_list()
+                # we can get as args name, or name and source.
+                if len(args) > 1:
+                    name, sources = args
+                    sources = map(lambda s: s.strip(), sources.split(','))
+                else:
+                    name = args[0]
+                    sources = ext_section['sources'].as_list()
             name = name.replace('.', '/')
             if prefix:
                 name = '/'.join((prefix, name))
             depends = []
             if 'depends' in ext_section:
                 depends = ext_section['depends'].as_list()
+            libraries = []
+            if 'libraries' in ext_section:
+                libraries = ext_section['libraries'].as_list()
+            paths = []
+            if 'library_dirs' in ext_section:
+                paths = ext_section['library_dirs'].as_list()
             includes = []
             if 'include_dirs' in ext_section:
                 includes = ext_section['include_dirs'].as_list()
@@ -43,12 +54,14 @@ class SetuptoolsLoader(object):
                 for macro in ext_section['define_macros'].as_list():
                     key, value = map(lambda s: s.strip(), macro.split(',', 1))
                     macros[key] = value
-            libraries.append({'name':  name,
+            extensions.append({'name':  name,
                               'sources': sources,
                               'macros': macros,
                               'depends': depends,
+                              'paths': paths,
+                              'libraries': libraries,
                               'includes': includes})
-        return libraries
+        return extensions
 
     def load(self, distribution, interpretor):
         # We must have a setuptool package. Extract information if possible

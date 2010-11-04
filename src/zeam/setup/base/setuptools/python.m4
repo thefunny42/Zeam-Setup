@@ -244,7 +244,7 @@ $ac_distutils_result])
   Could not link test program to Python. Maybe the main Python library has been
   installed in some non-standard library path. If so, pass it to configure,
   via the LDFLAGS environment variable.
-  Example: ./configure LDFLAGS="-L/usr/non-standard-path/python/lib"
+  Example: ./setup LDFLAGS="-L/usr/non-standard-path/python/lib"
   ============================================================================
    ERROR!
    You probably have to install the development version of the Python package

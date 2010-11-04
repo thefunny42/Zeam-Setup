@@ -50,8 +50,9 @@ def export_setup(export_name, stream, increment_name=False):
 def find_packages(*args, **kwargs):
     return []
 
-def use_setuptools():
-    return 'I would rather die than use this.'
+
+def do_nothing(*args, **kwargs):
+    return 'I would rather die than do what you expect me to.'
 
 
 def unsetuptoolize(filename='setup.py'):
@@ -79,6 +80,8 @@ def unsetuptoolize(filename='setup.py'):
     # Create a setuptool module to prevent to load it
     sys.modules['ez_setup'] = types.ModuleType(
         'ez_setup')
+    sys.modules['pkg_resources'] = types.ModuleType(
+        'pkg_resources')
     sys.modules['setuptools'] = types.ModuleType(
         'setuptools')
     sys.modules['setuptools.extension'] = types.ModuleType(
@@ -92,8 +95,12 @@ def unsetuptoolize(filename='setup.py'):
     setuptools.find_packages = find_packages
     setuptools.extension = sys.modules['setuptools.extension']
     setuptools.extension.Extension = export_setup('extension', config_out, True)
+    import distutils.extension
+    distutils.extension.Extension = export_setup('extension', config_out, True)
     import ez_setup
-    ez_setup.use_setuptools = use_setuptools
+    ez_setup.use_setuptools = do_nothing
+    import pkg_resources
+    pkg_resources.require = do_nothing
 
     # Load and execute the code that will call back our setup method.
     source_file = open(filename, 'r')

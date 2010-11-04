@@ -49,6 +49,12 @@ def relative_path(path_orig, path_dest):
     return os.path.join(*result_path)
 
 
+def prefix_join(prefix, items):
+    """Prefix all items and join them.
+    """
+    return prefix + prefix.join(items)
+
+
 def create_makefile_am(
     working_dir, prefix_dir, makefile_dir, sub_dirs, libraries):
     """Create a Makefile.am from information.
@@ -68,15 +74,16 @@ def create_makefile_am(
     if makefile_dir in libraries:
         # Extensions
         makefile_libraries = libraries[makefile_dir]
-        extra_includes = set(reduce(operator.add,
-                                    map(operator.itemgetter('includes'),
-                                        makefile_libraries)))
-        if extra_includes:
-            extra_includes = '-I${top_srcdir}/' + \
-                ' -I${top_srcdir}/'.join(extra_includes) + ' '
-        else:
-            extra_includes = ''
-        makefile.write("INCLUDES = %s${PYTHON_CPPFLAGS}\n\n" % extra_includes)
+        includes = ''
+        for include in set(reduce(operator.add,
+                                  map(operator.itemgetter('includes'),
+                                      makefile_libraries))):
+            if include[0] == os.path.sep:
+                includes += ' -I' + include
+            else:
+                includes += ' -I${top_srcdir}/' + include
+        if includes:
+            makefile.write("INCLUDES =%s ${PYTHON_CPPFLAGS}\n\n" % includes)
         extension_dir = relative_path(prefix_dir, makefile_dir)
         makefile.write("extensiondir = ${prefix}/%s\n" % extension_dir)
         makefile.write(
@@ -104,6 +111,12 @@ def create_makefile_am(
                     else:
                         macros += ' -D%s' % key
                 makefile.write("%s_la_CPPFLAGS =%s\n" % (name, macros))
+            if 'libraries' in library:
+                makefile.write("%s_la_LIBADD =%s\n" % (
+                        name, prefix_join(' -l', library['libraries'])))
+            if 'paths' in library:
+                makefile.write("%s_la_CFLAGS =%s\n" % (
+                        name, prefix_join(' -L', library['paths'])))
             makefile.write(
                 "%s_la_LDFLAGS = -module -avoid-version -shared\n" % name)
     makefile.close()
@@ -122,10 +135,6 @@ def create_autotools(distribution, source_prefix, extensions):
     """Create an autotools installation into the given distribution to
     compile the described extensions.
     """
-    if distribution.name == 'lxml':
-        # XXX no way for the moment
-        return
-
     makefiles = []
     libraries = {}
     sub_dirs = {}
