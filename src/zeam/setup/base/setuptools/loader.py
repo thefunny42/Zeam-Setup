@@ -97,6 +97,8 @@ class SetuptoolsLoader(object):
             if '_' in package_config:
                 prefix = package_config['_'].as_text()
                 distribution.path = os.path.join(self.path, prefix)
+        if 'description' in setuptool_config:
+            distribution.description = setuptool_config['description'].as_text()
         if 'license' in setuptool_config:
             distribution.license = setuptool_config['license'].as_text()
         if 'author' in setuptool_config:

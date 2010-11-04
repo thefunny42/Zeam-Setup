@@ -79,7 +79,7 @@ class RemoteSource(object):
     def __init__(self, options):
         self.options = options
         self.find_links = options['urls'].as_list()
-        self.max_depth = options.get('max_depth', '3').as_int()
+        self.max_depth = options.get('max_depth', '4').as_int()
         self.links = {}
         self.installers = Installers()
         self.downloader = DownloadManager(self.get_download_directory())

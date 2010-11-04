@@ -42,13 +42,17 @@ def get_cmd_output(*cmd, **opts):
     if environ:
         debug_extra.append(' '.join(map('='.join, environ.items())))
     if debug_extra:
-        debug_msg += '[' + ' '.join(debug_extra) + ']'
+        debug_msg += ' [' + ' '.join(debug_extra) + ']'
     logger.debug(debug_msg)
-    stdout=subprocess.PIPE
-    if opts.get('nostdout'):
-        stdout=None
+    stdout = subprocess.PIPE
+    stderr = subprocess.PIPE
+    if opts.get('no_stdout'):
+        stdout = None
+        stderr = None
     process = subprocess.Popen(
-        cmd, stdin=subprocess.PIPE, stdout=stdout, cwd=path, env=environ)
+        cmd,
+        stdin=subprocess.PIPE, stdout=stdout, stderr=stderr,
+        cwd=path, env=environ)
     stdout, stderr = process.communicate()
     return stdout, stderr, process.returncode
 
@@ -134,7 +138,7 @@ def get_package_name(section):
     raise ConfigurationError('Cannot determine package name')
 
 
-def get_option_with_default(option_name, section):
+def get_option_with_default(option_name, section, required=True):
     """Lookup a option in a given section, and if nothing is found,
     lookup the value in the [setup] section.
     """
@@ -143,4 +147,6 @@ def get_option_with_default(option_name, section):
     setup = section.configuration['setup']
     if option_name in setup:
         return setup[option_name]
-    raise ConfigurationError('Cannot find %s value' % option_name)
+    if required:
+        raise ConfigurationError('Cannot find %s value' % option_name)
+    return None

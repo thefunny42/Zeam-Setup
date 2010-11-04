@@ -52,7 +52,9 @@ def relative_path(path_orig, path_dest):
 def prefix_join(prefix, items):
     """Prefix all items and join them.
     """
-    return prefix + prefix.join(items)
+    if items:
+        return prefix + prefix.join(items)
+    return ''
 
 
 def create_makefile_am(
@@ -82,8 +84,7 @@ def create_makefile_am(
                 includes += ' -I' + include
             else:
                 includes += ' -I${top_srcdir}/' + include
-        if includes:
-            makefile.write("INCLUDES =%s ${PYTHON_CPPFLAGS}\n\n" % includes)
+        makefile.write("INCLUDES =%s ${PYTHON_CPPFLAGS}\n\n" % includes)
         extension_dir = relative_path(prefix_dir, makefile_dir)
         makefile.write("extensiondir = ${prefix}/%s\n" % extension_dir)
         makefile.write(
@@ -201,13 +202,13 @@ class AutomakeBuilder(object):
             'configure',
             '--prefix=%s' % path,
             '--cache-file=%s' % self.cache_name,
-            path=working_dir, environ=environ, nostdout=True)
+            path=working_dir, environ=environ, no_stdout=True)
         if code:
             raise PackageError(
                 u"Extensions configuration failed for %s." % distribution)
         stdout, stderr, code = get_cmd_output(
             'make',
-            path=working_dir, nostdout=True)
+            path=working_dir, no_stdout=True)
         if code:
             raise PackageError(
                 u"Extensions build failed for %s." % distribution)
@@ -218,7 +219,7 @@ class AutomakeBuilder(object):
         stdout, stderr, code = get_cmd_output(
             'make',
             'install',
-            path=working_dir, nostdout=True)
+            path=working_dir, no_stdout=True)
         if code:
             raise PackageError(
                 u"Extensions installation failed for %s." % distribution)

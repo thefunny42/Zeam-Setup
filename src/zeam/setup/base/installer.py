@@ -3,8 +3,10 @@ import logging
 import os.path
 import threading
 
-from zeam.setup.base.error import PackageError, report_error
+from zeam.setup.base.distribution.kgs import KnownGoodVersionSet
+from zeam.setup.base.error import PackageError, ConfigurationError, report_error
 from zeam.setup.base.version import Requirements
+from zeam.setup.base.utils import get_option_with_default
 
 logger = logging.getLogger('zeam.setup')
 INSTALLATION_DONE = object()
@@ -15,7 +17,7 @@ class PackageInstaller(object):
     sources.
     """
 
-    def __init__(self, options, working_set):
+    def __init__(self, options, working_set, no_kgs=False):
         __status__ = u"Configuring package installer."
         configuration = options.configuration
         self.interpretor = working_set.interpretor
@@ -26,11 +28,29 @@ class PackageInstaller(object):
         self.__installed = Requirements()
         self.__lock = threading.RLock()
         self.__wait = threading.Condition(threading.RLock())
+        self.kgs = None
         setup = configuration['setup']
+        versions = get_option_with_default('versions', options, False)
+        if versions is not None:
+            versions = 'versions:' + versions.as_text()
+            if versions not in configuration:
+                raise ConfigurationError(u"Missing Known Good Set (tm) %s" % (
+                        versions))
+            self.kgs = KnownGoodVersionSet(
+                configuration[versions]).requirements()
         self.__worker_count = setup.get('workers', '4').as_int()
         self.__lib_directory = setup.get('lib_directory').as_text()
         self.__first_done = False
         self.__installation_failed = None
+
+    def __register_install(self, requirement):
+        if self.kgs is not None:
+            requirement = self.kgs.upgrade(requirement)
+        if (requirement in self.working_set or
+            requirement in self.__installed or
+            requirement in self.__being_installed):
+            return
+        self.__to_install.append(requirement)
 
     def wait_for_requirements(self):
         self.__wait.acquire()
@@ -78,13 +98,7 @@ class PackageInstaller(object):
         self.__lock.acquire()
         worker_need_wake_up = len(self.__to_install) == 0
         for requirement in requirements:
-            if requirement in self.working_set:
-                continue
-            if requirement in self.__installed:
-                continue
-            if requirement in self.__being_installed:
-                continue
-            self.__to_install.append(requirement)
+            self.__register_install(requirement)
         if worker_need_wake_up:
             count_to_wake_up = max(
                 self.__worker_count - 1, len(self.__to_install))
@@ -99,8 +113,7 @@ class PackageInstaller(object):
         if target_directory is None:
             target_directory = self.__lib_directory
         for requirement in requirements:
-            if requirement not in self.working_set:
-                self.__to_install.append(requirement)
+            self.__register_install(requirement)
         if self.__to_install:
             self.sources.initialize()
             workers = []
@@ -112,6 +125,9 @@ class PackageInstaller(object):
                 worker.join()
             if self.__installation_failed is not None:
                 raise self.__installation_failed
+            else:
+                if self.kgs is not None:
+                    self.kgs.log_usage()
 
 
 class PackageInstallerWorker(threading.Thread):
@@ -143,7 +159,7 @@ class PackageInstallerWorker(threading.Thread):
             requirement, self.interpretor)
         package = candidate_packages.get_most_recent()
         logger.info(u"Humbly chosing version %s for %s." % (
-                str(package.version), requirement.name))
+                str(package.version), requirement))
         return package.install(
             self.target_directory,
             self.interpretor,

@@ -20,6 +20,8 @@ class VersionTestCase(unittest.TestCase):
             self.assertEqual(str(parsed_version), version)
         self.assertEqual(str(Version.parse('3.5.0-1')), '3.5-1')
         self.assertEqual(str(Version.parse('3.5final-1')), '3.5-1')
+        self.assertEqual(str(Version.parse('3.5alpha2')), '3.5a2')
+        self.assertEqual(str(Version.parse('3.5beta1')), '3.5b1')
         self.assertEqual(str(Version.parse('3.5.post42')), '3.5-42')
         self.assertEqual(str(Version.parse('1b2.2')), '1.0b2.2')
         self.assertEqual(str(Version.parse('1.dev')), '1.0dev')
