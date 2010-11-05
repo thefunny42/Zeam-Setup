@@ -1,17 +1,42 @@
 
 import unittest
 
-from zeam.setup.base.utils import rewrite_links
+from zeam.setup.base.utils import rewrite_links, relative_uri
 
 
 class RewriteLinkTestCase(unittest.TestCase):
     """Test rewriting links
     """
 
+    def test_relative_uri(self):
+        """Test relative URI.
+        """
+        self.assertEqual(
+            relative_uri('directory/file.txt', 'somefile.txt'),
+            'directory/somefile.txt')
+        self.assertEqual(
+            relative_uri('file.txt', 'somefile.txt'),
+            'somefile.txt')
+        self.assertEqual(
+            relative_uri('directory/file.txt', '/root/somefile.txt'),
+            '/root/somefile.txt')
+        self.assertEqual(
+            relative_uri('directory/file.txt', 'http://localhost/extends.txt'),
+            'http://localhost/extends.txt')
+        self.assertEqual(
+            relative_uri('directory/file.txt', 'https://localhost/extends.txt'),
+            'https://localhost/extends.txt')
+        self.assertEqual(
+            relative_uri('http://localhost/file.txt', 'versions.txt'),
+            'http://localhost/versions.txt')
+        self.assertEqual(
+            relative_uri('https://localhost/file.txt', 'versions.txt'),
+            'https://localhost/versions.txt')
+
     def test_rewrite(self):
         """Test link rewriting utility
         """
-        self.assertEquals(
+        self.assertEqual(
             list(rewrite_links('http://test.com/', [])),
             [])
 
@@ -19,22 +44,22 @@ class RewriteLinkTestCase(unittest.TestCase):
                       ('news', ' News'),
                       ('/other', 'Other')]
 
-        self.assertEquals(
+        self.assertEqual(
             list(rewrite_links('http://test.com/test/', TEST_LINKS)),
             [('Example', 'http://example.com'),
              ('News', 'http://test.com/test/news'),
              ('Other', 'http://test.com/other')])
-        self.assertEquals(
+        self.assertEqual(
             list(rewrite_links('http://test.com/test', TEST_LINKS)),
             [('Example', 'http://example.com'),
              ('News', 'http://test.com/news'),
              ('Other', 'http://test.com/other')])
-        self.assertEquals(
+        self.assertEqual(
             list(rewrite_links('http://test.com/', TEST_LINKS)),
             [('Example', 'http://example.com'),
              ('News', 'http://test.com/news'),
              ('Other', 'http://test.com/other')])
-        self.assertEquals(
+        self.assertEqual(
             list(rewrite_links('http://test.com', TEST_LINKS)),
             [('Example', 'http://example.com'),
              ('News', 'http://test.com/news'),

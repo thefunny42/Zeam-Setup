@@ -4,7 +4,7 @@ import re
 import logging
 
 from zeam.setup.base.error import ConfigurationError
-from zeam.setup.base.utils import open_uri
+from zeam.setup.base.utils import open_uri, relative_uri
 
 logger = logging.getLogger('zeam.setup')
 
@@ -137,6 +137,7 @@ class Utilities(object):
 class Configuration(object):
     """Configuration.
     """
+    default_section = 'setup'
 
     def __init__(self, location):
         self.__location = location
@@ -149,21 +150,21 @@ class Configuration(object):
         return os.path.dirname(self.__location)
 
     @classmethod
-    def read(klass, uri):
+    def read(cls, uri):
         """Read a configuration file located at the given uri.
         """
         input = open_uri(uri)
         try:
-            return klass.read_lines(input.readlines, uri)
+            return cls.read_lines(input.readlines, uri)
         finally:
             input.close()
 
     @classmethod
-    def read_lines(klass, lines, origin):
+    def read_lines(cls, lines, origin):
         """Read a configuration from the given string, that would be
         refered by origin.
         """
-        configuration = klass(origin)
+        configuration = cls(origin)
         line_number = 0
         section = None
 
@@ -195,6 +196,16 @@ class Configuration(object):
             section.done(line_number)
         else:
             raise ConfigurationError(origin, u'No section defined')
+
+        # Support online include to extend configuration
+        base = '/'.join(origin.split('/')[:-1])
+        if cls.default_section in configuration:
+            section = configuration[cls.default_section]
+            if 'extends' in section:
+                for uri in section['extends'].as_list():
+                    configuration += Configuration.read(
+                        relative_uri(origin, uri))
+                del configuration[cls.default_section]['extends']
         return configuration
 
     def write(self, stream):
@@ -244,6 +255,9 @@ class Configuration(object):
         section = value.__copy__()
         section.configuration = self
         self.sections[key] = section
+
+    def __delitem__(self, key):
+        del self.sections[key]
 
     def __contains__(self, key):
         return self.sections.__contains__(key)
@@ -321,6 +335,9 @@ class Section(object):
             self.options[key] = option
         else:
             raise ValueError(u'Can only use string')
+
+    def __delitem__(self, key):
+        del self.options[key]
 
     def __contains__(self, key):
         return self.options.__contains__(key)

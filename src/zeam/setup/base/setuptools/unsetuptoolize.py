@@ -87,7 +87,7 @@ def unsetuptoolize(filename='setup.py'):
     sys.modules['setuptools.extension'] = types.ModuleType(
         'extension')
 
-    # Register our setuptools fonctions.
+    # Register our setuptools fonctions to disable it and collect information.
     import setuptools
     setuptools.setup = export_setup('setuptools', config_out)
     setuptools.Extension = export_setup('extension', config_out, True)

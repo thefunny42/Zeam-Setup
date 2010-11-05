@@ -64,6 +64,15 @@ def is_remote_uri(uri):
     return uri.startswith('http://') or uri.startswith('https://')
 
 
+def relative_uri(origin, target):
+    """Return an URI for target, paying attention that if it was
+    relative, it was from origin.
+    """
+    if target.startswith(os.path.sep) or is_remote_uri(target):
+        return target
+    return '/'.join(origin.split('/')[:-1] + [target])
+
+
 def open_uri(uri):
     """Open the given file or uri.
     """
