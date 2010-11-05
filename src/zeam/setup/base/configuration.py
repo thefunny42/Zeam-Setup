@@ -205,7 +205,7 @@ class Configuration(object):
                 for uri in section['extends'].as_list():
                     configuration += Configuration.read(
                         relative_uri(origin, uri))
-                del configuration[cls.default_section]['extends']
+                    del configuration[cls.default_section]['extends']
         return configuration
 
     def write(self, stream):
@@ -417,7 +417,7 @@ class Option(object):
         return self.__get_value().strip()
 
     def as_bool(self):
-        value = self.__get_value()
+        value = self.__get_value().strip()
         bool = value.lower()
         if bool in ('on', 'true', '1',):
             return True

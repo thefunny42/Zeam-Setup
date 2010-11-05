@@ -2,6 +2,7 @@
 import unittest
 
 from zeam.setup.base.sources.sources import get_installer_from_name
+from zeam.setup.base.version import Version
 
 
 class MockSource(object):
@@ -33,34 +34,57 @@ class SourceTestCase(unittest.TestCase):
 
         self.assertEqual(
             get_installer_from_name(source, 'ZODB3-3.9.1a10.tar.gz'),
-            (source, source, 'ZODB3', '3.9.1a10', 'tar.gz', None, None, None))
+            {'name': 'ZODB3', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('3.9.1a10'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-0.1dev.tar.gz'),
-            (source, source, 'setup', '0.1dev', 'tar.gz', None, None, None))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('0.1dev'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-0.1dev-py2.4.tar.gz'),
-            (source, source, 'setup', '0.1dev', 'tar.gz', None, '2.4', None))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.4', 'platform': None,
+             'version': Version.parse('0.1dev'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-2.0beta1-py2.6.tar.gz'),
-            (source, source, 'setup', '2.0beta1', 'tar.gz', None, '2.6', None))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': None,
+             'version': Version.parse('2.0b1'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-2.0-py2.6-linux.tar.gz'),
-            (source, source, 'setup', '2.0', 'tar.gz', None, '2.6', 'linux'))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': 'linux',
+             'version': Version.parse('2.0'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-1.0-py2.7-win32.tar.gz'),
-            (source, source, 'setup', '1.0', 'tar.gz', None, '2.7', 'win32'))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.7', 'platform': 'win32',
+             'version': Version.parse('1.0'), 'path': None})
         self.assertEqual(
-            get_installer_from_name(source, 'setup-1.0-py2.7.tgz'),
-            (source, source, 'setup', '1.0', 'tgz', None, '2.7', None))
+            get_installer_from_name(source, 'setup-1.0a1-py2.7.tgz'),
+            {'name': 'setup', 'format': 'tgz',
+             'url': None, 'pyversion': '2.7', 'platform': None,
+             'version': Version.parse('1.0a1'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-1.0-py2.7.zip'),
-            (source, source, 'setup', '1.0', 'zip', None, '2.7', None))
+            {'name': 'setup', 'format': 'zip',
+             'url': None, 'pyversion': '2.7', 'platform': None,
+             'version': Version.parse('1.0'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-1.0-py2.7-win32.egg'),
-            (source, source, 'setup', '1.0', 'egg', None, '2.7', 'win32'))
+            {'name': 'setup', 'format': 'egg',
+             'url': None, 'pyversion': '2.7', 'platform': 'win32',
+             'version': Version.parse('1.0'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-3.5.0-1.tar.gz'),
-            (source, source, 'setup', '3.5.0-1', 'tar.gz', None, None, None))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('3.5-1'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setup-3.5.0-1-py2.6-mac.tar.gz'),
-            (source, source, 'setup', '3.5.0-1', 'tar.gz', None, '2.6', 'mac'))
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': 'mac',
+             'version': Version.parse('3.5-1'), 'path': None})
+
