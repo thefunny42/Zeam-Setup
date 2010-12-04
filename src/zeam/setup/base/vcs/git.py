@@ -27,7 +27,9 @@ class GitFactory(VCSFactory):
     package_name = 'git-core'
 
     def __init__(self):
-        self.__available = have_cmd('git', '--version')
+        self.__available, self.__version = have_cmd('git', '--version')
+        if isinstance(self.__version, str):
+            logger.info('Found Git version %s' % self.__version)
 
     def available(self):
         return self.__available

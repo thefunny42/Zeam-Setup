@@ -108,7 +108,7 @@ def load_metadata(distribution, path, interpretor):
         loader = factory.available(path)
         if loader is not None:
             assert loader.load(distribution, interpretor) is distribution
-            break
+            return loader
     else:
         raise PackageError(u"Unknow package type at %s" % (path))
 

@@ -8,9 +8,10 @@ class VCS(object):
     """Base API to access a project in a VCS.
     """
 
-    def __init__(self, uri, directory):
+    def __init__(self, uri, directory, generic_options=[]):
         self.uri = uri
         self.directory = directory
+        self.generic_options = generic_options
 
     def install(self):
         if not os.path.isdir(self.directory):
@@ -42,7 +43,7 @@ class VCSFactory(object):
 
 
 class Develop(VCS):
-    """Develop VCS: no VCS, just do a symlink to the sources
+    """VCS VCS: no VCS, just do a symlink to the sources.
     """
 
     def install(self):
@@ -60,11 +61,29 @@ class DevelopFactory(VCSFactory):
 
 
 class VCSRegistry(object):
+    """Register all available VCS.
+    """
 
-    def __init__(self, vcs):
-        self.__vcs = vcs
+    def __init__(self, factories):
+        self.__initialized = False
+        self.__factories = factories
+        self.__vcs = {}
+
+    def initialize(self):
+        """Instentiate VCS factories. This will detect if they are
+        available or not.
+        """
+        __status__ = u"Detecting VCS systems."
+        if self.__initialized:
+            return
+        for name, factory in self.__factories.iteritems():
+            self.__vcs[name] = factory()
+        self.__initialized = True
 
     def get(self, name, package_name, source_info):
+        """Return a VCS instance called name of the package
+        package_name located at source_info url.
+        """
         if name not in self.__vcs:
             raise VCSConfigurationError(
                 source_info.location,

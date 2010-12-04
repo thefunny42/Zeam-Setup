@@ -8,6 +8,8 @@ import subprocess
 
 from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 
+VERSION = re.compile(
+    r'version ([0-9.]+)')
 HTML_LINK = re.compile(
     r'<[aA][^>]*[hH][rR][eE][fF]=["\'](?P<url>[^"\']+)["\'][^>]*>'
     r'(?P<name>[^<]+)</[aA\s]>')
@@ -19,14 +21,18 @@ def have_cmd(*cmd):
     """Test if a command is available.
     """
     try:
-        logger.debug('Testing command: %s', ' '.join(cmd))
+        logger.info('Testing command: %s', ' '.join(cmd))
         process = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        process.communicate()
+        stdout, stderr = process.communicate()
+        for line in stdout.splitlines():
+            version = VERSION.search(line)
+            if version:
+                return (True, version.groups()[0])
     except OSError, error:
         if error.args[0] == 2:
-            return False
-    return True
+            return (False, None)
+    return (True, None)
 
 
 def get_cmd_output(*cmd, **opts):

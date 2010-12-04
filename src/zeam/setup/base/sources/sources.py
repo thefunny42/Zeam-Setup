@@ -201,6 +201,7 @@ class VCSSource(object):
 
     def initialize(self):
         __status__ = u"Preparing remote development sources."
+        VCS.initialize()
         create_directory(self.directory)
         for section_name in self.options['sources'].as_list():
             section = self.options.configuration['vcs:' + section_name]
