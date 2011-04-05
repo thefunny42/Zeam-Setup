@@ -138,9 +138,6 @@ class BootstrapCommand(object):
         parser.add_option(
             "-d", '--debug', dest="debug", action='store_true',
             help="debug installation system on unexpected errors")
-        parser.add_option(
-            "-i", '--install', dest="install",
-            help="install a given package in the environment")
         return parser
 
     def command(self, configuration, options, args):

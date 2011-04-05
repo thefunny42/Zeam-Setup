@@ -134,6 +134,47 @@ class Utilities(object):
         raise AttributeError(key)
 
 
+class ConfigurationDiffUtility(object):
+    """Utlity to trace changes between two different configurations.
+    """
+
+    def __init__(self, previous_configuration, configuration):
+        self.__previous = previous_configuration
+        self.__current = configuration
+
+    def get_option_changes(self, section):
+        """Return a tuple (added, changed, removed) indicating the
+        mutation in a section.
+        """
+
+    def get_option_values_changes(self, option):
+        """Return a tuple (added, removed) of values changes. Order of
+        items are preserved.
+        """
+        assert isinstance(option, Option)
+        option_name = option.name
+        section_name = option.section.name
+        if section_name not in self.__previous:
+            # Section was not here, everything is new
+            return (option.as_list(), None)
+        previous_section = self.__previous[section_name]
+        if option_name not in previous_section:
+            # Option was not here, everything is new
+            return (option.as_list(), None)
+        previous_option = previous_section[option_name]
+        values = option.as_list()
+        previous_values = previous_option.as_list()
+        added = []
+        removed = []
+        for value in values:
+            if value not in previous_values:
+                added.append(value)
+        for value in previous_values:
+            if value not in values:
+                removed.append(value)
+        return (added, removed)
+
+
 class Configuration(object):
     """Configuration.
     """

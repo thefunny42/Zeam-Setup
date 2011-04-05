@@ -114,10 +114,10 @@ def unsetuptoolize(filename='setup.py'):
     globs['__doc__'] = "This package have been unsetuptooled by Zeam Corp"
     globs['__file__'] = filename
     success = True
-    try:
-        exec(code.compile(filename), globs, {})
-    except:
-        success = False
+    #try:
+    exec(code.compile(filename), globs, {})
+    #except:
+    #    success = False
 
     # Include script output and error output
     config = ConfigParser.ConfigParser()

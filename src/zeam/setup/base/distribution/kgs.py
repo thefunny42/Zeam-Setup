@@ -3,15 +3,19 @@ import operator
 import logging
 
 from zeam.setup.base.version import Version, Requirement, Requirements
+from zeam.setup.base.error import ConfigurationError
 
 logger = logging.getLogger('zeam.setup')
 
 
 class KnownGoodRequirementSet(object):
+    """Represent a Known Good Requirement set, created from a Known
+    Good Version set.
+    """
 
     def __init__(self, kgs):
         self.kgs = kgs
-        self.available = set(kgs.registered())
+        self.available = kgs.registered()
         self.used = set()
         self.missing = Requirements()
 
@@ -46,20 +50,44 @@ class KnownGoodRequirementSet(object):
 
 
 class KnownGoodVersionSet(object):
+    """Represent a Known Good Version set. Such a set can extends a
+    another defined set.
+    """
 
-    def __init__(self, options):
-        self.options = options
-        self.name = options.name.split(':', 1)[1]
+    def __init__(self, versions, extends_set=None):
+        self.versions = versions
+        self.name = versions.name.split(':', 1)[1]
+        self.extends_set = extends_set
 
     def requirements(self):
         return KnownGoodRequirementSet(self)
 
     def registered(self):
-        return self.options.options.keys()
+        registered = set(self.versions.options.keys())
+        if self.extends_set is not None:
+            registered = registered.union(self.extends_set.registered())
+        return registered
 
     def get(self, name):
         __status__ = u"Looking version for %s in Known Good Set %s." % (
             name, self.name)
-        if name not in self.options:
+        if name not in self.versions:
+            if self.extends_set is not None:
+                return self.extends_set.get(name)
             return None
-        return Version.parse(self.options[name].as_text())
+        return Version.parse(self.versions[name].as_text())
+
+
+def get_kgs_requirements(section_names, configuration):
+    """Return a Known Good requirement set out of a configuration.
+    """
+    kgs = None
+    for name in reversed(section_names):
+        name = 'versions:' + name
+        if name not in configuration:
+            raise ConfigurationError(
+                u"Missing version set definition %s" % (name))
+        kgs = KnownGoodVersionSet(configuration[name], kgs)
+    if kgs is None:
+        raise ConfigurationError(u"Invalid empty version set")
+    return kgs.requirements()

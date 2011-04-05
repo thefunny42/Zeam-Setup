@@ -80,7 +80,7 @@ class PackageInstaller(object):
 
     def install(self, path, interpretor, install_dependencies):
         distribution = Release(**self.informations)
-        load_metadata(distribution, distribution.path, interpretor)
+        loader = load_metadata(distribution, distribution.path, interpretor)
         install_dependencies(distribution)
         return distribution
 

@@ -30,9 +30,14 @@ class EggLoader(object):
 
 
 class EggLoaderFactory(object):
+    """Load an egg package.
+    """
 
     def available(self, path):
         egg_info = os.path.join(path, 'EGG-INFO')
         if os.path.isdir(egg_info):
             return EggLoader(path, egg_info)
         return None
+
+    def install(self, release, path):
+        pass

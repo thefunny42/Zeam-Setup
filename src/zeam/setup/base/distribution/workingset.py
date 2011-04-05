@@ -9,7 +9,7 @@ import pprint
 from zeam.setup.base.distribution.release import Release, load_package
 from zeam.setup.base.version import Requirement, IncompatibleRequirement
 from zeam.setup.base.error import PackageError, InstallationError
-from zeam.setup.base.utils import get_cmd_output
+from zeam.setup.base.python import PythonInterpreter
 
 logger = logging.getLogger('zeam.setup')
 
@@ -20,60 +20,6 @@ sys.path[0:0] = %(modules_path)s
 
 %(script)s
 """
-
-
-class PythonInterpreter(object):
-    """Wrap and gives information about a python interpreter.
-    """
-
-    INTERPRETERS = {}
-
-    def __init__(self, path):
-        assert path is not None
-        self.__path = path
-        self.__version = get_cmd_output(
-            path, "-c",
-            "print '.'.join(map(str, __import__('sys').version_info[:2]))"
-            )[0].strip()
-        self.__platform = get_cmd_output(
-            path, "-c",
-            "print __import__('sys').platform")[0].strip()
-
-    @classmethod
-    def detect(cls, path=None):
-        if path is None:
-            path = sys.executable
-        if path in cls.INTERPRETERS:
-            return cls.INTERPRETERS[path]
-        interpreter = cls(path)
-        cls.INTERPRETERS[path] = interpreter
-        return interpreter
-
-    def __eq__(self, string):
-        return str(self) == string
-
-    def __str__(self):
-        return self.__path
-
-    def __repr__(self):
-        return self.__path
-
-    def execute(self, module, *args):
-        """Run the given module with the given args.
-        """
-        module_file = module.__file__
-        if module_file.endswith('.pyc'):
-            module_file = module_file[:-1]
-        cmd = [self.__path, module_file]
-        cmd.extend(args)
-        return get_cmd_output(*cmd)[0]
-
-    def get_pyversion(self):
-        return self.__version
-
-    def get_platform(self):
-        return self.__platform
-
 
 class WorkingSet(object):
     """Represent the set of release used together.
@@ -101,6 +47,15 @@ class WorkingSet(object):
         if isinstance(other, basestring):
             return other in self.__installed
         raise ValueError(other)
+
+    def get(self, other):
+        if isinstance(other, Requirement):
+            return self.__installed[other.name]
+        if isinstance(other, basestring):
+            return self.__installed[other]
+        raise KeyError(other)
+
+    __getitem__ = get
 
     def add(self, release):
         """Try to add a new release in the environment. This doesn't

@@ -3,7 +3,7 @@ import logging
 import os.path
 import threading
 
-from zeam.setup.base.distribution.kgs import KnownGoodVersionSet
+from zeam.setup.base.distribution.kgs import get_kgs_requirements
 from zeam.setup.base.error import PackageError, ConfigurationError, report_error
 from zeam.setup.base.version import Requirements
 from zeam.setup.base.utils import get_option_with_default
@@ -32,12 +32,7 @@ class PackageInstaller(object):
         setup = configuration['setup']
         versions = get_option_with_default('versions', options, False)
         if versions is not None:
-            versions = 'versions:' + versions.as_text()
-            if versions not in configuration:
-                raise ConfigurationError(u"Missing Known Good Set (tm) %s" % (
-                        versions))
-            self.kgs = KnownGoodVersionSet(
-                configuration[versions]).requirements()
+            self.kgs = get_kgs_requirements(versions.as_list(), configuration)
         self.__worker_count = setup.get('workers', '4').as_int()
         self.__lib_directory = setup.get('lib_directory').as_text()
         self.__first_done = False

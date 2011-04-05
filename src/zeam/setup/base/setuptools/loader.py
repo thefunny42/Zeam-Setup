@@ -3,6 +3,7 @@ import os
 import logging
 
 from zeam.setup.base.configuration import Configuration
+from zeam.setup.base.python import PythonInterpreter
 from zeam.setup.base.setuptools.autotools import create_autotools
 from zeam.setup.base.setuptools import unsetuptoolize
 from zeam.setup.base.version import Version, Requirements
@@ -12,8 +13,9 @@ logger = logging.getLogger('zeam.setup')
 
 class SetuptoolsLoader(object):
 
-    def __init__(self, path):
+    def __init__(self, path, source):
         self.path = path
+        self.source = source
 
     def extensions(self, prefix, section):
         __status__ = u"Introspecting distutils/setuptools extensions."
@@ -64,18 +66,10 @@ class SetuptoolsLoader(object):
         return extensions
 
     def load(self, distribution, interpretor):
-        # We must have a setuptool package. Extract information if possible
-        # XXX this should move to available
-        source = interpretor.execute(unsetuptoolize, '-d', self.path)
-        if not source:
-            logger.error(
-                u"Missing setuptools configuration in %s, "
-                u"giving up" % self.path)
-            return None
         distribution.package_path = self.path
 
         # Read extracted configuration
-        config = Configuration.read_lines(source.splitlines, self.path)
+        config = Configuration.read_lines(self.source.splitlines, self.path)
         setuptool_config = config['setuptools']
         distribution.version = Version.parse(
             setuptool_config['version'].as_text())
@@ -114,9 +108,18 @@ class SetuptoolsLoader(object):
 
 
 class SetuptoolsLoaderFactory(object):
+    """Load a setuptool source package.
+    """
 
     def available(self, path):
         setup_py = os.path.join(path, 'setup.py')
         if os.path.isfile(setup_py):
-            return SetuptoolsLoader(path)
+            interpretor = PythonInterpreter.detect()
+            source = interpretor.execute(unsetuptoolize, '-d', path)
+            if source:
+                return SetuptoolsLoader(path)
+            logger.debug(u"Missing setuptools configuration in  %s, " % path)
         return None
+
+    def install(self, release, path):
+        pass
