@@ -4,7 +4,7 @@ import os.path
 import threading
 
 from zeam.setup.base.distribution.kgs import get_kgs_requirements
-from zeam.setup.base.error import PackageError, ConfigurationError, report_error
+from zeam.setup.base.error import PackageError, report_error
 from zeam.setup.base.version import Requirements
 from zeam.setup.base.utils import get_option_with_default
 
@@ -153,13 +153,14 @@ class PackageInstallerWorker(threading.Thread):
         candidate_packages = self.sources.search(
             requirement, self.interpretor)
         package = candidate_packages.get_most_recent()
-        logger.info(u"Humbly chosing version %s for %s." % (
+        logger.info(u"Humbly choosing version %s for %s." % (
                 str(package.version), requirement))
-        return package.install(
+        release, loader = package.install(
             self.target_directory,
             self.interpretor,
             lambda distribution: self.install_dependencies(
                 requirement, distribution))
+        return release
 
     def run(self):
         """Install packages as long as you can.

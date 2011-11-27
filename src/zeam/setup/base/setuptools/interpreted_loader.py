@@ -11,7 +11,7 @@ from zeam.setup.base.version import Version, Requirements
 logger = logging.getLogger('zeam.setup')
 
 
-class SetuptoolsLoader(object):
+class InterpretedSetuptoolsLoader(object):
 
     def __init__(self, path, source):
         self.path = path
@@ -106,8 +106,11 @@ class SetuptoolsLoader(object):
             distribution.extensions = libraries
         return distribution
 
+    def install(self, distribution, install_path, interpretor):
+        raise NotImplementedError
 
-class SetuptoolsLoaderFactory(object):
+
+class InterpretedSetuptoolsLoaderFactory(object):
     """Load a setuptool source package.
     """
 
@@ -115,9 +118,11 @@ class SetuptoolsLoaderFactory(object):
         setup_py = os.path.join(path, 'setup.py')
         if os.path.isfile(setup_py):
             interpretor = PythonInterpreter.detect()
-            source = interpretor.execute(unsetuptoolize, '-d', path)
-            if source:
-                return SetuptoolsLoader(path)
+            # XXX Review this
+            source, _, code = interpretor.execute(unsetuptoolize, '-d', path)
+            if not code:
+                if source:
+                    return InterpretedSetuptoolsLoader(path, source)
             logger.debug(u"Missing setuptools configuration in  %s, " % path)
         return None
 

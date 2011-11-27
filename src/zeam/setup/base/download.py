@@ -1,9 +1,13 @@
 
 import logging
-import md5
 import os
 import urllib2
 import urlparse
+
+try:
+    from hashlib import md5 as md5_sum
+except ImportError:
+    from md5 import new as md5_sum
 
 from zeam.setup.base.error import DownloadError
 
@@ -35,7 +39,7 @@ def verify_checksum(path, checksum):
         # We don't have a checksum in fact
         return True
     input = open(path, 'r')
-    hasher = md5.new()
+    hasher = md5_sum()
     buffer = input.read(CHUNK_SIZE)
     while buffer:
         hasher.update(buffer)

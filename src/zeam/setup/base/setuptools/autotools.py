@@ -1,4 +1,5 @@
 
+import atexit
 import logging
 import operator
 import os
@@ -193,6 +194,7 @@ class AutomakeBuilder(object):
 
     def __init__(self):
         self.cache_name = tempfile.mkstemp('zeam.setup.autotools.cache')[1]
+        atexit.register(os.remove, self.cache_name)
 
     def build(self, distribution, path, interpretor):
         working_dir = distribution.package_path
@@ -224,9 +226,4 @@ class AutomakeBuilder(object):
             raise PackageError(
                 u"Extensions installation failed for %s." % distribution)
 
-    def __del__(self):
-        try:
-            os.remove(self.cachename)
-        except OSError:
-            pass
 

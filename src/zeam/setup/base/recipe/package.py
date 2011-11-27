@@ -41,7 +41,6 @@ def install_scripts(
     working_set, package_name, directory, args=None, wanted=None):
     created_scripts = []
     scripts = working_set.list_entry_points('console_scripts', package_name)
-    interpretor = working_set.interpretor
 
     args = ', '.join(args)
 

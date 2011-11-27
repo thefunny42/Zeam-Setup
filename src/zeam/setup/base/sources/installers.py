@@ -3,53 +3,13 @@ import os
 import logging
 import tempfile
 import shutil
-import py_compile
 
-from zeam.setup.base.setuptools.autotools import AutomakeBuilder
 from zeam.setup.base.archives import ARCHIVE_MANAGER
 from zeam.setup.base.distribution.release import Release, load_metadata
 from zeam.setup.base.egginfo.write import write_egg_info
 from zeam.setup.base.error import PackageError
 
 logger = logging.getLogger('zeam.setup')
-
-
-def find_packages(source_dir):
-    """Return a list of package contained in the given directory.
-    """
-    for possible_package in os.listdir(source_dir):
-        possible_path = os.path.join(source_dir, possible_package)
-        if (os.path.isfile(os.path.join(possible_path, '__init__.py')) or
-            os.path.isfile(os.path.join(possible_path, '__init__.pyc'))):
-            yield possible_package
-
-
-def compile_py_files(source_dir):
-    """Compile if possible all Python files.
-    """
-    for source_file in os.listdir(source_dir):
-        source_path = os.path.join(source_dir, source_file)
-        if source_path.endswith('.py') and os.path.isfile(source_path):
-            py_compile.compile(source_path)
-        elif os.path.isdir(source_path):
-            compile_py_files(source_path)
-
-
-def install_py_packages(target_dir, source_dir, packages):
-    """Install Python packages from source_dir into target_dir.
-    """
-    for package in packages:
-        target_package_dir = os.path.join(target_dir, package)
-        logger.info("Install Python files for %s into %s" % (
-                package, target_package_dir))
-        if os.path.isdir(target_package_dir):
-            logger.debug("Cleaning installation directory %s" % (
-                    target_package_dir))
-            shutil.rmtree(target_package_dir)
-        # XXX We should here copy only manifest files.
-        shutil.copytree(
-            os.path.join(source_dir, package), target_package_dir)
-        compile_py_files(target_package_dir)
 
 
 class PackageInstaller(object):
@@ -82,10 +42,8 @@ class PackageInstaller(object):
         distribution = Release(**self.informations)
         loader = load_metadata(distribution, distribution.path, interpretor)
         install_dependencies(distribution)
-        return distribution
+        return distribution, loader
 
-
-builder = AutomakeBuilder()
 
 class UninstalledPackageInstaller(PackageInstaller):
     """A release that you can install.
@@ -133,27 +91,12 @@ class UninstalledPackageInstaller(PackageInstaller):
         self.informations['path'] = source_location
 
         # Load project information
-        distribution = super(UninstalledPackageInstaller, self).install(
+        distribution, loader = super(UninstalledPackageInstaller, self).install(
             path, interpretor, install_dependencies)
 
         # Install files
-        source_dir = distribution.path
         install_path = os.path.join(path, self.get_install_base_directory())
-
-        # XXX This needs review
-        if distribution.extensions:
-            builder.build(distribution, install_path, interpretor)
-
-        try:
-            install_py_packages(
-                install_path, source_dir, find_packages(source_dir))
-
-            # XXX This needs review
-            if distribution.extensions:
-                builder.install(distribution, install_path, interpretor)
-        except:
-            #shutil.rmtree(install_path)
-            raise
+        loader.install(install_path)
 
         shutil.rmtree(build_dir)
 
@@ -162,7 +105,7 @@ class UninstalledPackageInstaller(PackageInstaller):
         distribution.package_path = install_path
 
         write_egg_info(distribution)
-        return distribution
+        return distribution, loader
 
 
 class UndownloadedPackageInstaller(UninstalledPackageInstaller):

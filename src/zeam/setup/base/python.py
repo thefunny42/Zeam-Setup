@@ -39,7 +39,14 @@ class PythonInterpreter(object):
     def __repr__(self):
         return self.__path
 
-    def execute(self, module, *args):
+    def execute_external(self, *command, **opts):
+        """Run an external command with the given args.
+        """
+        cmd = [self.__path]
+        cmd.extend(command)
+        return get_cmd_output(*cmd, **opts)
+
+    def execute(self, module, *args, **opts):
         """Run the given module with the given args.
         """
         module_file = module.__file__
@@ -47,7 +54,7 @@ class PythonInterpreter(object):
             module_file = module_file[:-1]
         cmd = [self.__path, module_file]
         cmd.extend(args)
-        return get_cmd_output(*cmd)[0]
+        return get_cmd_output(*cmd, **opts)[0]
 
     def get_pyversion(self):
         return self.__version

@@ -118,7 +118,11 @@ class RemoteSource(object):
         return None
 
     def initialize(self):
-        pass
+        # Preload all links in cache
+        for find_link in self.find_links:
+            if find_link not in self.links:
+                links = get_links(find_link)
+                self.links[find_link] = links
 
     def available(self, configuration):
         setup_config = configuration['setup']
@@ -250,6 +254,7 @@ class Sources(object):
     def __init__(self, configuration, section_name='setup'):
         __status__ = u"Initializing software sources."
         self.sources = []
+        self.available_sources = []
         self.configuration = configuration
         for source_name in configuration[section_name]['sources'].as_list():
             source_config = configuration['source:' + source_name]
@@ -265,15 +270,16 @@ class Sources(object):
         if self.__initialized:
             return
         for source in self.sources:
+            if not source.available(self.configuration):
+                continue
             source.initialize()
+            self.available_sources.append(source)
         self.__initialized = True
 
     def search(self, requirement, interpretor):
         """Search of a given package at the given location.
         """
-        for source in self.sources:
-            if not source.available(self.configuration):
-                continue
+        for source in self.available_sources:
             try:
                 return source.search(requirement, interpretor)
             except PackageNotFound:

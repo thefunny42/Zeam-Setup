@@ -7,7 +7,7 @@ import socket
 import sys
 
 from zeam.setup.base.distribution.workingset import WorkingSet
-from zeam.setup.base.distribution.release import current_package
+from zeam.setup.base.distribution.release import current_package, set_loaders
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import InstallationError, report_error
 from zeam.setup.base.recipe.commands import Installer
@@ -109,6 +109,9 @@ def bootstrap_cfg(config, options):
     # Lookup python executable
     if 'python_executable' not in setup:
         setup['python_executable'] = sys.executable
+
+    if 'loaders' in setup:
+        set_loaders(setup['loaders'].as_list())
 
     config.utilities.register('sources', Sources)
     config.utilities.register('package', current_package)

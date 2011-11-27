@@ -40,6 +40,7 @@ def report_error(debug=False, fatal=True):
 
         if debug:
             logger.critical(u'\nDebuging error:')
+            logger.critical(u'\n%s: %s:' % (type.__name__, error))
             pdb.post_mortem(traceback)
             if fatal:
                 sys.exit(0)
