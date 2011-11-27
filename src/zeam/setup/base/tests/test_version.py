@@ -36,20 +36,20 @@ class VersionTestCase(unittest.TestCase):
         """
         v1 = Version.parse('2a1')
         v2 = Version.parse('2b1')
-        self.failUnless(v1 < v2)
-        self.failIf(v1 > v2)
-        self.failUnless(v2 > v1)
-        self.failIf(v2 < v1)
+        self.assertTrue(v1 < v2)
+        self.assertFalse(v1 > v2)
+        self.assertTrue(v2 > v1)
+        self.assertFalse(v2 < v1)
 
     def test_comparaison_le_or_ge(self):
         """Test comparaison beween versions
         """
         v1 = Version.parse('2a1')
         v2 = Version.parse('2b1')
-        self.failUnless(v1 <= v2)
-        self.failIf(v1 >= v2)
-        self.failUnless(v2 >= v1)
-        self.failIf(v2 <= v1)
+        self.assertTrue(v1 <= v2)
+        self.assertFalse(v1 >= v2)
+        self.assertTrue(v2 >= v1)
+        self.assertFalse(v2 <= v1)
 
     def test_comparaison_equality(self):
         """Test equality comparaison between versions
@@ -57,10 +57,10 @@ class VersionTestCase(unittest.TestCase):
         v1 = Version.parse('1.2')
         v2 = Version.parse('1.2')
         v3 = Version.parse('3.3')
-        self.failUnless(v1 == v2)
-        self.failIf(v1 != v2)
-        self.failUnless(v1 != v3)
-        self.failIf(v1 == v3)
+        self.assertTrue(v1 == v2)
+        self.assertFalse(v1 != v2)
+        self.assertTrue(v1 != v3)
+        self.assertFalse(v1 == v3)
 
     def test_sort(self):
         """Test version sorting
@@ -81,56 +81,56 @@ class RequirementTestCase(unittest.TestCase):
         """Test requirement parsing and printing
         """
         req = Requirement.parse('test.software')
-        self.assertEquals(req.name, 'test.software')
-        self.assertEquals(req.versions, [])
-        self.assertEquals(req.extras, set())
-        self.assertEquals(str(req), 'test.software')
+        self.assertEqual(req.name, 'test.software')
+        self.assertEqual(req.versions, [])
+        self.assertEqual(req.extras, set())
+        self.assertEqual(str(req), 'test.software')
 
         req = Requirement.parse('MySoft ==2.3, <=2.4')
-        self.assertEquals(req.name, 'MySoft')
-        self.assertEquals(req.extras, set())
-        self.assertEquals(len(req.versions), 2)
-        self.assertEquals(str(req), 'MySoft==2.3,<=2.4')
+        self.assertEqual(req.name, 'MySoft')
+        self.assertEqual(req.extras, set())
+        self.assertEqual(len(req.versions), 2)
+        self.assertEqual(str(req), 'MySoft==2.3,<=2.4')
 
         req = Requirement.parse('Zope2>=2.12.3dev')
-        self.assertEquals(req.name, 'Zope2')
-        self.assertEquals(len(req.versions), 1)
-        self.assertEquals(str(req.versions[0][1]), '2.12.3dev')
-        self.assertEquals(str(req), 'Zope2>=2.12.3dev')
+        self.assertEqual(req.name, 'Zope2')
+        self.assertEqual(len(req.versions), 1)
+        self.assertEqual(str(req.versions[0][1]), '2.12.3dev')
+        self.assertEqual(str(req), 'Zope2>=2.12.3dev')
 
     def test_parse_extras(self):
         """Test requirement parsing and printing with extras
         """
         req = Requirement.parse('CoolSoft[zca]')
-        self.assertEquals(req.name, 'CoolSoft')
-        self.assertEquals(req.extras, set(['zca']))
-        self.assertEquals(req.versions, [])
-        self.assertEquals(str(req), 'CoolSoft[zca]')
+        self.assertEqual(req.name, 'CoolSoft')
+        self.assertEqual(req.extras, set(['zca']))
+        self.assertEqual(req.versions, [])
+        self.assertEqual(str(req), 'CoolSoft[zca]')
 
         req = Requirement.parse('NewSoft [testing,zope.testing , web]')
-        self.assertEquals(req.name, 'NewSoft')
-        self.assertEquals(req.extras, set(['testing', 'zope.testing', 'web']))
-        self.assertEquals(req.versions, [])
-        self.assertEquals(str(req), 'NewSoft[testing,web,zope.testing]')
+        self.assertEqual(req.name, 'NewSoft')
+        self.assertEqual(req.extras, set(['testing', 'zope.testing', 'web']))
+        self.assertEqual(req.versions, [])
+        self.assertEqual(str(req), 'NewSoft[testing,web,zope.testing]')
 
         req = Requirement.parse('NewSoft [zope.testing , web] <=2.4, >=1.0')
-        self.assertEquals(req.name, 'NewSoft')
-        self.assertEquals(req.extras, set(['zope.testing', 'web']))
-        self.assertEquals(len(req.versions), 2)
-        self.assertEquals(str(req), 'NewSoft[web,zope.testing]<=2.4,>=1.0')
+        self.assertEqual(req.name, 'NewSoft')
+        self.assertEqual(req.extras, set(['zope.testing', 'web']))
+        self.assertEqual(len(req.versions), 2)
+        self.assertEqual(str(req), 'NewSoft[web,zope.testing]<=2.4,>=1.0')
 
     def test_match(self):
         """Test matching a requirement to a release
         """
         req = Requirement.parse('MySoft >=2.0, <=2.4')
         release = Release('YourSoft', '2.1')
-        self.failIf(req.match(release))
+        self.assertFalse(req.match(release))
 
         release = Release('MySoft', '2.1')
-        self.failUnless(req.match(release))
+        self.assertTrue(req.match(release))
 
         release = Release('MySoft', '1.0')
-        self.failIf(req.match(release))
+        self.assertFalse(req.match(release))
 
     def test_hash(self):
         """Test that requirements are hashable
@@ -270,21 +270,21 @@ class RequirementsTestCase(unittest.TestCase):
         """Test requirements parsing and printing
         """
         reqs = Requirements.parse([])
-        self.assertEquals(len(reqs), 0)
-        self.assertEquals(len(reqs.requirements), 0)
+        self.assertEqual(len(reqs), 0)
+        self.assertEqual(len(reqs.requirements), 0)
 
         reqs = Requirements.parse('test.software')
-        self.assertEquals(len(reqs), 1)
-        self.assertEquals(len(reqs.requirements), 1)
-        self.assertEquals(str(reqs), 'test.software')
+        self.assertEqual(len(reqs), 1)
+        self.assertEqual(len(reqs.requirements), 1)
+        self.assertEqual(str(reqs), 'test.software')
 
         reqs = Requirements.parse(
             ['zeam.form.base',
              'zeam.test>=2.1',
              'zope.testing<=3.7dev'])
-        self.assertEquals(len(reqs), 3)
-        self.assertEquals(len(reqs.requirements), 3)
-        self.assertEquals(
+        self.assertEqual(len(reqs), 3)
+        self.assertEqual(len(reqs.requirements), 3)
+        self.assertEqual(
             str(reqs).split('\n'),
             ['zeam.form.base',
              'zeam.test>=2.1',
@@ -306,7 +306,7 @@ class RequirementsTestCase(unittest.TestCase):
 
         result_reqs = reqs + other_reqs
 
-        self.assertEquals(
+        self.assertEqual(
             str(result_reqs).split('\n'),
             ['zeam.form.base',
              'zeam.form.ztk[test]>=1.0b1',

@@ -15,7 +15,6 @@ REQUIREMENT_TO_OPERATORS = {'==': operator.eq, '>=': operator.ge,
 OPERATORS_TO_REQUIREMENT = {operator.eq: '==', operator.ge: '>=',
                             operator.ne: '!=', operator.le: '<='}.get
 
-
 class InvalidVersion(ValueError):
     """This version is invalid.
     """
@@ -255,6 +254,10 @@ class Requirement(object):
         for op, version in self.versions:
             if not op(release.version, version):
                 return False
+        # XXX We should check this
+        # for extra in self.extras:
+        #     if extra not in release.extras:
+        #         return False
         return True
 
     def is_compatible(self, other):
@@ -335,6 +338,17 @@ class Requirements(object):
         name = self.__order.pop(0)
         requirement = self.__data[name]
         del self.__data[name]
+        return requirement
+
+    def get(self, requirement, default=None):
+        if isinstance(requirement, Requirement):
+            return self.__data.get(requirement.name, default)
+        self.__data.get(requirement, default)
+
+    def __getitem__(self, requirement):
+        requirement = self.get(requirement)
+        if requirement is None:
+            raise KeyError(requirement)
         return requirement
 
     def __contains__(self, requirement):

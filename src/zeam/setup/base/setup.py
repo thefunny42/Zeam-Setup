@@ -110,8 +110,8 @@ def bootstrap_cfg(config, options):
     if 'python_executable' not in setup:
         setup['python_executable'] = sys.executable
 
-    if 'loaders' in setup:
-        set_loaders(setup['loaders'].as_list())
+    if 'install_loaders' in setup:
+        set_loaders(setup['install_loaders'].as_list())
 
     config.utilities.register('sources', Sources)
     config.utilities.register('package', current_package)

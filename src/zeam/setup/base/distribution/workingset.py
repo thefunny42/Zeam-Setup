@@ -48,14 +48,18 @@ class WorkingSet(object):
             return other in self.__installed
         raise ValueError(other)
 
-    def get(self, other):
+    def get(self, other, default=None):
         if isinstance(other, Requirement):
-            return self.__installed[other.name]
+            return self.installed[other.name]
         if isinstance(other, basestring):
-            return self.__installed[other]
-        raise KeyError(other)
+            return self.installed[other]
+        raise default
 
-    __getitem__ = get
+    def __getitem__(self, requirement):
+        release = self.get(requirement)
+        if release is None:
+            raise KeyError(requirement)
+        return release
 
     def add(self, release):
         """Try to add a new release in the environment. This doesn't
