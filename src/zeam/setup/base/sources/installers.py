@@ -6,7 +6,6 @@ import shutil
 
 from zeam.setup.base.archives import ARCHIVE_MANAGER
 from zeam.setup.base.distribution.release import Release, load_metadata
-from zeam.setup.base.egginfo.write import write_egg_info
 from zeam.setup.base.error import PackageError
 
 logger = logging.getLogger('zeam.setup')
@@ -103,8 +102,6 @@ class UninstalledPackageInstaller(PackageInstaller):
         # Package path is now the installed path
         distribution.path = install_path
         distribution.package_path = install_path
-
-        write_egg_info(distribution)
         return distribution, loader
 
 

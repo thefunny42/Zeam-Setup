@@ -46,7 +46,7 @@ class PythonInterpreter(object):
         cmd.extend(command)
         return get_cmd_output(*cmd, **opts)
 
-    def execute(self, module, *args, **opts):
+    def execute_module(self, module, *args, **opts):
         """Run the given module with the given args.
         """
         module_file = module.__file__
@@ -54,7 +54,7 @@ class PythonInterpreter(object):
             module_file = module_file[:-1]
         cmd = [self.__path, module_file]
         cmd.extend(args)
-        return get_cmd_output(*cmd, **opts)[0]
+        return get_cmd_output(*cmd, **opts)
 
     def get_pyversion(self):
         return self.__version

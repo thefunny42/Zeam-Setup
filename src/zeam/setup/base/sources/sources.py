@@ -117,12 +117,13 @@ class RemoteSource(object):
                 requirement, links[requirement.name], interpretor, depth + 1)
         return None
 
-    def initialize(self):
-        # Preload all links in cache
-        for find_link in self.find_links:
-            if find_link not in self.links:
-                links = get_links(find_link)
-                self.links[find_link] = links
+    def initialize(self, first_time):
+        if first_time:
+            # Preload all links in cache
+            for find_link in self.find_links:
+                if find_link not in self.links:
+                    links = get_links(find_link)
+                    self.links[find_link] = links
 
     def available(self, configuration):
         setup_config = configuration['setup']
@@ -158,9 +159,10 @@ class LocalSource(object):
         self.path = options['directory'].as_text()
         self.installers = Installers()
 
-    def initialize(self):
+    def initialize(self, first_time):
         __status__ = u"Analysing local software source %s." % self.path
-        create_directory(self.path)
+        if first_time:
+            create_directory(self.path)
         self.installers.extend(self.finder(self.path))
 
     def available(self, configuration):
@@ -203,8 +205,10 @@ class VCSSource(object):
         if 'available' in options:
             self.enabled = options['available'].as_list()
 
-    def initialize(self):
+    def initialize(self, first_time):
         __status__ = u"Preparing remote development sources."
+        if not first_time:
+            return
         VCS.initialize()
         create_directory(self.directory)
         for section_name in self.options['sources'].as_list():
@@ -268,11 +272,13 @@ class Sources(object):
 
     def initialize(self):
         if self.__initialized:
+            for source in self.available_sources:
+                source.initialize(False)
             return
         for source in self.sources:
             if not source.available(self.configuration):
                 continue
-            source.initialize()
+            source.initialize(True)
             self.available_sources.append(source)
         self.__initialized = True
 

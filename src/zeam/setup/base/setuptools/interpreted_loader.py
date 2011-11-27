@@ -106,7 +106,7 @@ class InterpretedSetuptoolsLoader(object):
             distribution.extensions = libraries
         return distribution
 
-    def install(self, distribution, install_path, interpretor):
+    def install(self, install_path):
         raise NotImplementedError
 
 
@@ -114,17 +114,15 @@ class InterpretedSetuptoolsLoaderFactory(object):
     """Load a setuptool source package.
     """
 
-    def available(self, path):
+    def __call__(self, distribution, path, interpreter):
         setup_py = os.path.join(path, 'setup.py')
         if os.path.isfile(setup_py):
             interpretor = PythonInterpreter.detect()
             # XXX Review this
-            source, _, code = interpretor.execute(unsetuptoolize, '-d', path)
+            source, _, code = interpretor.execute_module(
+                unsetuptoolize, '-d', path)
             if not code:
                 if source:
                     return InterpretedSetuptoolsLoader(path, source)
             logger.debug(u"Missing setuptools configuration in  %s, " % path)
         return None
-
-    def install(self, release, path):
-        pass

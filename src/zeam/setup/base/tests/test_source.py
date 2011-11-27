@@ -87,4 +87,9 @@ class SourceTestCase(unittest.TestCase):
             {'name': 'setup', 'format': 'tar.gz',
              'url': None, 'pyversion': '2.6', 'platform': 'mac',
              'version': Version.parse('3.5-1'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(source, 'setuptools-0.6c11-py2.6.egg'),
+            {'name': 'setuptools', 'format': 'egg',
+             'url': None, 'pyversion': '2.6', 'platform': None,
+             'version': Version.parse('0.6c11'), 'path': None})
 

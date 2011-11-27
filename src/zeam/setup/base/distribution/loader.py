@@ -4,11 +4,12 @@ import os
 import shutil
 import py_compile
 
-from zeam.setup.base.setuptools.autotools import AutomakeBuilder
-from zeam.setup.base.python import PythonInterpreter
 from zeam.setup.base.configuration import Configuration
-from zeam.setup.base.version import Version, Requirements
+from zeam.setup.base.egginfo.write import write_egg_info
 from zeam.setup.base.error import PackageError
+from zeam.setup.base.python import PythonInterpreter
+from zeam.setup.base.setuptools.autotools import AutomakeBuilder
+from zeam.setup.base.version import Version, Requirements
 
 logger = logging.getLogger('zeam.setup')
 
@@ -112,6 +113,8 @@ class SetupLoader(object):
             if self.distribution.extensions:
                 builder.install(
                     self.distribution, install_path, self.interpretor)
+
+            write_egg_info(self.distribution, package_path=install_path)
         except:
             shutil.rmtree(install_path)
             raise

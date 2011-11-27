@@ -9,11 +9,11 @@ from zeam.setup.base.version import Version
 
 class EggLoader(object):
 
-    def __init__(self, path, egg_info, distribution, interpretor):
+    def __init__(self, path, egg_info, distribution, execute=None):
         self.path = path
         self.egg_info = egg_info
         self.distribution = distribution
-        self.interpretor = interpretor
+        self.execute = execute
 
     def load(self):
         pkg_info = read_pkg_info(self.egg_info)
@@ -40,8 +40,8 @@ class EggLoaderFactory(object):
     """Load an egg package.
     """
 
-    def __call__(self, distribution, path, interpretor):
+    def __call__(self, distribution, path, interpreter):
         egg_info = os.path.join(path, 'EGG-INFO')
         if os.path.isdir(egg_info):
-            return EggLoader(path, egg_info, distribution, interpretor)
+            return EggLoader(path, egg_info, distribution)
         return None
