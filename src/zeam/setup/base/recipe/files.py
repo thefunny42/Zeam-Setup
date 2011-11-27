@@ -21,7 +21,7 @@ class Files(Recipe):
         self.urls = configuration['urls'].as_list()
         self.post_python_commands = configuration.get(
             'post_python_commands', '').as_list()
-        self.interpreter = PythonInterpreter(
+        self.interpreter = PythonInterpreter.detect(
             configuration.configuration['setup']['python_executable'].as_text())
         self.target = configuration['target_directory'].as_text()
         self.target_only = configuration.get('target_only', '').as_text()

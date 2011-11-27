@@ -109,12 +109,13 @@ class Interpreter(Package):
         directory = get_option_with_default(
             'bin_directory', self.configuration).as_text()
         python_executable = get_option_with_default(
-                'python_executable', self.configuration).as_text()
+            'python_executable', self.configuration).as_text()
         working_set = WorkingSet(python_executable)
         installer = PackageInstaller(self.configuration, working_set)
         installer(Requirements.parse(self.packages))
         script_path = os.path.join(directory, self.configuration.name)
-        return [working_set.create_script(script_path, INTERPRETER_BODY)]
+        return [working_set.create_script(
+                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths)]
 
     def uninstall(self):
         pass
