@@ -91,9 +91,9 @@ class WorkingSet(object):
         elif len(name_parts) == 2:
             entry_name = name_parts[1]
         else:
-            InstallationError('Invalid entry point designation %s' % name)
+            raise InstallationError(u"Invalid entry point designation", name)
         if package not in self.installed:
-            raise PackageError(u"Package %s not available" % package)
+            raise PackageError(u"Package not available", package)
         release = self.installed[package]
         return release.get_entry_point(group, entry_name)
 
@@ -118,13 +118,14 @@ class WorkingSet(object):
                                           'name': package_name + ':' + name}
         return entry_points
 
-    def create_script(self, script_path, script_body):
+    def create_script(self, script_path, script_body, extra_paths=[]):
         """Create a script at the given path with the given body.
         """
         logger.warning('Creating script %s' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
-        printer.pprint(map(lambda r: r.path, self.installed.values()))
+        printer.pprint(
+            map(lambda r: r.path, self.installed.values()) + extra_paths)
         script_fd = open(script_path, 'w')
         script_fd.write(SCRIPT_TEMPLATE % {
                 'executable': self.interpretor,

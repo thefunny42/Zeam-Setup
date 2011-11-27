@@ -3,6 +3,7 @@ import logging
 
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.configuration import Section
+from zeam.setup.base.error import ConfigurationError
 
 logger = logging.getLogger('zeam.setup')
 
@@ -22,8 +23,11 @@ class Installer(object):
         setup = configuration['setup']
         for section_name in setup['install'].as_list():
             section = self.configuration[section_name]
+            recipe_name = section['recipe'].as_text()
             recipe_factory = releases.get_entry_point(
-                'setup_installers', section['recipe'].as_text())
+                'setup_installers', recipe_name)
+            if recipe_factory is None:
+                raise ConfigurationError(u"Could load recipe", recipe_name)
             self.recipes[section_name] = recipe_factory(section)
 
 

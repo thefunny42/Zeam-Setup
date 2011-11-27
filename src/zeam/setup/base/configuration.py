@@ -239,7 +239,6 @@ class Configuration(object):
             raise ConfigurationError(origin, u'No section defined')
 
         # Support online include to extend configuration
-        base = '/'.join(origin.split('/')[:-1])
         if cls.default_section in configuration:
             section = configuration[cls.default_section]
             if 'extends' in section:
@@ -286,13 +285,13 @@ class Configuration(object):
             if default is not marker:
                 return default
             raise ConfigurationError(
-                self.__location, u'Missing %s section' % key)
+                self.__location, u'Missing %s section.' % key)
 
     get = __getitem__
 
     def __setitem__(self, key, value):
         if not isinstance(value, Section):
-            raise ValueError(u'Can only add section to a configuration')
+            raise ValueError(u'Can only add section to a configuration.')
         section = value.__copy__()
         section.configuration = self
         self.sections[key] = section
@@ -352,11 +351,11 @@ class Section(object):
         except KeyError:
             if default is not marker:
                 if isinstance(default, str):
-                    return Option('default', default)
+                    return Option('default', default, section=self)
                 return default
             raise ConfigurationError(
                 self.location,
-                u'Missing option %s in section %s' % (key, self.name))
+                u'Missing option %s in section %s.' % (key, self.name))
 
     get = __getitem__
 

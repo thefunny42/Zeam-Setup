@@ -9,11 +9,12 @@ logger = logging.getLogger('zeam.setup')
 
 __reporting_lock = threading.Lock()
 
-def create_report(trace, filename='error.log'):
+def create_report(type, error, trace, filename='error.log'):
     """Log last error in a file.
     """
     try:
         error_file = open(filename, 'w')
+        error_file.write(u'%s: %s:\n' % (type.__name__, error))
         traceback.print_tb(trace, None, error_file)
         error_file.close()
     except IOError:
@@ -27,21 +28,21 @@ def report_error(debug=False, fatal=True):
         __reporting_lock.acquire()
         logger.critical(u'\nAn error happened:')
         exc_info = sys.exc_info()
-        type, error, traceback = exc_info
-        while traceback is not None:
-            locals = traceback.tb_frame.f_locals
+        type, error, trace = exc_info
+        while trace is not None:
+            locals = trace.tb_frame.f_locals
             if '__status__' in locals:
                 logger.critical(u'While: %s' % locals['__status__'])
-            traceback = traceback.tb_next
+            trace = trace.tb_next
 
-        type, error, traceback = exc_info
+        type, error, trace = exc_info
         if not debug:
-            create_report(traceback)
+            create_report(type, error, trace)
 
         if debug:
             logger.critical(u'\nDebuging error:')
             logger.critical(u'\n%s: %s:' % (type.__name__, error))
-            pdb.post_mortem(traceback)
+            pdb.post_mortem(trace)
             if fatal:
                 sys.exit(0)
         else:

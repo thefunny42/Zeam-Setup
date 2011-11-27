@@ -84,3 +84,9 @@ ARCHIVE_MANAGER = {
     'tar.gz': TarGzArchive,
     'tar.bz2': TarBz2Archive,}
 
+
+def open_archive(path, mode):
+    for key in ARCHIVE_MANAGER.keys():
+        if path.endswith(key):
+            return ARCHIVE_MANAGER[key](path, mode)
+    return None
