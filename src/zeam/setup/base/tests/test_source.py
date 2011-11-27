@@ -92,4 +92,16 @@ class SourceTestCase(unittest.TestCase):
             {'name': 'setuptools', 'format': 'egg',
              'url': None, 'pyversion': '2.6', 'platform': None,
              'version': Version.parse('0.6c11'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'elementtree-1.2.7-20070827.zip'),
+            {'name': 'elementtree', 'format': 'zip',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('1.2.7-20070827'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'elementtree-1.2.7-20070827-preview.zip'),
+            {'name': 'elementtree', 'format': 'zip',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('1.2.7-20070827-preview'), 'path': None})
 

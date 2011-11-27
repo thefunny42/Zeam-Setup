@@ -14,6 +14,9 @@ HTML_LINK = re.compile(
     r'<[aA][^>]*[hH][rR][eE][fF]\s*=\s*["\'](?P<url>[^"\']+)["\'][^>]*>'
     r'\s*(?P<name>[^<]+)?.*</[aA\s]>')
 
+# +    r'<a[^>]*href\s*=\s*["\'](?P<url>[^"\']+)["\'][^>]*>'
+# +    r'\s*(?P<name>[^<]+)?.*</a>', re.IGNORECASE)
+
 logger = logging.getLogger('zeam.setup')
 
 
@@ -88,7 +91,7 @@ def open_uri(uri):
             logger.info("Accessing remote url: %s" % uri)
             return urllib2.urlopen(uri)
         except urllib2.URLError, e:
-            raise NetworkError(uri, e.args[0].args[1])
+            raise NetworkError(uri)
     try:
         logger.info(u"Reading local file: %s" % uri)
         return open(uri, 'r')

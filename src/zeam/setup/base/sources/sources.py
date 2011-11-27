@@ -17,7 +17,7 @@ from zeam.setup.base.vcs import VCS
 logger = logging.getLogger('zeam.setup')
 
 RELEASE_TARBALL = re.compile(
-    r'^(?P<name>[^-]+)-(?P<version>[^-]*(-[\d]+)?)'
+    r'^(?P<name>[^-]+)-(?P<version>[^-]*(-[\d]+)?(-preview)?)'
     r'(-py(?P<pyversion>[^-]+)(-(?P<platform>[\w]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)

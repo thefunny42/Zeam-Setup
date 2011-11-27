@@ -40,12 +40,12 @@ def move_archive_folders(extract_path, target_path, path_infos):
     return installed_paths
 
 
-class Files(Recipe):
+class File(Recipe):
     """Download a list of files and archives in a folder.
     """
 
     def __init__(self, configuration):
-        super(Files, self).__init__(configuration)
+        super(File, self).__init__(configuration)
         self.urls = configuration['urls'].as_list()
         self.post_python_commands = configuration.get(
             'post_python_commands', '').as_list()

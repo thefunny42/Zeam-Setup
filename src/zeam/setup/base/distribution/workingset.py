@@ -26,9 +26,11 @@ class WorkingSet(object):
     """
 
     def __init__(self, interpretor=None):
-        self.installed = {}
-        self.__installer = None
         self.interpretor = PythonInterpreter.detect(interpretor)
+        self.installed = {
+            'python': Release(
+                name='python', version=self.interpretor.get_pyversion())}
+        self.__installer = None
 
         if self.interpretor == sys.executable:
             for path in sys.path:
