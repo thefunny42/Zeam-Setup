@@ -10,6 +10,7 @@ except ImportError:
     from md5 import new as md5_sum
 
 from zeam.setup.base.error import DownloadError
+from zeam.setup.base.utils import is_remote_uri
 
 logger = logging.getLogger('zeam.setup')
 
@@ -60,6 +61,11 @@ class DownloadManager(object):
 
     def __init__(self, directory):
         self.directory =  directory
+
+    def __call__(self, uri):
+        if is_remote_uri(uri):
+            return self.download(uri)
+        return uri
 
     def download(self, url):
         """Download if not already there the file at the given URL
