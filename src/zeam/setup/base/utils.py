@@ -11,8 +11,8 @@ from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 VERSION = re.compile(
     r'version ([0-9.]+)')
 HTML_LINK = re.compile(
-    r'<[aA][^>]*[hH][rR][eE][fF]=["\'](?P<url>[^"\']+)["\'][^>]*>'
-    r'(?P<name>[^<]+)</[aA\s]>')
+    r'<[aA][^>]*[hH][rR][eE][fF]\s*=\s*["\'](?P<url>[^"\']+)["\'][^>]*>'
+    r'\s*(?P<name>[^<]+)?.*</[aA\s]>')
 
 logger = logging.getLogger('zeam.setup')
 
@@ -116,6 +116,10 @@ def rewrite_links(base_uri, links):
             elif not is_remote_uri(url):
                 url = urlparse.urlunparse(absolute_uri + (
                         os.path.join(relative_path, url), '','', ''))
+        if not name:
+            # If we have no name, we use the last part of the URL.
+            link_parts = urlparse.urlparse(url)
+            name = os.path.basename(link_parts[2])
         yield (name.strip(), url,)
 
 

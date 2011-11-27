@@ -3,6 +3,7 @@ from zeam.setup.base.version import Requirements
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.installer import PackageInstaller
 
+
 class Recipe(object):
     """Install a part of the software.
     """
@@ -13,8 +14,9 @@ class Recipe(object):
         if self.requirements:
             self._install_recipe_requirements(self.requirements)
 
-    def _install_recipe_requirements(self, *requirements):
-        __status__ = u"Installing recipe requirements: %s" % (requirements)
+    def _install_recipe_requirements(self, requirements):
+        __status__ = u"Installing recipe requirements: %s" % (
+            ', '.join(requirements))
         working_set = WorkingSet()
         installer = PackageInstaller(self.configuration, working_set)
         installer(Requirements.parse(requirements))

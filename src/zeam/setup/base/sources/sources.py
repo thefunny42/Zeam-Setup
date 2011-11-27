@@ -21,6 +21,7 @@ RELEASE_TARBALL = re.compile(
     r'(-py(?P<pyversion>[^-]+)(-(?P<platform>[\w]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)
+DOWNLOAD_URL = re.compile(r'.*download.*', re.IGNORECASE)
 
 
 def get_installer_from_name(source, name, url=None, path=None):
@@ -115,6 +116,16 @@ class RemoteSource(object):
         if requirement.name in links:
             return self.get_download_packages(
                 requirement, links[requirement.name], interpretor, depth + 1)
+        else:
+            # Ok, look for links that contains download url (pypi compliant)
+            for label in links:
+                if DOWNLOAD_URL.match(label):
+                    link = links[label]
+                    if link not in self.links:
+                        candidates = self.get_download_packages(
+                            requirement, link, interpretor, depth + 1)
+                        if candidates is not None:
+                            return candidates
         return None
 
     def initialize(self, first_time):

@@ -12,6 +12,7 @@ class Installer(object):
     """
 
     def __init__(self, configuration):
+        __status__ = u"Loading installation recipes."
         self.configuration = configuration
         # Setup env
         releases = WorkingSet()
@@ -27,7 +28,7 @@ class Installer(object):
 
 
     def run(self):
-        __status__ = u"Preparing installation steps."
+        __status__ = u"Preparing installation recipes."
         # Organise recipe order
         # Look for update/uninstall/install
 
@@ -43,7 +44,7 @@ class Installer(object):
 
             recipe.prepare()
 
-        __status__ = u"Running installation steps."
+        __status__ = u"Running installation recipes."
         for recipe in self.recipes.values():
             installed_path = recipe.install()
             installed_section['path'] = installed_path

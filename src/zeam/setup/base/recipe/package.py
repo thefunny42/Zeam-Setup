@@ -111,8 +111,3 @@ class Interpreter(Package):
     def uninstall(self):
         pass
 
-
-class ZopeTestRunner(Package):
-    """Create a test script using zope.testing.testrunner.
-    """
-    pass
