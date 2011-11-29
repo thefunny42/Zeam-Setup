@@ -11,12 +11,10 @@ from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 VERSION = re.compile(
     r'version ([0-9.]+)')
 HTML_LINK = re.compile(
-    r'<[aA][^>]*[hH][rR][eE][fF]\s*=\s*["\'](?P<url>[^"\']+)["\'][^>]*>'
-    r'\s*(?P<name>[^<]+)?.*</[aA\s]>')
-
-# +    r'<a[^>]*href\s*=\s*["\'](?P<url>[^"\']+)["\'][^>]*>'
-# +    r'\s*(?P<name>[^<]+)?.*</a>', re.IGNORECASE)
-
+    r'<a.*?href\s*=\s*["\'](?P<url>[^"\']+)["\'].*?>(?P<name>.+?)?</a>',
+    re.IGNORECASE)
+STRING_TAGS = re.compile(
+    r'<(?P<tag>\S+)(\s.*?)?>.*?</(?P=tag)>|<\S+.*?/>')
 logger = logging.getLogger('zeam.setup')
 
 
@@ -123,6 +121,8 @@ def rewrite_links(base_uri, links):
             # If we have no name, we use the last part of the URL.
             link_parts = urlparse.urlparse(url)
             name = os.path.basename(link_parts[2])
+        else:
+            name = STRING_TAGS.sub('', name)
         yield (name.strip(), url,)
 
 
