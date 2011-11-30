@@ -34,7 +34,7 @@ class PackageInstaller(object):
         if versions is not None:
             self.kgs = get_kgs_requirements(versions.as_list(), configuration)
         self.__worker_count = setup.get('install_workers', '4').as_int()
-        self.__lib_directory = setup.get('lib_directory').as_text()
+        self.__directory = setup.get('lib_directory').as_text()
         self.__first_done = False
         self.__installation_failed = None
 
@@ -143,17 +143,16 @@ class PackageInstaller(object):
             self.__wakeup_workers()
         self.__lock.release()
 
-    def __call__(self, requirements, target_directory=None):
+    def __call__(self, requirements, directory=None):
         __status__ = u"Installing %r." % (requirements)
-        if target_directory is None:
-            target_directory = self.__lib_directory
+        if directory is None:
+            directory = self.__directory
         self.__register_install(requirements)
         if self.__to_install:
             self.sources.initialize()
             workers = []
             for count in range(self.__worker_count):
-                worker = PackageInstallerWorker(
-                    self, target_directory, count)
+                worker = PackageInstallerWorker(self, directory, count)
                 worker.start()
                 workers.append(worker)
             for worker in workers:

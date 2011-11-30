@@ -37,9 +37,6 @@ class Installer(object):
         # Look for update/uninstall/install
 
         # Prepare recipe
-        # Uninstall in reverse order of install
-        # Update
-        # Install in order
         for recipe in self.recipes.values():
             section_name = 'installed:' + recipe.configuration.name
             installed_section = Section(section_name)
@@ -48,6 +45,9 @@ class Installer(object):
 
             recipe.prepare()
 
+        # Uninstall in reverse order of install
+        # Update
+        # Install in order
         __status__ = u"Running installation recipes."
         for recipe in self.recipes.values():
             installed_path = recipe.install()

@@ -64,6 +64,10 @@ class Package(Recipe):
     def __init__(self, configuration):
         super(Package, self).__init__(configuration)
 
+        self.directory = configuration.get(
+            'directory',
+            '${setup:lib_directory}').as_text()
+
         if 'packages' not in configuration:
             self.packages = [get_package_name(configuration).as_text()]
         else:
@@ -81,15 +85,21 @@ class Package(Recipe):
         if 'extra_paths' in configuration:
             self.extra_paths = configuration['extra_paths'].as_list()
 
-    def install(self):
-        directory = get_option_with_default(
-            'bin_directory', self.configuration).as_text()
-        working_set = WorkingSet(get_option_with_default(
+        self.working_set = None
+
+    def prepare(self):
+        __status__ = u"Install required packages."
+        self.working_set = WorkingSet(get_option_with_default(
                 'python_executable', self.configuration).as_text())
-        installer = PackageInstaller(self.configuration, working_set)
-        installer(Requirements.parse(self.packages))
+        installer = PackageInstaller(self.configuration, self.working_set)
+        installer(Requirements.parse(self.packages), self.directory)
+
+    def install(self):
+        __status__ = u"Install required scripts."
+        bin_directory = get_option_with_default(
+            'bin_directory', self.configuration).as_text()
         create_scripts = lambda p: install_scripts(
-            working_set, p, directory,
+            self.working_set, p, bin_directory,
             extra_args=self.extra_args,
             wanted_scripts=self.wanted_scripts,
             extra_paths=self.extra_paths)

@@ -51,37 +51,41 @@ class File(Recipe):
             'post_python_commands', '').as_list()
         self.interpreter = PythonInterpreter.detect(
             configuration.configuration['setup']['python_executable'].as_text())
-        self.target = configuration['directory'].as_text()
+        self.directory = configuration['directory'].as_text()
         download_path = configuration.get(
             'download_directory',
             '${setup:prefix_directory}/download').as_text()
         create_directory(download_path)
         self.downloader = DownloadManager(download_path)
+        self.files = []
 
-    def install(self):
+    def prepare(self):
         __status__ = u"Download files."
-        downloaded_files = []
         for url_info in self.urls:
             url_parts = shlex.split(url_info)
-            path = self.downloader(url_parts[0])
-            archive = open_archive(path, 'r')
+            self.files.append((self.downloader(url_parts[0]), url_parts[1:]))
+
+    def install(self):
+        __status__ = u"Install files."
+        downloaded_files = []
+        for file, parts in self.files:
+            archive = open_archive(file, 'r')
             if archive is not None:
-                if len(url_parts) > 1:
-                    extract_path = tempfile.mkdtemp('zeam.setup.archive')
-                    archive.extract(extract_path)
+                if parts:
+                    path = tempfile.mkdtemp('zeam.setup.archive')
+                    archive.extract(path)
                     downloaded_files.extend(
-                        move_archive_folders(
-                            extract_path, self.target, url_parts[1:]))
-                    shutil.rmtree(extract_path)
+                        move_archive_folders(path, self.directory, parts))
+                    shutil.rmtree(path)
                 else:
-                    create_directory(self.target)
-                    archive.extract(self.target)
+                    create_directory(self.directory)
+                    archive.extract(self.directory)
             else:
-                shutil.copy2(path, self.target)
-            downloaded_files.append(self.target)
+                shutil.copy2(file, self.directory)
+            downloaded_files.append(self.directory)
         for command in self.post_python_commands:
             stdout, stdin, code = self.interpreter.execute_external(
-                *shlex.split(command), path=self.target)
+                *shlex.split(command), path=self.directory)
             if code:
                 raise InstallationError(
                     u"Post extraction command failed", '\n' + (stdout or stdin))
