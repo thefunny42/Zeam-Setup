@@ -29,10 +29,15 @@ def find_packages(source_dir):
 def compile_py_files(source_dir):
     """Compile if possible all Python files.
     """
+    # XXX Should use os.walk ?
+    # XXX We should use the correct interpreter here
     for source_file in os.listdir(source_dir):
         source_path = os.path.join(source_dir, source_file)
         if source_path.endswith('.py') and os.path.isfile(source_path):
-            py_compile.compile(source_path)
+            try:
+                py_compile.compile(source_path, doraise=True)
+            except:
+                pass
         elif os.path.isdir(source_path):
             compile_py_files(source_path)
 

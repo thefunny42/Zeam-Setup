@@ -14,14 +14,18 @@ class PartInstalled(object):
 
     def __init__(self, name):
         self.__name = 'installed:' + name
-        self.__paths = []
+        self.__paths = set([])
         self.__packages = WorkingSet()
 
     def add_path(self, pathname):
-        self.__paths.append(pathname)
+        self.__paths.add(pathname)
 
     def add_paths(self, pathnames):
-        self.__paths.extend(pathnames)
+        self.__paths.update(pathnames)
+
+    @property
+    def paths(self):
+        return list(self.__paths)
 
     def add_packages(self, working_set):
         for package in working_set.installed.values():
@@ -30,7 +34,7 @@ class PartInstalled(object):
     def save(self, configuration):
         section = Section(self.__name, configuration=configuration)
         if self.__paths:
-            section['paths'] = self.__paths
+            section['paths'] = list(self.__paths)
         if self.__packages:
             section['packages'] = self.__packages.as_requirements()
         configuration[self.__name] = section
@@ -40,6 +44,7 @@ class PartInstalled(object):
 class Part(object):
 
     def __init__(self, name, section, install_set):
+        logger.info('Load installation for %s' % name)
         self.name = name
         self.recipes = []
         self.installed = PartInstalled(name)
@@ -68,10 +73,12 @@ class Part(object):
             self.recipes.append(instance)
 
     def prepare(self):
+        logger.warn('Prepare installation for %s.' % self.name)
         for recipe in self.recipes:
             recipe.prepare(self.installed)
 
     def install(self):
+        logger.warn('Install %s.' % self.name)
         for recipe in self.recipes:
             recipe.install(self.installed)
 

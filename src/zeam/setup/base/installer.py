@@ -91,7 +91,7 @@ class PackageInstaller(object):
         self.__lock.acquire()
         self.__installation_failed = error
         self.__wait.acquire()
-        self.__wait.notify_all()
+        self.__wait.notifyAll()
         self.__wait.release()
         self.__lock.release()
 
@@ -105,7 +105,7 @@ class PackageInstaller(object):
                     if not self.__first_done:
                         # Wake up other waiting worker
                         self.__wait.acquire()
-                        self.__wait.notify_all()
+                        self.__wait.notifyAll()
                         self.__wait.release()
                         self.__first_done = True
                     return INSTALLATION_DONE
@@ -132,7 +132,7 @@ class PackageInstaller(object):
                 self.__wakeup_workers()
             self.__verify_being_installed.remove(extra_requirement)
         self.__being_installed.remove(requirement)
-        logger.info('(%s) Mark %s as installed' % (name, requirement))
+        logger.debug('(%s) Mark %s as installed' % (name, requirement))
         self.__lock.release()
 
     def install_dependencies(self, requirements, name='installer'):
@@ -179,12 +179,12 @@ class PackageInstallerWorker(threading.Thread):
 
     def install_dependencies(self, requirement, distribution):
         install = self.manager.install_dependencies
-        install(distribution.requirements, name=self.name)
+        install(distribution.requirements, name=self.getName())
         for extra in requirement.extras:
             if extra not in distribution.extras:
                 raise PackageError(
                     u'Require missing extra %s in %s' % (extra, distribution))
-            install(distribution.extras[extra], name=self.name)
+            install(distribution.extras[extra], name=self.getName())
 
     def install(self, requirement):
         """Install the given package name in the directory.
@@ -194,7 +194,7 @@ class PackageInstallerWorker(threading.Thread):
             requirement, self.interpretor)
         package = candidate_packages.get_most_recent()
         logger.info(u"(%s) Choosing version %s for %s." % (
-                self.name, str(package.version), requirement))
+                self.getName(), str(package.version), requirement))
         release, loader = package.install(
             self.target_directory,
             self.interpretor,
@@ -207,17 +207,17 @@ class PackageInstallerWorker(threading.Thread):
         """
         try:
             while True:
-                requirement = self.manager.get_requirement(name=self.name)
+                requirement = self.manager.get_requirement(name=self.getName())
                 if requirement is None:
-                    self.manager.wait_for_requirements(name=self.name)
+                    self.manager.wait_for_requirements(name=self.getName())
                     continue
                 if requirement is INSTALLATION_DONE:
                     break
                 package = self.install(requirement)
                 self.manager.mark_installed(
-                    requirement, package, name=self.name)
+                    requirement, package, name=self.getName())
         except Exception, error:
             report_error(debug=True, fatal=False)
-            self.manager.mark_failed(error, self.name)
+            self.manager.mark_failed(error, self.getName())
 
 

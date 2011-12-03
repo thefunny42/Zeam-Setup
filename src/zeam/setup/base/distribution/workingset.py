@@ -130,7 +130,9 @@ class WorkingSet(object):
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
         printer.pprint(
-            map(lambda r: r.path, self.installed.values()) + extra_paths)
+            filter(lambda path: path is not None,
+                   map(lambda r: r.path, self.installed.values())
+                   + extra_paths))
         script_fd = open(script_path, 'w')
         script_fd.write(SCRIPT_TEMPLATE % {
                 'executable': self.interpretor,

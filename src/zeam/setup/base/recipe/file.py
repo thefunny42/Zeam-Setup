@@ -6,9 +6,8 @@ import shlex
 
 from zeam.setup.base.archives import open_archive
 from zeam.setup.base.download import DownloadManager
-from zeam.setup.base.python import PythonInterpreter
 from zeam.setup.base.recipe.recipe import Recipe
-from zeam.setup.base.error import InstallationError, ConfigurationError
+from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.utils import create_directory
 
 
@@ -28,7 +27,7 @@ def move_archive_folders(extract_path, target_path, path_infos):
         if os.path.exists(current_path):
             raise ConfigurationError(
                 u"Error target directory already exists", current_path)
-        current_parent_path = os.path.dirname(target_path)
+        current_parent_path = os.path.dirname(current_path)
         if not os.path.exists(current_parent_path):
             create_directory(current_parent_path)
         source_path = os.path.join(extract_path, source_part)
@@ -47,10 +46,6 @@ class File(Recipe):
     def __init__(self, configuration):
         super(File, self).__init__(configuration)
         self.urls = configuration['urls'].as_list()
-        self.post_python_commands = configuration.get(
-            'post_python_commands', '').as_list()
-        self.interpreter = PythonInterpreter.detect(
-            configuration.configuration['setup']['python_executable'].as_text())
         self.directory = configuration['directory'].as_text()
         download_path = configuration.get(
             'download_directory',
@@ -82,10 +77,4 @@ class File(Recipe):
             else:
                 shutil.copy2(file, self.directory)
             status.add_path(self.directory)
-        for command in self.post_python_commands:
-            stdout, stdin, code = self.interpreter.execute_external(
-                *shlex.split(command), path=self.directory)
-            if code:
-                raise InstallationError(
-                    u"Post extraction command failed", '\n' + (stdout or stdin))
 
