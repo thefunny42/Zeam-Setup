@@ -1,9 +1,11 @@
 
+import logging
 import os
 
 from zeam.setup.base.recipe.recipe import Recipe
-from zeam.setup.base.error import ConfigurationError
-from zeam.setup.base.utils import open_uri, create_directory
+from zeam.setup.base.utils import open_uri
+
+logger = logging.getLogger('zeam.setup')
 
 
 class Template(Recipe):
@@ -11,38 +13,40 @@ class Template(Recipe):
     """
     requirements = ['Genshi']
 
-    def __init__(self, configuration):
-        super(Template, self).__init__(configuration)
-        self.templates = configuration['templates'].as_list()
-        self.format = configuration.get('format', 'text').as_text()
+    def render(self, source_path, output_path, factory):
+        logger.info('Creating file %s.' % output_path)
+        success = False
+        source_file = open_uri(source_path)
+        try:
+            template = factory(source_file.read())
+            output_file = open(output_path, 'wb')
+            try:
+                output_file.write(
+                    template.generate(
+                        section=self.configuration,
+                        configuration=self.configuration.configuration
+                        ).render())
+                success = True
+            finally:
+                output_file.close()
+        finally:
+            source_file.close()
+        if success:
+            os.remove(source_path)
 
     def install(self, status):
         __status__ = u"Installing templates."
         from genshi.template import NewTextTemplate, MarkupTemplate
 
-        available_formats = {'xml': MarkupTemplate, 'text': NewTextTemplate}
+        available_formats = {'.template_xml': MarkupTemplate,
+                             '.template_text': NewTextTemplate}
 
-        if self.format not in available_formats:
-            raise ConfigurationError(
-                u"Unknown template format", self.format)
-        for paths in self.templates:
-            parts = paths.split()
-            if len(parts) != 2:
-                raise ConfigurationError(
-                    u"Invalid template definition line", paths)
-            source_file = open_uri(parts[0])
-            try:
-                template = available_formats[self.format](source_file.read())
-                create_directory(os.path.basename(parts[1]))
-                output_file = open(parts[1], 'wb')
-                try:
-                    output_file.write(
-                        template.generate(
-                            section=self.configuration,
-                            configuration=self.configuration.configuration
-                            ).render())
-                    status.add_path(parts[1])
-                finally:
-                    output_file.close()
-            finally:
-                source_file.close()
+        for base_path in status.paths:
+            for path, directories, filenames in os.walk(base_path):
+                for filename in filenames:
+                    for format, factory in available_formats.items():
+                        if filename.endswith(format):
+                            self.render(
+                                os.path.join(path, filename),
+                                os.path.join(path, filename[:len(format)]),
+                                factory)

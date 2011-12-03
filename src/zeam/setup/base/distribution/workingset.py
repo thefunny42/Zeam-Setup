@@ -126,7 +126,7 @@ class WorkingSet(object):
     def create_script(self, script_path, script_body, extra_paths=[]):
         """Create a script at the given path with the given body.
         """
-        logger.warning('Creating script %s' % script_path)
+        logger.info('Creating script %s.' % script_path)
         modules_path = StringIO()
         printer = pprint.PrettyPrinter(stream=modules_path, indent=2)
         printer.pprint(

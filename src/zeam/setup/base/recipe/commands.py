@@ -18,10 +18,18 @@ class PartInstalled(object):
         self.__packages = WorkingSet()
 
     def add_path(self, pathname):
-        self.__paths.add(pathname)
+        if pathname:
+            self.__paths.add(pathname)
+
+    def update_path(self, old_path, new_path):
+        if old_path:
+            self.__paths.remove(old_path)
+        if new_path:
+            self.__paths.add(new_path)
 
     def add_paths(self, pathnames):
-        self.__paths.update(pathnames)
+        if pathnames:
+            self.__paths.update(pathnames)
 
     @property
     def paths(self):

@@ -38,6 +38,10 @@ def move_archive_folders(extract_path, target_path, path_infos):
         installed_paths.append(current_path)
     return installed_paths
 
+def parse_line(line):
+    parts = shlex.split(line)
+    return parts[0], parts[1:]
+
 
 class File(Recipe):
     """Download a list of files and archives in a folder.
@@ -45,20 +49,21 @@ class File(Recipe):
 
     def __init__(self, configuration):
         super(File, self).__init__(configuration)
-        self.urls = configuration['urls'].as_list()
+        self.files = map(parse_line, configuration.get('files', '').as_list())
+        self.urls = map(parse_line, configuration.get('urls', '').as_list())
         self.directory = configuration['directory'].as_text()
-        download_path = configuration.get(
-            'download_directory',
-            '${setup:prefix_directory}/download').as_text()
-        create_directory(download_path)
-        self.downloader = DownloadManager(download_path)
-        self.files = []
+        self.downloader = None
+        if self.urls:
+            download_path = configuration.get(
+                'download_directory',
+                '${setup:prefix_directory}/download').as_text()
+            create_directory(download_path)
+            self.downloader = DownloadManager(download_path)
 
     def prepare(self, status):
         __status__ = u"Download files."
-        for url_info in self.urls:
-            url_parts = shlex.split(url_info)
-            self.files.append((self.downloader(url_parts[0]), url_parts[1:]))
+        self.files.extend(
+            map(lambda (url, parts): (self.downloader(url), parts), self.urls))
 
     def install(self, status):
         __status__ = u"Install files."
@@ -75,6 +80,7 @@ class File(Recipe):
                     create_directory(self.directory)
                     archive.extract(self.directory)
             else:
+                create_directory(self.directory)
                 shutil.copy2(file, self.directory)
             status.add_path(self.directory)
 
