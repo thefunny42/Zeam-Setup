@@ -105,6 +105,7 @@ def bootstrap_cfg(config, options):
     setup['lib_directory'].register(create_directory)
     setup['log_directory'].register(create_directory)
     setup['var_directory'].register(create_directory)
+    setup['run_directory'].register(create_directory)
 
     # Lookup python executable
     if 'python_executable' not in setup:

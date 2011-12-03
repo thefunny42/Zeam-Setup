@@ -48,5 +48,5 @@ class Template(Recipe):
                         if filename.endswith(format):
                             self.render(
                                 os.path.join(path, filename),
-                                os.path.join(path, filename[:len(format)]),
+                                os.path.join(path, filename[:-len(format)]),
                                 factory)
