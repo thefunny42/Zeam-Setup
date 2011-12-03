@@ -47,7 +47,7 @@ class PackageInstaller(object):
             self.__wait.notify()
         self.__wait.release()
 
-    def __verify_extra_install(self, requirement, name='main'):
+    def __verify_extra_install(self, requirement, name='installer'):
         # Verify is some extra need installation
         release = self.working_set[requirement]
         for extra in requirement.extras:
@@ -57,7 +57,7 @@ class PackageInstaller(object):
                         extra, release))
             self.__register_install(release.extras[extra], name=name)
 
-    def __register_install(self, requirements, name='main'):
+    def __register_install(self, requirements, name='installer'):
         # Mark requirements to be installed.
         for requirement in requirements:
             if self.kgs is not None:
@@ -80,13 +80,13 @@ class PackageInstaller(object):
                 u'(%s) Need to install dependency %s' % (name, requirement))
             self.__to_install.append(requirement)
 
-    def wait_for_requirements(self, name='main'):
+    def wait_for_requirements(self, name='installer'):
         logger.debug(u'(%s) Wait for dependencies' % name)
         self.__wait.acquire()
         self.__wait.wait()
         self.__wait.release()
 
-    def mark_failed(self, error, name='main'):
+    def mark_failed(self, error, name='installer'):
         logger.debug(u'(%s) Failed' % name)
         self.__lock.acquire()
         self.__installation_failed = error
@@ -95,7 +95,7 @@ class PackageInstaller(object):
         self.__wait.release()
         self.__lock.release()
 
-    def get_requirement(self, name='main'):
+    def get_requirement(self, name='installer'):
         self.__lock.acquire()
         try:
             if self.__installation_failed is not None:
@@ -118,7 +118,7 @@ class PackageInstaller(object):
         finally:
             self.__lock.release()
 
-    def mark_installed(self, requirement, package, name='main'):
+    def mark_installed(self, requirement, package, name='installer'):
         self.__lock.acquire()
         self.working_set.add(package)
         if requirement in self.__verify_being_installed:
@@ -135,7 +135,7 @@ class PackageInstaller(object):
         logger.info('(%s) Mark %s as installed' % (name, requirement))
         self.__lock.release()
 
-    def install_dependencies(self, requirements, name='main'):
+    def install_dependencies(self, requirements, name='installer'):
         self.__lock.acquire()
         worker_need_wake_up = len(self.__to_install) == 0
         self.__register_install(requirements, name=name)
@@ -162,6 +162,7 @@ class PackageInstaller(object):
             else:
                 if self.kgs is not None:
                     self.kgs.log_usage()
+        return self.working_set
 
 
 class PackageInstallerWorker(threading.Thread):

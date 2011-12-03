@@ -16,12 +16,11 @@ class Template(Recipe):
         self.templates = configuration['templates'].as_list()
         self.format = configuration.get('format', 'text').as_text()
 
-    def install(self):
+    def install(self, status):
         __status__ = u"Installing templates."
         from genshi.template import NewTextTemplate, MarkupTemplate
 
         available_formats = {'xml': MarkupTemplate, 'text': NewTextTemplate}
-        created_templates = []
 
         if self.format not in available_formats:
             raise ConfigurationError(
@@ -42,9 +41,8 @@ class Template(Recipe):
                             section=self.configuration,
                             configuration=self.configuration.configuration
                             ).render())
-                    created_templates.append(parts[1])
+                    status.add_path(parts[1])
                 finally:
                     output_file.close()
             finally:
                 source_file.close()
-        return created_templates

@@ -1,12 +1,11 @@
 
 import os
-import operator
 
+from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name, get_option_with_default
 from zeam.setup.base.version import Requirements
-from zeam.setup.base.distribution.workingset import WorkingSet
-from zeam.setup.base.installer import PackageInstaller
 
 SCRIPT_BODY = """
 import %(package)s
@@ -73,7 +72,7 @@ class Package(Recipe):
         else:
             self.packages = configuration['packages'].as_list()
 
-        self.wanted_scripts = []
+        self.wanted_scripts = None
         if 'scripts' in configuration:
             self.wanted_scripts = configuration['scripts'].as_list()
 
@@ -87,27 +86,25 @@ class Package(Recipe):
 
         self.working_set = None
 
-    def prepare(self):
+    def prepare(self, status):
         __status__ = u"Install required packages."
         self.working_set = WorkingSet(get_option_with_default(
                 'python_executable', self.configuration).as_text())
         installer = PackageInstaller(self.configuration, self.working_set)
-        installer(Requirements.parse(self.packages), self.directory)
+        status.add_packages(
+            installer(Requirements.parse(self.packages), self.directory))
 
-    def install(self):
+    def install(self, status):
         __status__ = u"Install required scripts."
         bin_directory = get_option_with_default(
             'bin_directory', self.configuration).as_text()
-        create_scripts = lambda p: install_scripts(
-            self.working_set, p, bin_directory,
-            extra_args=self.extra_args,
-            wanted_scripts=self.wanted_scripts,
-            extra_paths=self.extra_paths)
-        return reduce(operator.add, map(create_scripts, self.packages))
-
-    def uninstall(self):
-        pass
-
+        create_scripts = lambda p: status.add_paths(
+            install_scripts(
+                self.working_set, p, bin_directory,
+                extra_args=self.extra_args,
+                wanted_scripts=self.wanted_scripts,
+                extra_paths=self.extra_paths))
+        map(create_scripts, self.packages)
 
 
 class Interpreter(Package):
@@ -115,7 +112,7 @@ class Interpreter(Package):
     environment.
     """
 
-    def install(self):
+    def install(self, status):
         directory = get_option_with_default(
             'bin_directory', self.configuration).as_text()
         python_executable = get_option_with_default(
@@ -124,9 +121,8 @@ class Interpreter(Package):
         installer = PackageInstaller(self.configuration, working_set)
         installer(Requirements.parse(self.packages))
         script_path = os.path.join(directory, self.configuration.name)
-        return [working_set.create_script(
-                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths)]
+        status.add_path(
+            working_set.create_script(
+                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths))
 
-    def uninstall(self):
-        pass
 

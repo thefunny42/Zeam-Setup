@@ -138,14 +138,16 @@ class ConfigurationDiffUtility(object):
     """Utlity to trace changes between two different configurations.
     """
 
-    def __init__(self, previous_configuration, configuration):
-        self.__previous = previous_configuration
-        self.__current = configuration
+    def __init__(self, configuration):
+        self.__configuration = configuration
 
     def get_option_changes(self, section):
         """Return a tuple (added, changed, removed) indicating the
         mutation in a section.
         """
+        section_name = section.name
+        if section_name not in self.__configuration:
+            return (section, None)
 
     def get_option_values_changes(self, option):
         """Return a tuple (added, removed) of values changes. Order of
@@ -154,10 +156,10 @@ class ConfigurationDiffUtility(object):
         assert isinstance(option, Option)
         option_name = option.name
         section_name = option.section.name
-        if section_name not in self.__previous:
+        if section_name not in self.__configration:
             # Section was not here, everything is new
             return (option.as_list(), None)
-        previous_section = self.__previous[section_name]
+        previous_section = self.__configuraction[section_name]
         if option_name not in previous_section:
             # Option was not here, everything is new
             return (option.as_list(), None)
@@ -361,7 +363,7 @@ class Section(object):
 
     def __setitem__(self, key, value):
         if isinstance(value, list) or isinstance(value, tuple):
-            value = '\n    '.join(value)
+            value = '\n    ' + '\n    '.join(value)
         if isinstance(value, str):
             if key in self.options:
                 # XXX Not sure we want do to that

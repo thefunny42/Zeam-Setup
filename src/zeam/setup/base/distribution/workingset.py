@@ -7,9 +7,10 @@ import sys
 import pprint
 
 from zeam.setup.base.distribution.release import Release, load_package
-from zeam.setup.base.version import Requirement, IncompatibleRequirement
-from zeam.setup.base.error import PackageError, InstallationError
+from zeam.setup.base.error import InstallationError
+from zeam.setup.base.error import PackageError, PackageNotFound
 from zeam.setup.base.python import PythonInterpreter
+from zeam.setup.base.version import Requirement, IncompatibleRequirement
 
 logger = logging.getLogger('zeam.setup')
 
@@ -30,13 +31,15 @@ class WorkingSet(object):
         self.installed = {
             'python': Release(
                 name='python', version=self.interpretor.get_pyversion())}
-        self.__installer = None
 
         if self.interpretor == sys.executable:
             for path in sys.path:
                 package = load_package(path, self.interpretor)
                 if package is not None:
                     self.add(package)
+
+    def __len__(self):
+        return len(self.installed)
 
     def __contains__(self, other):
         if isinstance(other, Requirement):
@@ -47,7 +50,7 @@ class WorkingSet(object):
                 return True
             return False
         if isinstance(other, basestring):
-            return other in self.__installed
+            return other in self.installed
         raise ValueError(other)
 
     def get(self, other, default=None):
@@ -69,7 +72,7 @@ class WorkingSet(object):
         by hand.
         """
         if not isinstance(release, Release):
-            raise ValueError(u'Can only add release to an environment')
+            raise ValueError(u'Can only add release to a working set')
         if release.name not in self.installed:
             self.installed[release.name] = release
         else:
@@ -79,7 +82,7 @@ class WorkingSet(object):
             else:
                 raise InstallationError(
                     u'Two release %s (installed in %s) and '
-                    u'%s (installed in %s) added in the environment.' % (
+                    u'%s (installed in %s) added in the working set.' % (
                         repr(release), release.package_path,
                         repr(installed), release.package_path))
 
@@ -95,7 +98,7 @@ class WorkingSet(object):
         else:
             raise InstallationError(u"Invalid entry point designation", name)
         if package not in self.installed:
-            raise PackageError(u"Package not available", package)
+            raise PackageNotFound(package)
         release = self.installed[package]
         return release.get_entry_point(group, entry_name)
 
@@ -136,3 +139,8 @@ class WorkingSet(object):
         script_fd.close()
         os.chmod(script_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP)
         return script_path
+
+    def as_requirements(self):
+        """Display as a list of a requirements (formatted as str).
+        """
+        return map(str, self.installed.values())

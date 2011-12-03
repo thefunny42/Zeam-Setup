@@ -96,6 +96,9 @@ class Release(object):
                     attribute, python_path, group, self.name, name))
         return entry_point
 
+    def __str__(self):
+        return '%s == %s' % (self.name, self.version)
+
     def __repr__(self):
         return '<%s for %s version %s>' % (
             self.__class__.__name__, self.name, self.version)

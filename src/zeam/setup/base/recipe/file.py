@@ -59,22 +59,21 @@ class File(Recipe):
         self.downloader = DownloadManager(download_path)
         self.files = []
 
-    def prepare(self):
+    def prepare(self, status):
         __status__ = u"Download files."
         for url_info in self.urls:
             url_parts = shlex.split(url_info)
             self.files.append((self.downloader(url_parts[0]), url_parts[1:]))
 
-    def install(self):
+    def install(self, status):
         __status__ = u"Install files."
-        downloaded_files = []
         for file, parts in self.files:
             archive = open_archive(file, 'r')
             if archive is not None:
                 if parts:
                     path = tempfile.mkdtemp('zeam.setup.archive')
                     archive.extract(path)
-                    downloaded_files.extend(
+                    status.add_paths(
                         move_archive_folders(path, self.directory, parts))
                     shutil.rmtree(path)
                 else:
@@ -82,11 +81,11 @@ class File(Recipe):
                     archive.extract(self.directory)
             else:
                 shutil.copy2(file, self.directory)
-            downloaded_files.append(self.directory)
+            status.add_path(self.directory)
         for command in self.post_python_commands:
             stdout, stdin, code = self.interpreter.execute_external(
                 *shlex.split(command), path=self.directory)
             if code:
                 raise InstallationError(
                     u"Post extraction command failed", '\n' + (stdout or stdin))
-        return downloaded_files
+
