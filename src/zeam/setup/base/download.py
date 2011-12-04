@@ -35,7 +35,7 @@ def verify_checksum(path, checksum):
     given MD5 checksum.
     """
     if not os.path.isfile(path):
-        raise DownloadError, u"Donwloaded file is not a file."
+        raise DownloadError(u"Donwloaded file is not a file.")
     if not checksum:
         # We don't have a checksum in fact
         return True
@@ -82,8 +82,9 @@ class DownloadManager(object):
             if verify_checksum(target_path, checksum):
                 logger.info(u"File %s is already downloaded." % base_filename)
                 return target_path
-            raise DownloadError, u"File %s is already downloaded but "\
-                u"the checksum is different." % (base_filename)
+            raise DownloadError(
+                u"File %s is already downloaded but "\
+                u"the checksum is different", base_filename)
 
         try:
             logger.info("Downloading %s into %s..." % (url, base_filename))
