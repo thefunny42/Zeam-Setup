@@ -6,6 +6,7 @@ import re
 from zeam.setup.base.sources.collection import Installers, PackageInstallers
 from zeam.setup.base.sources.installers import (
     UndownloadedPackageInstaller,
+    ExtractedPackageInstaller,
     UninstalledPackageInstaller,
     PackageInstaller)
 from zeam.setup.base.download import DownloadManager
@@ -101,6 +102,8 @@ class RemoteSource(object):
                 self.broken_links.append(url)
                 return False
             self.links[url] = links
+            # Add found software in the cache
+            self.installers.extend(get_installers_from_links(self, links))
             return True
         return False
 
@@ -118,10 +121,7 @@ class RemoteSource(object):
 
         pyversion = interpretor.get_pyversion()
         platform = interpretor.get_platform()
-        if self.get_links(find_link):
-            # Add found software in the cache
-            self.installers.extend(
-                get_installers_from_links(self, self.links[find_links]))
+        self.get_links(find_link)
 
         # Look for a software in the cache
         installers = self.installers.get_installers_for(
@@ -184,21 +184,23 @@ class LocalSource(object):
     def __init__(self, options):
         __status__ = u"Initializing local software sourcs."
         self.options = options
-        self.path = options['directory'].as_text()
+        self.paths = options['directory'].as_list()
         self.installers = Installers()
 
     def initialize(self, first_time):
-        __status__ = u"Analysing local software source %s." % self.path
-        if first_time:
-            create_directory(self.path)
-        self.installers.extend(self.finder(self.path))
+        __status__ = u"Analysing local software source %s." % (
+            ', '.join(self.paths))
+        for path in self.paths:
+            if first_time:
+                create_directory(path)
+            self.installers.extend(self.finder(path))
 
     def available(self, configuration):
         return True
 
     def search(self, requirement, interpretor):
         __status__ = u"Locating local source for %s in %s." % (
-            requirement, self.path)
+            requirement, ', '.join(self.paths))
         pyversion = interpretor.get_pyversion()
         platform = interpretor.get_platform()
         packages = self.installers.get_installers_for(
@@ -208,7 +210,7 @@ class LocalSource(object):
         raise PackageNotFound(requirement)
 
     def __repr__(self):
-        return '<%s at %s>' % (self.type, self.path)
+        return '<%s at %s>' % (self.type, ', '.join(self.paths))
 
 
 class EggsSource(LocalSource):
@@ -230,8 +232,12 @@ class VCSSource(object):
         self.directory = options['directory'].as_text()
         self.sources = {}
         self.enabled = None
+        self.develop = options.get('develop', 'on').as_bool()
         if 'available' in options:
             self.enabled = options['available'].as_list()
+        self.factory = ExtractedPackageInstaller
+        if self.develop:
+            self.factory = PackageInstaller
 
     def initialize(self, first_time):
         __status__ = u"Preparing remote development sources."
@@ -265,8 +271,7 @@ class VCSSource(object):
             source = self.sources[name]
             source.install()
             return PackageInstallers(
-                name,
-                [PackageInstaller(self, name=name, path=source.directory)])
+                name, [self.factory(self, name=name, path=source.directory)])
         raise PackageNotFound(requirement)
 
     def __repr__(self):

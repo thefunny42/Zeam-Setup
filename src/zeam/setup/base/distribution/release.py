@@ -1,6 +1,7 @@
 
 import logging
 import sys
+from distutils.util import get_platform
 
 from zeam.setup.base.egginfo.loader import EggLoaderFactory
 from zeam.setup.base.setuptools.interpreted_loader import \
@@ -64,6 +65,22 @@ class Release(object):
             return
         # XXX Should check dependencies here as well
         sys.path.insert(len(sys.path) and 1 or 0, self.path)
+
+    def get_egg_directory(self, interpretor):
+        """Return a directory name suitable to store the egg.
+        """
+        interpretor_pyversion = interpretor.get_pyversion()
+        if self.pyversion is not None:
+            if self.pyversion != interpretor_pyversion:
+                raise PackageError(
+                    u"Package %s requires Python %s is used with %s" % (
+                        self.name, self.pyversion, interpretor_pyversion))
+        items = [self.name,
+                 str(self.version),
+                 'py%s' % (self.pyversion or interpretor_pyversion)]
+        if self.extensions:
+            items.append(get_platform())
+        return '-'.join(items) + '.egg'
 
     def get_entry_point(self, group, name):
         """Load the entry point called name in the given group and return it.

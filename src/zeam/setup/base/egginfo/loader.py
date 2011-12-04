@@ -3,7 +3,7 @@ import os
 import shutil
 
 from zeam.setup.base.egginfo.read import read_pkg_requires, read_pkg_info
-from zeam.setup.base.egginfo.read import read_pkg_entry_points
+from zeam.setup.base.egginfo.read import read_pkg_entry_points, read_native_libs
 from zeam.setup.base.version import Version
 
 
@@ -31,6 +31,7 @@ class EggLoader(object):
         self.distribution.entry_points = read_pkg_entry_points(self.egg_info)
         self.distribution.requirements, self.distribution.extras = \
             read_pkg_requires(self.egg_info)
+        self.distribution.extensions = read_native_libs(self.egg_info)
         return self.distribution
 
     def install(self, install_path):

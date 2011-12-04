@@ -4,6 +4,7 @@ import os
 from zeam.setup.base.error import PackageError
 from zeam.setup.base.version import Requirements
 
+
 def read_pkg_info(path):
     """Read the PKG-INFO file located at the given path and return the
     information as a dictionnary.
@@ -119,3 +120,19 @@ def read_pkg_entry_points(path):
     if section_name is not None and points:
         entry_points[section_name] =  points
     return entry_points
+
+
+def read_native_libs(path):
+    """Read the native_libs file from an egg.
+    """
+    try:
+        native_libs = open(os.path.join(path, 'native_libs.txt'), 'r')
+    except IOError:
+        return []
+    extensions = []
+    for line in native_libs.readlines():
+        line = line.strip()
+        if line:
+            extensions.append(line)
+    native_libs.close()
+    return extensions

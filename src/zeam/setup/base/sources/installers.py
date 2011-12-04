@@ -44,29 +44,31 @@ class PackageInstaller(object):
         return distribution, loader
 
 
-class UninstalledPackageInstaller(PackageInstaller):
-    """A release that you can install.
+class ExtractedPackageInstaller(PackageInstaller):
+    """An extracted release that you can install.
     """
 
-    def get_install_base_directory(self):
-        name = self.informations['name']
-        version = self.informations['version']
-        pyversion = self.informations['pyversion']
-        return '-'.join((name, str(version), 'py%s' % pyversion)) + '.egg'
+    def install(self, path, interpretor, install_dependencies):
+        # Load project information
+        distribution, loader = super(ExtractedPackageInstaller, self).install(
+            path, interpretor, install_dependencies)
+
+        # Install files
+        install_path = os.path.join(
+            path, distribution.get_egg_directory(interpretor))
+        loader.install(install_path)
+
+        # Package path is now the installed path
+        distribution.path = install_path
+        distribution.package_path = install_path
+        return distribution, loader
+
+
+class UninstalledPackageInstaller(ExtractedPackageInstaller):
+    """A release that you can extract from an archive and install.
+    """
 
     def install(self, path, interpretor, install_dependencies, archive=None):
-        pyversion = self.informations['pyversion']
-        interpretor_pyversion = interpretor.get_pyversion()
-        if pyversion is None:
-            pyversion = interpretor_pyversion
-        elif pyversion != interpretor_pyversion:
-            raise PackageError(
-                u"Trying to install package %s for %s in Python version %s" % (
-                    self.informations['name'],
-                    pyversion,
-                    interpretor_pyversion))
-        self.informations['pyversion'] = pyversion
-
         if archive is None:
             archive = self.informations['url']
 
@@ -82,26 +84,20 @@ class UninstalledPackageInstaller(PackageInstaller):
 
         # Archive name without extension, paying attention to .tar.gz
         # (so can't use os.path.splitext)
-        source_location = os.path.basename(archive)[:-(len(format)+1)]
-        source_location = os.path.join(build_dir, source_location)
-        if not os.path.isdir(source_location):
+        source_path = os.path.basename(archive)[:-(len(format)+1)]
+        source_path = os.path.join(build_dir, source_path)
+        if not os.path.isdir(source_path):
             raise PackageError(u"Cannot introspect archive content for %s" % (
                     archive,))
-        self.informations['path'] = source_location
+        self.informations['path'] = source_path
 
         # Load project information
         distribution, loader = super(UninstalledPackageInstaller, self).install(
             path, interpretor, install_dependencies)
 
-        # Install files
-        install_path = os.path.join(path, self.get_install_base_directory())
-        loader.install(install_path)
-
+        # Clean build directory
         shutil.rmtree(build_dir)
 
-        # Package path is now the installed path
-        distribution.path = install_path
-        distribution.package_path = install_path
         return distribution, loader
 
 

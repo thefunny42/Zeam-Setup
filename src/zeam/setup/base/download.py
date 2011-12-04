@@ -98,8 +98,8 @@ class DownloadManager(object):
             output.close()
             logger.info("Download of %s complete." % base_filename)
         except urllib2.URLError, e:
-            raise DownloadError, u"Error while downloading the file %s." % (
-                str(e))
+            raise DownloadError(
+                u"Error while downloading the file", base_filename, str(e))
             return None
         if not verify_checksum(target_path, checksum):
             raise DownloadError, u"File %s is downloaded but " \
