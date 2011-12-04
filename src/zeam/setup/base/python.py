@@ -11,7 +11,9 @@ class PythonInterpreter(object):
 
     def __init__(self, path):
         assert path is not None
-        self.__path = path
+        self.__path = get_cmd_output(
+            path, "-c",
+            "print __import__('sys').executable")[0].strip()
         self.__version = get_cmd_output(
             path, "-c",
             "print '.'.join(map(str, __import__('sys').version_info[:2]))"

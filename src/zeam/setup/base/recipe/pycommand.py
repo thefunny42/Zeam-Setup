@@ -16,7 +16,8 @@ class PythonCommand(Recipe):
         super(PythonCommand, self).__init__(configuration)
         self.commands = configuration.get('python_commands', '').as_list()
         self.interpreter = PythonInterpreter.detect(
-            configuration.configuration['setup']['python_executable'].as_text())
+            self.configuration.get_with_default(
+                'python_executable', 'setup').as_text())
 
     def install(self, status):
         for path in status.paths:

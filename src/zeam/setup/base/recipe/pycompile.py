@@ -1,21 +1,23 @@
 
 import logging
-import os
-import py_compile
+
 
 from zeam.setup.base.recipe.recipe import Recipe
-from zeam.setup.base.distribution.loader import compile_py_files
+from zeam.setup.base.recipe import compile
+from zeam.setup.base.python import PythonInterpreter
 
 logger = logging.getLogger('zeam.setup')
 
-# XXX We should use the correct interpreter here
 
 class PythonCompileFile(Recipe):
+
+    def __init__(self, configuration):
+        super(PythonCompileFile, self).__init__(configuration)
+        self.interpreter = PythonInterpreter.detect(
+            self.configuration.get_with_default(
+                'python_executable', 'setup').as_text())
 
     def install(self, status):
         for path in status.paths:
             logger.info('Compile python files in %s.' % path)
-            if os.path.isdir(path):
-                compile_py_files(path)
-            elif path.endswith('.py'):
-                py_compile.compile(path)
+            self.interpreter.execute_module(compile, path)
