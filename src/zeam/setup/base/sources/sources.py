@@ -10,6 +10,7 @@ from zeam.setup.base.sources.installers import (
     PackageInstaller)
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
+from zeam.setup.base.error import NetworkError
 from zeam.setup.base.utils import get_links, create_directory
 from zeam.setup.base.version import Version
 from zeam.setup.base.vcs import VCS
@@ -80,10 +81,28 @@ class RemoteSource(object):
     def __init__(self, options):
         self.options = options
         self.find_links = options['urls'].as_list()
+        self.broken_links = []  # List of links that doesn't works.
         self.max_depth = options.get('max_depth', '4').as_int()
         self.links = {}
         self.installers = Installers()
         self.downloader = DownloadManager(self.get_download_directory())
+
+    def get_links(self, url):
+        """Load links from the given URL. Return True upon success.
+        """
+        if url in self.broken_links:
+            logger.debug('Ignoring broken url %s.' % url)
+            return False
+        if url not in self.links:
+            try:
+                links = get_links(url)
+            except NetworkError:
+                logger.warn('URL %s inaccessible, mark as broken.' % url)
+                self.broken_links.append(url)
+                return False
+            self.links[url] = links
+            return True
+        return False
 
     def get_download_directory(self):
         """Return the created download directory.
@@ -99,11 +118,10 @@ class RemoteSource(object):
 
         pyversion = interpretor.get_pyversion()
         platform = interpretor.get_platform()
-        if find_link not in self.links:
-            links = get_links(find_link)
-            self.links[find_link] = links
+        if self.get_links(find_link):
             # Add found software in the cache
-            self.installers.extend(get_installers_from_links(self, links))
+            self.installers.extend(
+                get_installers_from_links(self, self.links[find_links]))
 
         # Look for a software in the cache
         installers = self.installers.get_installers_for(
@@ -130,11 +148,10 @@ class RemoteSource(object):
 
     def initialize(self, first_time):
         if first_time:
+            __status__ = u"Preload find links."
             # Preload all links in cache
             for find_link in self.find_links:
-                if find_link not in self.links:
-                    links = get_links(find_link)
-                    self.links[find_link] = links
+                self.get_links(find_link)
 
     def available(self, configuration):
         setup_config = configuration['setup']
@@ -246,11 +263,10 @@ class VCSSource(object):
             if self.enabled and name not in self.enabled:
                 raise PackageNotFound(requirement)
             source = self.sources[name]
-            # XXX This install should be wrapped around package installer
             source.install()
             return PackageInstallers(
-                name, [PackageInstaller(
-                        self, name=name, path=source.directory)])
+                name,
+                [PackageInstaller(self, name=name, path=source.directory)])
         raise PackageNotFound(requirement)
 
     def __repr__(self):

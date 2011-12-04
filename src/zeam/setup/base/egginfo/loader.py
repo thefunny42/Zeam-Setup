@@ -9,8 +9,10 @@ from zeam.setup.base.version import Version
 
 class EggLoader(object):
 
-    def __init__(self, path, egg_info, distribution, execute=None):
+    def __init__(self, path, egg_info, distribution,
+                 source_path=None, execute=None):
         self.path = path
+        self.source_path = source_path or path
         self.egg_info = egg_info
         self.distribution = distribution
         self.execute = execute
@@ -25,7 +27,7 @@ class EggLoader(object):
         self.distribution.author_email = pkg_info.get('author-email', '')
         self.distribution.license = pkg_info.get('license', '')
         self.distribution.classifiers = pkg_info.get('classifier', '')
-        self.distribution.path = os.path.abspath(self.path)
+        self.distribution.path = os.path.abspath(self.source_path)
         self.distribution.entry_points = read_pkg_entry_points(self.egg_info)
         self.distribution.requirements, self.distribution.extras = \
             read_pkg_requires(self.egg_info)

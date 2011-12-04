@@ -19,7 +19,8 @@ class Release(object):
     """
 
     def __init__(self, name=None, version=None, path=None,
-                 pyversion=None, platform=None, url=None, format=None):
+                 pyversion=None, platform=None, url=None,
+                 format=None, package_path=None):
         self.name = name
         self.version = Version.parse(version)
         self.summary = ''
@@ -32,7 +33,7 @@ class Release(object):
         self.pyversion = pyversion
         self.platform = platform
         self.path = path
-        self.package_path = path
+        self.package_path = package_path or path
         self.entry_points = {}
         self.requirements = []
         self.extras = {}

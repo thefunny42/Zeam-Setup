@@ -33,7 +33,7 @@ class PackageInstaller(object):
         versions = get_option_with_default('versions', options, False)
         if versions is not None:
             self.kgs = get_kgs_requirements(versions.as_list(), configuration)
-        self.__worker_count = setup.get('install_workers', '4').as_int()
+        self.__worker_count = setup.get('install_workers', '1').as_int()
         self.__directory = setup.get('lib_directory').as_text()
         self.__first_done = False
         self.__installation_failed = None
