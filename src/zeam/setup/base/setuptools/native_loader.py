@@ -60,7 +60,7 @@ class NativeSetuptoolsLoaderFactory(object):
         except ImportError:
             logger.info('Installing setuptools')
             from ez_setup import download_setuptools
-            self.setuptools_path = tempfile.mkdtemp('zeam.setup.setuptools')[1]
+            self.setuptools_path = tempfile.mkdtemp('zeam.setup.setuptools')
             download_setuptools(to_dir=self.setuptools_path)
             atexit.register(shutil.rmtree, self.setuptools_path)
 

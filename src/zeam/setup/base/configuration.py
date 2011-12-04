@@ -361,6 +361,11 @@ class Section(object):
 
     get = __getitem__
 
+    def get_with_default(self, key, default_section, default=marker):
+        if key in self.options:
+            return self.options[key]
+        return self.configuration[default_section].get(key, default=default)
+
     def __setitem__(self, key, value):
         if isinstance(value, list) or isinstance(value, tuple):
             value = '\n    ' + '\n    '.join(value)

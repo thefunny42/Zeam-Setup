@@ -159,16 +159,3 @@ def get_package_name(section):
         return configuration['egginfo']['name']
     raise ConfigurationError('Cannot determine package name')
 
-
-def get_option_with_default(option_name, section, required=True):
-    """Lookup a option in a given section, and if nothing is found,
-    lookup the value in the [setup] section.
-    """
-    if option_name in section:
-        return section[option_name]
-    setup = section.configuration['setup']
-    if option_name in setup:
-        return setup[option_name]
-    if required:
-        raise ConfigurationError('Cannot find %s value' % option_name)
-    return None

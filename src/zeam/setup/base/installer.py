@@ -6,7 +6,6 @@ import threading
 from zeam.setup.base.distribution.kgs import get_kgs_requirements
 from zeam.setup.base.error import PackageError, report_error
 from zeam.setup.base.version import Requirements
-from zeam.setup.base.utils import get_option_with_default
 
 logger = logging.getLogger('zeam.setup')
 INSTALLATION_DONE = object()
@@ -29,12 +28,12 @@ class PackageInstaller(object):
         self.__lock = threading.RLock()
         self.__wait = threading.Condition(threading.RLock())
         self.kgs = None
-        setup = configuration['setup']
-        versions = get_option_with_default('versions', options, False)
-        if versions is not None:
-            self.kgs = get_kgs_requirements(versions.as_list(), configuration)
-        self.__worker_count = setup.get('install_workers', '1').as_int()
-        self.__setup = setup
+        versions = options.get_with_default('versions', 'setup', '').as_list()
+        if versions:
+            self.kgs = get_kgs_requirements(versions, configuration)
+        self.__worker_count = options.get_with_default(
+            'install_workers', 'setup', '1').as_int()
+        self.__options = options
         self.__first_done = False
         self.__installation_failed = None
 
@@ -146,7 +145,8 @@ class PackageInstaller(object):
     def __call__(self, requirements, directory=None):
         __status__ = u"Installing %r." % (requirements)
         if directory is None:
-            directory = self.__setup.get('lib_directory').as_text()
+            directory = self.__options.get_with_default(
+                'lib_directory', 'setup').as_text()
         self.__register_install(requirements)
         if self.__to_install:
             self.sources.initialize()

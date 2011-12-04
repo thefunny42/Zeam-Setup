@@ -4,7 +4,7 @@ import os
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.recipe.recipe import Recipe
-from zeam.setup.base.utils import get_package_name, get_option_with_default
+from zeam.setup.base.utils import get_package_name
 from zeam.setup.base.version import Requirements
 
 SCRIPT_BODY = """
@@ -88,16 +88,17 @@ class Package(Recipe):
 
     def prepare(self, status):
         __status__ = u"Install required packages."
-        self.working_set = WorkingSet(get_option_with_default(
-                'python_executable', self.configuration).as_text())
+        self.working_set = WorkingSet(
+            self.configuration.get_with_default(
+                'python_executable', 'setup').as_text())
         installer = PackageInstaller(self.configuration, self.working_set)
         status.add_packages(
             installer(Requirements.parse(self.packages), self.directory))
 
     def install(self, status):
         __status__ = u"Install required scripts."
-        bin_directory = get_option_with_default(
-            'bin_directory', self.configuration).as_text()
+        bin_directory = self.configuration.get_with_default(
+            'bin_directory', 'setup').as_text()
         create_scripts = lambda p: status.add_paths(
             install_scripts(
                 self.working_set, p, bin_directory,
@@ -113,16 +114,11 @@ class Interpreter(Package):
     """
 
     def install(self, status):
-        directory = get_option_with_default(
-            'bin_directory', self.configuration).as_text()
-        python_executable = get_option_with_default(
-            'python_executable', self.configuration).as_text()
-        working_set = WorkingSet(python_executable)
-        installer = PackageInstaller(self.configuration, working_set)
-        installer(Requirements.parse(self.packages))
-        script_path = os.path.join(directory, self.configuration.name)
+        bin_directory = self.configuration.get_with_default(
+            'bin_directory', 'setup').as_text()
+        script_path = os.path.join(bin_directory, self.configuration.name)
         status.add_path(
-            working_set.create_script(
+            self.working_set.create_script(
                 script_path, INTERPRETER_BODY, extra_paths=self.extra_paths))
 
 
