@@ -1,4 +1,6 @@
 
+import shutil
+import tempfile
 import logging
 
 from zeam.setup.base.distribution.workingset import WorkingSet
@@ -51,7 +53,7 @@ class PartInstalled(object):
 
 class Part(object):
 
-    def __init__(self, name, section, install_set):
+    def __init__(self, name, section, install_set, install_set_directory):
         logger.info('Load installation for %s' % name)
         self.name = name
         self.recipes = []
@@ -61,7 +63,8 @@ class Part(object):
         get_entry_point = install_set.get_entry_point
 
         def install_packages(names):
-            installer(Requirements.parse(names))
+            installer(
+                Requirements.parse(names), directory=install_set_directory)
             for name in names:
                 install_set.get(name).activate()
 
@@ -104,11 +107,18 @@ class Installer(object):
 
         # Setup working set: used only for installation
         install_set = WorkingSet()
+        self.install_deps_directory = tempfile.mkdtemp('zeam.setup.install')
+
         # Lookup parts
         self.parts = []
         setup = configuration['setup']
         for name in setup['install'].as_list():
-            self.parts.append(Part(name, self.configuration[name], install_set))
+            part = Part(
+                name,
+                self.configuration[name],
+                install_set,
+                self.install_deps_directory)
+            self.parts.append(part)
 
     def run(self):
         __status__ = u"Preparing installation."
@@ -131,3 +141,5 @@ class Installer(object):
         for part in self.parts:
             part.finalize(self.configuration)
 
+        # Remove unused software.
+        shutil.rmtree(self.install_deps_directory)
