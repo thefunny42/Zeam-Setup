@@ -13,7 +13,7 @@ from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.error import NetworkError
 from zeam.setup.base.utils import get_links, create_directory
-from zeam.setup.base.version import Version
+from zeam.setup.base.version import Version, InvalidVersion
 from zeam.setup.base.vcs import VCS
 
 logger = logging.getLogger('zeam.setup')
@@ -31,15 +31,19 @@ def get_installer_from_name(source, name, url=None, path=None):
     """
     info = RELEASE_TARBALL.match(name)
     if info:
-        name = info.group('name')
-        version = Version.parse(info.group('version'))
-        format = info.group('format')
-        pyversion = info.group('pyversion')
-        platform = info.group('platform')
-        return source.factory(
-            source,
-            name=name, version=version, format=format, url=url, path=path,
-            pyversion=pyversion, platform=platform)
+        try:
+            name = info.group('name')
+            version = Version.parse(info.group('version'))
+            format = info.group('format')
+            pyversion = info.group('pyversion')
+            platform = info.group('platform')
+            return source.factory(
+                source,
+                name=name, version=version, format=format, url=url, path=path,
+                pyversion=pyversion, platform=platform)
+        except InvalidVersion:
+            logger.debug("Can't parse version for link %s, ignoring it." % name)
+            return None
     return None
 
 

@@ -1,7 +1,10 @@
 
 if __name__ == "__main__":
+    import sys, os
     # The first sys.path should be the current directory
-    __import__('sys').path[0] = __import__('os').getcwd()
+    sys.path[0] = os.getcwd()
+    # Some scripts try to be clever.
+    sys.argv[0] = os.path.join(os.getcwd(), 'setup.py')
     # Load setuptools
     import setuptools
     # Load setup.py as __main__

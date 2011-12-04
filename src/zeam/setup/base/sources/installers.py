@@ -87,8 +87,22 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
         source_path = os.path.basename(archive)[:-(len(format)+1)]
         source_path = os.path.join(build_dir, source_path)
         if not os.path.isdir(source_path):
-            raise PackageError(u"Cannot introspect archive content for %s" % (
-                    archive,))
+            logger.debug(
+                u"Non-standard archive for %s" % self.informations['name'])
+            # Ok the folder has the same name than the archive. Try to
+            # see if there is only one folder in the archive, ignore
+            # what starts with .
+            source_path = None
+            candidates_entries = filter(
+                lambda s: s and s[0] != '.', os.listdir(build_dir))
+            if len(candidates_entries) == 1:
+                candidate_path = os.path.join(build_dir, candidates_entries[0])
+                if os.path.isdir(candidate_path):
+                    # If there is only one directory in the archive use it.
+                    source_path = candidate_path
+            if source_path is None:
+                raise PackageError(
+                    u"Cannot introspect archive content for %s" % (archive,))
         self.informations['path'] = source_path
 
         # Load project information
