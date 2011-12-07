@@ -20,7 +20,7 @@ class KnownGoodRequirementSet(object):
         self.missing = Requirements()
 
     def upgrade(self, requirement):
-        __status__ = u"Restraining version to the Known Good Set %s." % (
+        __status__ = u"Restraining version to the known good set %s." % (
             self.kgs.name)
         name = requirement.name
         wanted_version = self.kgs.get(name)

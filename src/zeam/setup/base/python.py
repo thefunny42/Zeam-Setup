@@ -11,14 +11,14 @@ class PythonInterpreter(object):
 
     def __init__(self, path):
         assert path is not None
-        self.__path = get_cmd_output(
+        self._path = get_cmd_output(
             path, "-c",
             "print __import__('sys').executable")[0].strip()
-        self.__version = get_cmd_output(
+        self._version = get_cmd_output(
             path, "-c",
             "print '.'.join(map(str, __import__('sys').version_info[:2]))"
             )[0].strip()
-        self.__platform = get_cmd_output(
+        self._platform = get_cmd_output(
             path, "-c",
             "print __import__('sys').platform")[0].strip()
 
@@ -36,15 +36,15 @@ class PythonInterpreter(object):
         return str(self) == string
 
     def __str__(self):
-        return self.__path
+        return self._path
 
     def __repr__(self):
-        return self.__path
+        return self._path
 
     def execute_external(self, *command, **opts):
         """Run an external command with the given args.
         """
-        cmd = [self.__path]
+        cmd = [self._path]
         cmd.extend(command)
         return get_cmd_output(*cmd, **opts)
 
@@ -54,12 +54,12 @@ class PythonInterpreter(object):
         module_file = module.__file__
         if module_file.endswith('.pyc'):
             module_file = module_file[:-1]
-        cmd = [self.__path, module_file]
+        cmd = [self._path, module_file]
         cmd.extend(args)
         return get_cmd_output(*cmd, **opts)
 
     def get_pyversion(self):
-        return self.__version
+        return self._version
 
     def get_platform(self):
-        return self.__platform
+        return self._platform

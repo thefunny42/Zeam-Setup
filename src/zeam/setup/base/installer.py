@@ -22,31 +22,31 @@ class PackageInstaller(object):
         self.interpretor = working_set.interpretor
         self.working_set = working_set
         self.sources = configuration.utilities.sources
-        self.__to_install = Requirements()
-        self.__verify_being_installed = Requirements()
-        self.__being_installed = Requirements()
-        self.__lock = threading.RLock()
-        self.__wait = threading.Condition(threading.RLock())
+        self._to_install = Requirements()
+        self._verify_being_installed = Requirements()
+        self._being_installed = Requirements()
+        self._lock = threading.RLock()
+        self._wait = threading.Condition(threading.RLock())
         self.kgs = None
         versions = options.get_with_default('versions', 'setup', '').as_list()
         if versions:
             self.kgs = get_kgs_requirements(versions, configuration)
-        self.__worker_count = options.get_with_default(
-            'install_workers', 'setup', '1').as_int()
-        self.__options = options
-        self.__first_done = False
-        self.__installation_failed = None
+        self._worker_count = options.get_with_default(
+            'install_workers', 'setup', '5').as_int()
+        self._options = options
+        self._first_done = False
+        self._installation_failed = None
 
-    def __wakeup_workers(self):
+    def _wakeup_workers(self):
         # Wake up some workers to work.
         count_to_wake_up = max(
-            self.__worker_count - 1, len(self.__to_install))
-        self.__wait.acquire()
+            self._worker_count - 1, len(self._to_install))
+        self._wait.acquire()
         for count in range(count_to_wake_up):
-            self.__wait.notify()
-        self.__wait.release()
+            self._wait.notify()
+        self._wait.release()
 
-    def __verify_extra_install(self, requirement, name='installer'):
+    def _verify_extra_install(self, requirement, name='installer'):
         # Verify is some extra need installation
         release = self.working_set[requirement]
         for extra in requirement.extras:
@@ -54,111 +54,111 @@ class PackageInstaller(object):
                 raise PackageError(
                     u'Require missing extra %s in %s' % (
                         extra, release))
-            self.__register_install(release.extras[extra], name=name)
+            self._register_install(release.extras[extra], name=name)
 
-    def __register_install(self, requirements, name='installer'):
+    def _register_install(self, requirements, name='installer'):
         # Mark requirements to be installed.
         for requirement in requirements:
             if self.kgs is not None:
                 requirement = self.kgs.upgrade(requirement)
             if requirement in self.working_set:
                 if requirement.extras:
-                    self.__verify_extra_install(requirement, name)
+                    self._verify_extra_install(requirement, name)
                 logger.debug(
                     u'(%s) Skip already installed dependency %s' % (
                         name, requirement))
                 continue
-            if requirement in self.__being_installed:
+            if requirement in self._being_installed:
                 if requirement.extras:
-                    self.__verify_being_installed.append(requirement)
+                    self._verify_being_installed.append(requirement)
                 logger.debug(
                     u'(%s) Skip already being installed dependency %s' % (
                         name, requirement))
                 continue
             logger.debug(
                 u'(%s) Need to install dependency %s' % (name, requirement))
-            self.__to_install.append(requirement)
+            self._to_install.append(requirement)
 
     def wait_for_requirements(self, name='installer'):
         logger.debug(u'(%s) Wait for dependencies' % name)
-        self.__wait.acquire()
-        self.__wait.wait()
-        self.__wait.release()
+        self._wait.acquire()
+        self._wait.wait()
+        self._wait.release()
 
     def mark_failed(self, error, name='installer'):
         logger.debug(u'(%s) Failed' % name)
-        self.__lock.acquire()
-        self.__installation_failed = error
-        self.__wait.acquire()
-        self.__wait.notifyAll()
-        self.__wait.release()
-        self.__lock.release()
+        self._lock.acquire()
+        self._installation_failed = error
+        self._wait.acquire()
+        self._wait.notifyAll()
+        self._wait.release()
+        self._lock.release()
 
     def get_requirement(self, name='installer'):
-        self.__lock.acquire()
+        self._lock.acquire()
         try:
-            if self.__installation_failed is not None:
+            if self._installation_failed is not None:
                 return INSTALLATION_DONE
-            if not self.__to_install:
-                if not self.__being_installed:
-                    if not self.__first_done:
+            if not self._to_install:
+                if not self._being_installed:
+                    if not self._first_done:
                         # Wake up other waiting worker
-                        self.__wait.acquire()
-                        self.__wait.notifyAll()
-                        self.__wait.release()
-                        self.__first_done = True
+                        self._wait.acquire()
+                        self._wait.notifyAll()
+                        self._wait.release()
+                        self._first_done = True
                     return INSTALLATION_DONE
                 return None
-            requirement = self.__to_install.pop()
-            assert requirement not in self.__being_installed
-            self.__being_installed.append(requirement)
+            requirement = self._to_install.pop()
+            assert requirement not in self._being_installed
+            self._being_installed.append(requirement)
             logger.info('(%s) Installing %s' % (name, requirement))
             return requirement
         finally:
-            self.__lock.release()
+            self._lock.release()
 
     def mark_installed(self, requirement, package, name='installer'):
-        self.__lock.acquire()
+        self._lock.acquire()
         self.working_set.add(package)
-        if requirement in self.__verify_being_installed:
-            extra_requirement = self.__verify_being_installed[requirement]
+        if requirement in self._verify_being_installed:
+            extra_requirement = self._verify_being_installed[requirement]
             logger.debug(
                 u'(%s) Verify pending extra for %s' % (
                     name, extra_requirement))
-            worker_need_wake_up = len(self.__to_install) == 0
-            self.__verify_extra_install(extra_requirement, name)
+            worker_need_wake_up = len(self._to_install) == 0
+            self._verify_extra_install(extra_requirement, name)
             if worker_need_wake_up:
-                self.__wakeup_workers()
-            self.__verify_being_installed.remove(extra_requirement)
-        self.__being_installed.remove(requirement)
+                self._wakeup_workers()
+            self._verify_being_installed.remove(extra_requirement)
+        self._being_installed.remove(requirement)
         logger.debug('(%s) Mark %s as installed' % (name, requirement))
-        self.__lock.release()
+        self._lock.release()
 
     def install_dependencies(self, requirements, name='installer'):
-        self.__lock.acquire()
-        worker_need_wake_up = len(self.__to_install) == 0
-        self.__register_install(requirements, name=name)
+        self._lock.acquire()
+        worker_need_wake_up = len(self._to_install) == 0
+        self._register_install(requirements, name=name)
         if worker_need_wake_up:
-            self.__wakeup_workers()
-        self.__lock.release()
+            self._wakeup_workers()
+        self._lock.release()
 
     def __call__(self, requirements, directory=None):
         __status__ = u"Installing %r." % (requirements)
         if directory is None:
-            directory = self.__options.get_with_default(
+            directory = self._options.get_with_default(
                 'lib_directory', 'setup').as_text()
-        self.__register_install(requirements)
-        if self.__to_install:
+        self._register_install(requirements)
+        if self._to_install:
             self.sources.initialize()
             workers = []
-            for count in range(self.__worker_count):
+            for count in range(self._worker_count):
                 worker = PackageInstallerWorker(self, directory, count)
                 worker.start()
                 workers.append(worker)
             for worker in workers:
                 worker.join()
-            if self.__installation_failed is not None:
-                raise self.__installation_failed
+            if self._installation_failed is not None:
+                raise self._installation_failed
             else:
                 if self.kgs is not None:
                     self.kgs.log_usage()

@@ -4,8 +4,8 @@ class Recipe(object):
     """
     requirements = []
 
-    def __init__(self, configuration):
-        self.configuration = configuration
+    def __init__(self, options):
+        self.options = options
 
     def prepare(self, status):
         pass

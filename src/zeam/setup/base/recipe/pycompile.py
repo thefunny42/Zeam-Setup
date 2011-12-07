@@ -11,10 +11,10 @@ logger = logging.getLogger('zeam.setup')
 
 class PythonCompileFile(Recipe):
 
-    def __init__(self, configuration):
-        super(PythonCompileFile, self).__init__(configuration)
+    def __init__(self, options):
+        super(PythonCompileFile, self).__init__(options)
         self.interpreter = PythonInterpreter.detect(
-            self.configuration.get_with_default(
+            options.get_with_default(
                 'python_executable', 'setup').as_text())
 
     def install(self, status):

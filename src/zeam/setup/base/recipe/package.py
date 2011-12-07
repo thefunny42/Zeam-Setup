@@ -60,44 +60,44 @@ class Package(Recipe):
     """Install console_scripts of a package.
     """
 
-    def __init__(self, configuration):
-        super(Package, self).__init__(configuration)
+    def __init__(self, options):
+        super(Package, self).__init__(options)
 
-        self.directory = configuration.get(
+        self.directory = options.get(
             'directory',
             '${setup:lib_directory}').as_text()
 
-        if 'packages' not in configuration:
-            self.packages = [get_package_name(configuration).as_text()]
+        if 'packages' not in options:
+            self.packages = [get_package_name(options).as_text()]
         else:
-            self.packages = configuration['packages'].as_list()
+            self.packages = options['packages'].as_list()
 
         self.wanted_scripts = None
-        if 'scripts' in configuration:
-            self.wanted_scripts = configuration['scripts'].as_list()
+        if 'scripts' in options:
+            self.wanted_scripts = options['scripts'].as_list()
 
         self.extra_args = []
-        if 'extra_args' in configuration:
-            self.extra_args = configuration['extra_args'].as_list()
+        if 'extra_args' in options:
+            self.extra_args = options['extra_args'].as_list()
 
         self.extra_paths = []
-        if 'extra_paths' in configuration:
-            self.extra_paths = configuration['extra_paths'].as_list()
+        if 'extra_paths' in options:
+            self.extra_paths = options['extra_paths'].as_list()
 
         self.working_set = None
 
     def prepare(self, status):
         __status__ = u"Install required packages."
         self.working_set = WorkingSet(
-            self.configuration.get_with_default(
+            self.options.get_with_default(
                 'python_executable', 'setup').as_text())
-        installer = PackageInstaller(self.configuration, self.working_set)
+        installer = PackageInstaller(self.options, self.working_set)
         status.add_packages(
             installer(Requirements.parse(self.packages), self.directory))
 
     def install(self, status):
         __status__ = u"Install required scripts."
-        bin_directory = self.configuration.get_with_default(
+        bin_directory = self.options.get_with_default(
             'bin_directory', 'setup').as_text()
         create_scripts = lambda p: status.add_paths(
             install_scripts(
@@ -114,9 +114,9 @@ class Interpreter(Package):
     """
 
     def install(self, status):
-        bin_directory = self.configuration.get_with_default(
+        bin_directory = self.options.get_with_default(
             'bin_directory', 'setup').as_text()
-        script_path = os.path.join(bin_directory, self.configuration.name)
+        script_path = os.path.join(bin_directory, self.options.name)
         status.add_path(
             self.working_set.create_script(
                 script_path, INTERPRETER_BODY, extra_paths=self.extra_paths))

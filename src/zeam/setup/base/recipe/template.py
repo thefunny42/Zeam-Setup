@@ -23,8 +23,8 @@ class Template(Recipe):
             try:
                 output_file.write(
                     template.generate(
-                        section=self.configuration,
-                        configuration=self.configuration.configuration
+                        section=self.options,
+                        configuration=self.options.configuration
                         ).render())
                 success = True
             finally:

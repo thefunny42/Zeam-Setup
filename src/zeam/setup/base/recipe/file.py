@@ -7,8 +7,8 @@ import shlex
 from zeam.setup.base.archives import open_archive
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.recipe.recipe import Recipe
-from zeam.setup.base.error import ConfigurationError
-from zeam.setup.base.utils import create_directory
+from zeam.setup.base.error import ConfigurationError, InstallationError
+from zeam.setup.base.utils import create_directory, relative_uri
 
 
 def move_archive_folders(extract_path, target_path, path_infos):
@@ -47,23 +47,23 @@ class File(Recipe):
     """Download a list of files and archives in a folder.
     """
 
-    def __init__(self, configuration):
-        super(File, self).__init__(configuration)
-        self.files = map(parse_line, configuration.get('files', '').as_list())
-        self.urls = map(parse_line, configuration.get('urls', '').as_list())
-        self.directory = configuration['directory'].as_text()
-        self.downloader = None
-        if self.urls:
-            download_path = configuration.get(
-                'download_directory',
-                '${setup:prefix_directory}/download').as_text()
-            create_directory(download_path)
-            self.downloader = DownloadManager(download_path)
+    def __init__(self, options):
+        super(File, self).__init__(options)
+        self.files = map(parse_line, options.get('files', '').as_list())
+        self.urls = map(parse_line, options.get('urls', '').as_list())
+        self.directory = options['directory'].as_text()
+        download_path = options.get(
+            'download_directory',
+            '${setup:prefix_directory}/download').as_text()
+        create_directory(download_path)
+        self.downloader = DownloadManager(download_path)
 
     def prepare(self, status):
         __status__ = u"Download files."
-        self.files.extend(
-            map(lambda (url, parts): (self.downloader(url), parts), self.urls))
+        origin = self.options.get_cfg_directory()
+        process = lambda (uri, parts): (
+            self.downloader(relative_uri(origin, uri, True)), parts)
+        self.files = map(process, self.files) + map(process, self.urls)
 
     def install(self, status):
         __status__ = u"Install files."
@@ -81,6 +81,10 @@ class File(Recipe):
                     archive.extract(self.directory)
             else:
                 create_directory(self.directory)
-                shutil.copy2(file, self.directory)
+                try:
+                    shutil.copy2(file, self.directory)
+                except IOError:
+                    raise InstallationError(
+                        u'Missing required setup file', file)
             status.add_path(self.directory)
 

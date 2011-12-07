@@ -11,15 +11,24 @@ logger = logging.getLogger('zeam.setup')
 
 SECTION_HEADER = re.compile(r'\[(?P<header>[^]]+)\]')
 OPTION_HEADER = re.compile(
-    r'(?P<option>[^=\s]+)\s*(?P<operator>=)\s*(?P<value>.*)$')
+    r'(?P<option>[^=\s]+)\s*(?P<operator>[\+\-]?=)\s*(?P<value>.*)$')
 OPTION_REPLACE = re.compile(
     r'\$\{(?P<section>[^:]*):(?P<option>[^\}]+)\}')
 
 
-def format_location(filename, start_line, end_line=None):
+def as_list(value):
+    """Return the given value as a list.
+    """
+    return filter(lambda s: len(s),
+                  map(lambda s: s.strip(),
+                      value.split('\n')))
+
+
+
+def format_line(start_line, end_line=None):
     """Format location information to report it.
     """
-    location = u'%s: line %d' % (filename, start_line)
+    location = u'line %d' % (start_line)
     if end_line is not None and end_line != start_line:
         location += u' to %d' % end_line
     return location
@@ -29,12 +38,13 @@ class OptionParser(object):
     """Temporary object used to parse an option.
     """
 
-    def __init__(self, name, text, section, filename, line):
+    def __init__(self, name, text, section, filename, line, operator):
         self.name = name
         self.section = section
-        self.__filename = filename
-        self.__start_line = line
-        self.__lines = [(line, text + '\n',)]
+        self._filename = filename
+        self._start_line = line
+        self._lines = [(line, text + '\n',)]
+        self._operator = operator
 
     @classmethod
     def new_option(klass, section, text, filename, line):
@@ -43,23 +53,26 @@ class OptionParser(object):
             return klass(
                 is_header.group('option'),
                 is_header.group('value'),
-                section, filename, line)
+                section,
+                filename,
+                line,
+                is_header.group('operator'))
         return None
 
     def add(self, line, text):
-        self.__lines.append((line, text + '\n',))
+        self._lines.append((line, text + '\n',))
 
     def done(self, line):
-        # XXX Review this
-        if line == self.__start_line:
+        if line == self._start_line:
             line = None
         option_value = ''
-        for line, text in self.__lines:
+        for line, text in self._lines:
             option_value += text
         self.section.options[self.name] = Option(
             self.name, option_value,
-            format_location(self.__filename, self.__start_line, line),
-            self.section)
+            location=(self._filename, format_line(self._start_line, line)),
+            section=self.section,
+            operator=self._operator)
 
 
 class SectionParser(object):
@@ -69,9 +82,9 @@ class SectionParser(object):
     def __init__(self, name, configuration, filename, line):
         self.name = name
         self.configuration = configuration
-        self.__filename = filename
-        self.__start_line = line
-        self.__lines = []
+        self._filename = filename
+        self._start_line = line
+        self._lines = []
 
     @classmethod
     def new_section(klass, configuration, text, filename, line):
@@ -82,16 +95,19 @@ class SectionParser(object):
         return None
 
     def add(self, line, text):
-        self.__lines.append((line, text,))
+        self._lines.append((line, text,))
 
     def done(self, line):
-        location = format_location(self.__filename, self.__start_line, line)
-        section = Section(self.name, location, self.configuration)
+        location = (self._filename, format_line(self._start_line, line))
+        section = Section(
+            self.name,
+            location=location,
+            configuration=self.configuration)
         option = None
 
-        for line_number, text in self.__lines:
+        for line_number, text in self._lines:
             new_option = OptionParser.new_option(
-                section, text, self.__filename, line_number)
+                section, text, self._filename, line_number)
             if new_option is not None:
                 if option is not None:
                     option.done(line_number - 1)
@@ -117,19 +133,19 @@ class Utilities(object):
     """
 
     def __init__(self, configuration):
-        self.__configuration = configuration
-        self.__utilities = {}
-        self.__factories = {}
+        self._configuration = configuration
+        self._utilities = {}
+        self._factories = {}
 
     def register(self, name, factory):
-        self.__factories[name] = factory
+        self._factories[name] = factory
 
     def __getattr__(self, key):
-        if key in self.__utilities:
-            return self.__utilities[key]
-        if key in self.__factories:
-            utility = self.__factories[key](self.__configuration)
-            self.__utilities[key] = utility
+        if key in self._utilities:
+            return self._utilities[key]
+        if key in self._factories:
+            utility = self._factories[key](self._configuration)
+            self._utilities[key] = utility
             return utility
         raise AttributeError(key)
 
@@ -139,14 +155,14 @@ class ConfigurationDiffUtility(object):
     """
 
     def __init__(self, configuration):
-        self.__configuration = configuration
+        self._configuration = configuration
 
     def get_option_changes(self, section):
         """Return a tuple (added, changed, removed) indicating the
         mutation in a section.
         """
         section_name = section.name
-        if section_name not in self.__configuration:
+        if section_name not in self._configuration:
             return (section, None)
 
     def get_option_values_changes(self, option):
@@ -156,10 +172,10 @@ class ConfigurationDiffUtility(object):
         assert isinstance(option, Option)
         option_name = option.name
         section_name = option.section.name
-        if section_name not in self.__configration:
+        if section_name not in self._configration:
             # Section was not here, everything is new
             return (option.as_list(), None)
-        previous_section = self.__configuraction[section_name]
+        previous_section = self._configuraction[section_name]
         if option_name not in previous_section:
             # Option was not here, everything is new
             return (option.as_list(), None)
@@ -183,14 +199,14 @@ class Configuration(object):
     default_section = 'setup'
 
     def __init__(self, location):
-        self.__location = location
+        self._location = location
         self.sections = {}
         self.utilities = Utilities(self)
 
     def get_cfg_directory(self):
         """Return the directory where the config file resides.
         """
-        return os.path.dirname(self.__location)
+        return os.path.dirname(self._location)
 
     @classmethod
     def read(cls, uri):
@@ -260,14 +276,14 @@ class Configuration(object):
             stream.write('\n')
 
     def __copy__(self):
-        new_conf = self.__class__(self.__location)
+        new_conf = self.__class__(self._location)
         for section_name in self.sections.keys():
             new_conf[section_name] = self.sections[section_name]
         return new_conf
 
     def __add__(self, other):
         if not isinstance(other, Configuration):
-            raise ValueError(u'Can only add two configuration together')
+            raise TypeError(u'Can only add two configuration together.')
 
         # Create a copy of this configuration
         new_conf = self.__copy__()
@@ -287,16 +303,18 @@ class Configuration(object):
             if default is not marker:
                 return default
             raise ConfigurationError(
-                self.__location, u'Missing %s section.' % key)
+                self._location,
+                u'Missing %s section.' % key)
 
     get = __getitem__
 
     def __setitem__(self, key, value):
         if not isinstance(value, Section):
-            raise ValueError(u'Can only add section to a configuration.')
-        section = value.__copy__()
-        section.configuration = self
-        self.sections[key] = section
+            raise TypeError(u'Can only add section to a configuration.')
+        if value.configuration is not self:
+            value = value.__copy__()
+            value.configuration = self
+        self.sections[key] = value
 
     def __delitem__(self, key):
         del self.sections[key]
@@ -317,7 +335,7 @@ class Section(object):
     def __init__(self, name, location=None, configuration=None):
         self.name = name
         self.configuration = configuration
-        self.__location = location
+        self._location = location
         self.options = {}
 
     @property
@@ -326,17 +344,27 @@ class Section(object):
 
     @property
     def location(self):
-        return self.__location
+        if self._location:
+            return ': '.join(self._location)
+        return None
+
+    def get_cfg_directory(self):
+        """Return the directory where the config file what contains
+        this section resides.
+        """
+        if self._location:
+            return os.path.dirname(self._location[0])
+        return None
 
     def __copy__(self):
-        new_section = self.__class__(self.name, location=self.location)
+        new_section = self.__class__(self.name, location=self._location)
         for option_name in self.options.keys():
             new_section[option_name] = self.options[option_name]
         return new_section
 
     def __add__(self, other):
         if not isinstance(other, Section):
-            raise ValueError(u'Can only add two sections together')
+            raise TypeError(u'Can only add two sections together.')
 
         # Create a copy of this section
         new_section = self.__copy__()
@@ -345,6 +373,8 @@ class Section(object):
         for option_name in other.options.keys():
             if option_name not in new_section:
                 new_section[option_name] = other.options[option_name]
+            else:
+                new_section[option_name] += other.options[option_name]
         return new_section
 
     def __getitem__(self, key, default=marker):
@@ -367,21 +397,15 @@ class Section(object):
         return self.configuration[default_section].get(key, default=default)
 
     def __setitem__(self, key, value):
-        if isinstance(value, list) or isinstance(value, tuple):
-            value = '\n    ' + '\n    '.join(value)
-        if isinstance(value, str):
-            if key in self.options:
-                # XXX Not sure we want do to that
-                self.options[key].set_value(value)
-            else:
-                self.options[key] = Option(
-                    key, value, section=self)
-        elif isinstance(value, Option):
-            option = value.__copy__()
-            option.section = self
-            self.options[key] = option
+        if isinstance(value, Option):
+            if value.section is not self:
+                value = value.__copy__()
+                value.section = self
+            self.options[key] = value
+        elif key in self.options:
+            self.options[key].set_value(value)
         else:
-            raise ValueError(u'Can only use string')
+            self.options[key] = Option(key, value, section=self)
 
     def __delitem__(self, key):
         del self.options[key]
@@ -412,23 +436,62 @@ class Option(object):
     """Option in a section.
     """
 
-    def __init__(self, name, value, location=None, section=None):
+    def __init__(self, name, value, location=None, section=None, operator='='):
         self.name = name
         self.section = section
-        self.__location = location
-        self.__value = value
-        self.__access_callbacks = []
+        self.set_value(value)
+        self._location = location
+        self._add_value = ''
+        self._remove_value = ''
+        if operator == '+=':
+            self._add_value = self._value
+        elif operator == '-=':
+            self._remove_value = self._value
+            self._value = ''
+        self._callbacks = []
 
     @property
     def location(self):
-        return self.__location
+        if self._location:
+            return ': '.join(self._location)
+        return None
+
+    def get_cfg_directory(self):
+        """Return the directory where the config file what contains
+        this section resides.
+        """
+        if self._location:
+            return os.path.dirname(self._location[0])
+        return None
 
     def __copy__(self):
-        return self.__class__(self.name, self.__value, location=self.location)
+        copy = self.__class__(self.name, self._value, location=self._location)
+        if self._add_value:
+            copy._add_value = str(self._add_value)
+        if self._remove_value:
+            copy.remove_value = str(self._remove_value)
+        return copy
 
-    def __get_value(self):
-        # XXX Should cache this
-        value = self.__value
+    def __add__(self, other):
+        if not isinstance(other, Option):
+            raise TypeError(u"Can only add two options together")
+        if self._add_value or self._remove_value:
+            value = as_list(other._value)
+            if self._add_value:
+                value.extend(as_list(self._add_value))
+            if self._remove_value:
+                removed = set(as_list(self._remove_value))
+                value = filter(lambda v: v not in removed, value)
+        else:
+            value = self._value
+        return self.__class__(self.name, value, location=self._location)
+
+    def get_value(self):
+        """Return the computed value of the option interpreted.
+        """
+        if self._computed_value is not None:
+            return self._computed_value
+        value = self._value
         replace = OPTION_REPLACE.search(value)
         while replace:
             section_name = replace.group('section')
@@ -437,34 +500,40 @@ class Option(object):
             else:
                 section = self.section
             option_value = section[replace.group('option')].as_text()
-            value = value[0:replace.start()] + \
-                option_value + \
-                value[replace.end():]
+            value = ''.join((value[0:replace.start()],
+                             option_value,
+                             value[replace.end():]))
             replace = OPTION_REPLACE.search(value)
-        for callback in self.__access_callbacks:
+        for callback in self._callbacks:
             callback(value)
+        self._computed_value = value
         return value
 
     def set_value(self, value):
         """Set the value of the option.
         """
-        self.__value = value
+        if isinstance(value, list) or isinstance(value, tuple):
+            value = '\n    ' + '\n    '.join(value)
+        if not isinstance(value, basestring):
+            raise ValueError(u"Can only set strings as value.")
+        self._value = value
+        self._computed_value = None
 
     def register(self, func):
-        self.__access_callbacks.append(func)
+        self._callbacks.append(func)
 
     def _write(self, stream):
-        stream.write(self.name + ' = ' + self.__value)
-        if not self.__value or self.__value[-1] != '\n':
+        stream.write(self.name + ' = ' + self._value)
+        if not self._value or self._value[-1] != '\n':
             stream.write('\n')
 
     def as_text(self):
         """Return the value as plain raw text.
         """
-        return self.__get_value().strip()
+        return self.get_value().strip()
 
     def as_bool(self):
-        value = self.__get_value().strip()
+        value = self.get_value().strip()
         bool = value.lower()
         if bool in ('on', 'true', '1',):
             return True
@@ -477,7 +546,7 @@ class Option(object):
     def as_int(self):
         """Return the value as an integer.
         """
-        value = self.__get_value()
+        value = self.get_value()
         try:
             return int(value)
         except ValueError:
@@ -488,9 +557,7 @@ class Option(object):
     def as_list(self):
         """Return the value's lines as a list.
         """
-        return filter(lambda s: len(s),
-                      map(lambda s: s.strip(),
-                          self.__get_value().split('\n')))
+        return as_list(self.get_value())
 
     def as_words(self):
         """Return value as a list of word. You can wrap a word with a
@@ -501,7 +568,7 @@ class Option(object):
         word = ""
         is_escaped = False
         is_previous_backslash = False
-        for letter in self.__get_value():
+        for letter in self.get_value():
             if letter == '\\':
                 if not is_previous_backslash:
                     is_previous_backslash = True

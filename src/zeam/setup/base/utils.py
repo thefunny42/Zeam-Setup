@@ -71,13 +71,17 @@ def is_remote_uri(uri):
     return uri.startswith('http://') or uri.startswith('https://')
 
 
-def relative_uri(origin, target):
+def relative_uri(origin, target, is_container=False):
     """Return an URI for target, paying attention that if it was
     relative, it was from origin.
     """
+    # XXX Todo make it work on remote too with urlparse
     if target.startswith(os.path.sep) or is_remote_uri(target):
         return target
-    return '/'.join(origin.split('/')[:-1] + [target])
+    origin = origin.split(os.path.sep)
+    if not is_container:
+        origin = origin[:-1]
+    return os.path.sep.join(origin + [target])
 
 
 def open_uri(uri):

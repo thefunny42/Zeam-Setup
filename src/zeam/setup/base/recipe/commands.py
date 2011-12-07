@@ -1,4 +1,5 @@
 
+import os
 import shutil
 import tempfile
 import logging
@@ -10,6 +11,38 @@ from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.version import Requirements
 
 logger = logging.getLogger('zeam.setup')
+
+
+class PathContainer(object):
+
+    def __init__(self):
+        self.__data = {}
+
+    def add(self, path):
+        data = self.__data
+        pieces = path.split(os.path.sep)
+        for index, piece in enumerate(pieces[:-1]):
+            if (not index) or (not data):
+                data = data.setdefault(piece, {})
+            else:
+                break
+        else:
+            # We remove everything below the last one.
+            data[pieces[-1]] = {}
+
+    def as_list(self):
+        result = []
+
+        def build(prefix, data):
+            for piece, children in data.items():
+                base = prefix + [piece]
+                if not children:
+                    result.append(os.path.sep.join(base))
+                else:
+                    build(base, children)
+
+        build([], self.__data)
+        return result
 
 
 class PartInstalled(object):
