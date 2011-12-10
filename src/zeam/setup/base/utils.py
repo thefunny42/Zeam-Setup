@@ -74,10 +74,8 @@ def relative_uri(origin, target, is_container=False):
     """Return an URI for target, paying attention that if it was
     relative, it was from origin.
     """
-    # XXX Todo make it work on remote too with urlparse
     if target.startswith(os.path.sep) or is_remote_uri(target):
         return target
-    # XXX Test with empty origin
     if origin:
         origin = origin.split(os.path.sep)
         if not is_container:

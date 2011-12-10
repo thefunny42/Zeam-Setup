@@ -92,14 +92,14 @@ class Package(Recipe):
             self.options.get_with_default(
                 'python_executable', 'setup').as_text())
         installer = PackageInstaller(self.options, self.working_set)
-        status.add_packages(
+        status.packages.extend(
             installer(Requirements.parse(self.packages), self.directory))
 
     def install(self, status):
         __status__ = u"Install required scripts."
         bin_directory = self.options.get_with_default(
             'bin_directory', 'setup').as_text()
-        create_scripts = lambda p: status.add_paths(
+        create_scripts = lambda p: status.paths.extend(
             install_scripts(
                 self.working_set, p, bin_directory,
                 extra_args=self.extra_args,
@@ -116,9 +116,10 @@ class Interpreter(Package):
     def install(self, status):
         bin_directory = self.options.get_with_default(
             'bin_directory', 'setup').as_text()
-        script_path = os.path.join(bin_directory, self.options.name)
-        status.add_path(
+        status.paths.add(
             self.working_set.create_script(
-                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths))
+                os.path.join(bin_directory, self.options.name),
+                INTERPRETER_BODY,
+                extra_paths=self.extra_paths))
 
 

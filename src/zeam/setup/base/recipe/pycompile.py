@@ -18,6 +18,6 @@ class PythonCompileFile(Recipe):
                 'python_executable', 'setup').as_text())
 
     def install(self, status):
-        for path in status.paths:
+        for path in status.paths.current:
             logger.info('Compile python files in %s.' % path)
             self.interpreter.execute_module(compile, path)

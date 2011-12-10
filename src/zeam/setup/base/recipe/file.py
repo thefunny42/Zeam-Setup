@@ -83,7 +83,7 @@ class File(Recipe):
                 if parts:
                     path = tempfile.mkdtemp('zeam.setup.archive')
                     archive.extract(path)
-                    status.add_paths(
+                    status.paths.extend(
                         move_archive_folders(path, self.directory, parts))
                     shutil.rmtree(path)
                 else:
@@ -96,5 +96,5 @@ class File(Recipe):
                 except IOError:
                     raise InstallationError(
                         u'Missing required setup file', file)
-            status.add_path(self.directory)
+            status.paths.add(self.directory)
 

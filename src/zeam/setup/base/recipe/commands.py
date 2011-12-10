@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import logging
+import operator
 
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.configuration import Section
@@ -13,73 +14,60 @@ from zeam.setup.base.version import Requirements
 logger = logging.getLogger('zeam.setup')
 
 
-class PathContainer(object):
+class Paths(object):
 
     def __init__(self):
         self.__data = {}
+        self.__len = 0
 
     def add(self, path):
         data = self.__data
-        pieces = path.split(os.path.sep)
-        for index, piece in enumerate(pieces[:-1]):
-            if (not index) or (not data):
-                data = data.setdefault(piece, {})
-            else:
-                break
-        else:
-            # We remove everything below the last one.
-            data[pieces[-1]] = {}
+        for piece in path.split(os.path.sep):
+            data = data.setdefault(piece, {})
+        data[None] = None
+        self.__len += 1
 
-    def as_list(self):
+    def extend(self, paths):
+        for path in paths:
+            self.add(path)
+
+    @property
+    def current(self):
+        return self.as_list(True)
+
+    def as_list(self, simplify=False):
         result = []
 
         def build(prefix, data):
-            for piece, children in data.items():
-                base = prefix + [piece]
-                if not children:
-                    result.append(os.path.sep.join(base))
+            for key, value in sorted(data.items(), key=operator.itemgetter(0)):
+                if key is None:
+                    result.append(os.path.sep.join(prefix))
+                    if simplify:
+                        # None is always the smallest.
+                        break
                 else:
-                    build(base, children)
+                    build(prefix + [key], value)
 
         build([], self.__data)
         return result
+
+    def __len__(self):
+        return self.__len
 
 
 class PartInstalled(object):
 
     def __init__(self, name):
         self.__name = 'installed:' + name
-        self.__paths = set([])
-        self.__packages = WorkingSet()
-
-    def add_path(self, pathname):
-        if pathname:
-            self.__paths.add(pathname)
-
-    def update_path(self, old_path, new_path):
-        if old_path:
-            self.__paths.remove(old_path)
-        if new_path:
-            self.__paths.add(new_path)
-
-    def add_paths(self, pathnames):
-        if pathnames:
-            self.__paths.update(pathnames)
-
-    @property
-    def paths(self):
-        return list(self.__paths)
-
-    def add_packages(self, working_set):
-        for package in working_set.installed.values():
-            self.__packages.add(package)
+        self.packages = WorkingSet()
+        self.paths = Paths()
 
     def save(self, configuration):
         section = Section(self.__name, configuration=configuration)
-        if self.__paths:
-            section['paths'] = list(self.__paths)
-        if self.__packages:
-            section['packages'] = self.__packages.as_requirements()
+        if self.paths:
+            section['paths'] = self.paths.as_list()
+        if self.packages:
+            section['packages'] = self.packages.as_requirements()
         configuration[self.__name] = section
         return section
 

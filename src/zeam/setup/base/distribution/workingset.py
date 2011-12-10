@@ -72,7 +72,7 @@ class WorkingSet(object):
         by hand.
         """
         if not isinstance(release, Release):
-            raise ValueError(u'Can only add release to a working set')
+            raise TypeError(u'Can only add release to a working set')
         if release.name not in self.installed:
             self.installed[release.name] = release
         else:
@@ -85,6 +85,14 @@ class WorkingSet(object):
                     u'%s (installed in %s) added in the working set.' % (
                         repr(release), release.package_path,
                         repr(installed), release.package_path))
+
+    def extend(self, working_set):
+        """Extend the set with an another one.
+        """
+        if not isinstance(working_set, WorkingSet):
+            raise TypeError(u'Can only extend a set with an another one')
+        for release in working_set.installed.values():
+            self.add(release)
 
     def get_entry_point(self, group, name):
         """Return the entry point value called name for the given group.

@@ -1,7 +1,7 @@
 
 import unittest
 
-from zeam.setup.base.recipe.commands import PathContainer
+from zeam.setup.base.recipe.commands import Paths
 from zeam.setup.base.utils import rewrite_links, relative_uri
 
 
@@ -12,21 +12,47 @@ class RewriteLinkTestCase(unittest.TestCase):
     def test_path_container(self):
         """Test path container
         """
-        container = PathContainer()
+        container = Paths()
         container.add('/container/folder/document')
         self.assertEqual(
-            sorted(container.as_list()),
+            container.as_list(),
             ['/container/folder/document'])
+        self.assertEqual(
+            container.as_list(True),
+            ['/container/folder/document'])
+
         container.add('/document')
         self.assertEqual(
-            sorted(container.as_list()),
+            container.as_list(),
             ['/container/folder/document',
              '/document'])
+        self.assertEqual(
+            container.as_list(True),
+            ['/container/folder/document',
+             '/document'])
+
         container.add('/container/folder/image')
         self.assertEqual(
-            sorted(container.as_list()),
+            container.as_list(),
             ['/container/folder/document',
              '/container/folder/image',
+             '/document'])
+        self.assertEqual(
+            container.as_list(True),
+            ['/container/folder/document',
+             '/container/folder/image',
+             '/document'])
+
+        container.add('/container/folder')
+        self.assertEqual(
+            container.as_list(),
+            ['/container/folder',
+             '/container/folder/document',
+             '/container/folder/image',
+             '/document'])
+        self.assertEqual(
+            container.as_list(True),
+            ['/container/folder',
              '/document'])
 
     def test_relative_uri(self):
@@ -53,6 +79,9 @@ class RewriteLinkTestCase(unittest.TestCase):
         self.assertEqual(
             relative_uri('https://localhost/file.txt', 'versions.txt'),
             'https://localhost/versions.txt')
+        self.assertEqual(
+            relative_uri('', 'somefile.txt'),
+            'somefile.txt')
 
     def test_rewrite(self):
         """Test link rewriting utility

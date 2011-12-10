@@ -41,7 +41,7 @@ class Template(Recipe):
         available_formats = {'.template_xml': MarkupTemplate,
                              '.template_text': NewTextTemplate}
 
-        for base_path in status.paths:
+        for base_path in status.paths.current:
             for path, directories, filenames in os.walk(base_path):
                 for filename in filenames:
                     for format, factory in available_formats.items():
