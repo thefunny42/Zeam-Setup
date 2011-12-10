@@ -8,12 +8,14 @@ from zeam.setup.base.sources.installers import (
     UndownloadedPackageInstaller,
     ExtractedPackageInstaller,
     UninstalledPackageInstaller,
+    FakeInstaller,
     PackageInstaller)
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.error import NetworkError
 from zeam.setup.base.utils import get_links, create_directory
 from zeam.setup.base.version import Version, InvalidVersion
+from zeam.setup.base.version import Requirements
 from zeam.setup.base.vcs import VCS
 
 logger = logging.getLogger('zeam.setup')
@@ -282,10 +284,40 @@ class VCSSource(object):
         return '<VCSSource at %s>' % (self.type, self.path)
 
 
+class FakeSource(object):
+    """This source fake packages without installing them.
+    """
+
+    def __init__(self, options):
+        __status__ = u"Initializing fake source."
+        self.options = options
+        self.installers = Installers()
+        for requirement in Requirements.parse(
+            options.get('packages', '').as_list()):
+            self.installers.add(FakeInstaller(requirement))
+
+    def initialize(self, first_time):
+        pass
+
+    def available(self, configuration):
+        # This source provider is available if there are packages
+        return bool(len(self.installers))
+
+    def search(self, requirement, interpretor):
+        packages = self.installers.get_installers_for(requirement)
+        if packages:
+            return packages
+        raise PackageNotFound(requirement)
+
+    def __repr__(self):
+        return '<FakeSource>'
+
+
 SOURCE_PROVIDERS = {'local': LocalSource,
                     'remote': RemoteSource,
                     'eggs': EggsSource,
-                    'vcs': VCSSource}
+                    'vcs': VCSSource,
+                    'fake': FakeSource}
 
 class Sources(object):
     """This manage software sources.
@@ -304,10 +336,10 @@ class Sources(object):
                     u'Unknow source type %s for %s' % (
                         type, source_name))
             self.sources.append(SOURCE_PROVIDERS[type](source_config))
-        self.__initialized = False
+        self._initialized = False
 
     def initialize(self):
-        if self.__initialized:
+        if self._initialized:
             for source in self.available_sources:
                 source.initialize(False)
             return
@@ -316,7 +348,7 @@ class Sources(object):
                 continue
             source.initialize(True)
             self.available_sources.append(source)
-        self.__initialized = True
+        self._initialized = True
 
     def search(self, requirement, interpretor):
         """Search of a given package at the given location.

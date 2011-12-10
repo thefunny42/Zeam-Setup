@@ -514,6 +514,13 @@ class Option(object):
         """
         if isinstance(value, list) or isinstance(value, tuple):
             value = '\n    ' + '\n    '.join(value)
+        elif isinstance(value, bool):
+            if value:
+                value = 'on'
+            else:
+                value = 'off'
+        elif isinstance(value, int):
+            value = str(value)
         if not isinstance(value, basestring):
             raise ValueError(u"Can only set strings as value.")
         self._value = value

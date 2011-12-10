@@ -38,9 +38,21 @@ def move_archive_folders(extract_path, target_path, path_infos):
         installed_paths.append(current_path)
     return installed_paths
 
-def parse_line(line):
-    parts = shlex.split(line)
-    return parts[0], parts[1:]
+
+def parse_files(options, name):
+    """Help to read filenames and put them back where they where
+    defined.
+    """
+    if name not in options:
+        return []
+    value = options[name]
+    origin = value.get_cfg_directory()
+
+    def parse_line(line):
+        parts = shlex.split(line)
+        return relative_uri(origin, parts[0], True), parts[1:]
+
+    return map(parse_line, value.as_list())
 
 
 class File(Recipe):
@@ -49,8 +61,8 @@ class File(Recipe):
 
     def __init__(self, options):
         super(File, self).__init__(options)
-        self.files = map(parse_line, options.get('files', '').as_list())
-        self.urls = map(parse_line, options.get('urls', '').as_list())
+        self.files = parse_files(options, 'files')
+        self.urls = parse_files(options, 'urls')
         self.directory = options['directory'].as_text()
         download_path = options.get(
             'download_directory',
@@ -60,9 +72,7 @@ class File(Recipe):
 
     def prepare(self, status):
         __status__ = u"Download files."
-        origin = self.options.get_cfg_directory()
-        process = lambda (uri, parts): (
-            self.downloader(relative_uri(origin, uri, True)), parts)
+        process = lambda (uri, parts): (self.downloader(uri), parts)
         self.files = map(process, self.files) + map(process, self.urls)
 
     def install(self, status):

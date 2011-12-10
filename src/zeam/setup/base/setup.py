@@ -64,9 +64,10 @@ def bootstrap_cfg(config, options):
     __status__ = u"Initializing environment."
     setup = config['setup']
 
-    # Export verbosity
-    setup['verbosity'] = str(options.verbosity)
-    setup['offline'] = options.offline and 'on' or 'off'
+    # Export command line settings
+    setup['verbosity'] = options.verbosity
+    setup['debug'] = bool(options.debug)
+    setup['offline'] = bool(options.offline)
 
     def set_timeout(timeout):
         logger.info(u'Setting networking timeout to %d seconds' % timeout)

@@ -33,13 +33,7 @@ class PackageInstallers(object):
         """
 
         def installers_filter(installer):
-            if installer.pyversion is not None:
-                if pyversion != installer.pyversion:
-                    return False
-            if installer.platform is not None:
-                if platform != installer.platform:
-                    return False
-            return requirement.match(installer)
+            return installer.filter(requirement, pyversion, platform)
 
         return self.__class__(
             self.name, filter(installers_filter, self.installers))
@@ -75,6 +69,9 @@ class Installers(object):
         """
         for installer in installers:
             self.add(installer)
+
+    def __len__(self):
+        return len(self.installers)
 
     def __getitem__(self, key):
         if isinstance(key, Requirement):

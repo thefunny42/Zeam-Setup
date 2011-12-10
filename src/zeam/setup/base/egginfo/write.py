@@ -62,10 +62,9 @@ def write_egg_info(package, writers=[write_pkg_info,
                                      write_missing_setuptool_files,
                                      write_entry_points,
                                      write_requires], package_path=None):
-    logger.info('Writing EGG-INFO in %s for %s' % (
-            package.path, package.name))
     if package_path is None:
         package_path = package.path
+    logger.info('Writing EGG-INFO in %s for %s' % (package_path, package.name))
     path = os.path.join(package_path, 'EGG-INFO')
     create_directory(path)
 

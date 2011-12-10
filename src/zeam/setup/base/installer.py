@@ -33,6 +33,7 @@ class PackageInstaller(object):
             self.kgs = get_kgs_requirements(versions, configuration)
         self._worker_count = options.get_with_default(
             'install_workers', 'setup', '5').as_int()
+        self._debug_failure = configuration['setup']['debug'].as_bool()
         self._options = options
         self._first_done = False
         self._installation_failed = None
@@ -52,7 +53,7 @@ class PackageInstaller(object):
         for extra in requirement.extras:
             if extra not in release.extras:
                 raise PackageError(
-                    u'Require missing extra %s in %s' % (
+                    u'Require missing extra requirements "%s" in "%s"' % (
                         extra, release))
             self._register_install(release.extras[extra], name=name)
 
@@ -89,6 +90,7 @@ class PackageInstaller(object):
         logger.debug(u'(%s) Failed' % name)
         self._lock.acquire()
         self._installation_failed = error
+        report_error(debug=self._debug_failure, fatal=False)
         self._wait.acquire()
         self._wait.notifyAll()
         self._wait.release()
@@ -119,28 +121,32 @@ class PackageInstaller(object):
 
     def mark_installed(self, requirement, package, name='installer'):
         self._lock.acquire()
-        self.working_set.add(package)
-        if requirement in self._verify_being_installed:
-            extra_requirement = self._verify_being_installed[requirement]
-            logger.debug(
-                u'(%s) Verify pending extra for %s' % (
-                    name, extra_requirement))
-            worker_need_wake_up = len(self._to_install) == 0
-            self._verify_extra_install(extra_requirement, name)
-            if worker_need_wake_up:
-                self._wakeup_workers()
-            self._verify_being_installed.remove(extra_requirement)
-        self._being_installed.remove(requirement)
-        logger.debug('(%s) Mark %s as installed' % (name, requirement))
-        self._lock.release()
+        try:
+            self.working_set.add(package)
+            if requirement in self._verify_being_installed:
+                extra_requirement = self._verify_being_installed[requirement]
+                logger.debug(
+                    u'(%s) Verify pending extra for %s' % (
+                        name, extra_requirement))
+                worker_need_wake_up = len(self._to_install) == 0
+                self._verify_extra_install(extra_requirement, name)
+                if worker_need_wake_up:
+                    self._wakeup_workers()
+                self._verify_being_installed.remove(extra_requirement)
+            self._being_installed.remove(requirement)
+            logger.debug('(%s) Mark %s as installed' % (name, requirement))
+        finally:
+            self._lock.release()
 
     def install_dependencies(self, requirements, name='installer'):
         self._lock.acquire()
-        worker_need_wake_up = len(self._to_install) == 0
-        self._register_install(requirements, name=name)
-        if worker_need_wake_up:
-            self._wakeup_workers()
-        self._lock.release()
+        try:
+            worker_need_wake_up = len(self._to_install) == 0
+            self._register_install(requirements, name=name)
+            if worker_need_wake_up:
+                self._wakeup_workers()
+        finally:
+            self._lock.release()
 
     def __call__(self, requirements, directory=None):
         __status__ = u"Installing %r." % (requirements)
@@ -183,7 +189,8 @@ class PackageInstallerWorker(threading.Thread):
         for extra in requirement.extras:
             if extra not in distribution.extras:
                 raise PackageError(
-                    u'Require missing extra %s in %s' % (extra, distribution))
+                    u'Require missing extra requirements "%s" in "%s"' % (
+                        extra, distribution))
             install(distribution.extras[extra], name=self.getName())
 
     def install(self, requirement):
@@ -217,7 +224,4 @@ class PackageInstallerWorker(threading.Thread):
                 self.manager.mark_installed(
                     requirement, package, name=self.getName())
         except Exception, error:
-            report_error(debug=True, fatal=False)
             self.manager.mark_failed(error, self.getName())
-
-
