@@ -26,17 +26,18 @@ class WorkingSet(object):
     """Represent the set of release used together.
     """
 
-    def __init__(self, interpretor=None):
+    def __init__(self, interpretor=None, no_defaults=False):
         self.interpretor = PythonInterpreter.detect(interpretor)
-        self.installed = {
-            'python': Release(
-                name='python', version=self.interpretor.get_pyversion())}
+        self.installed = {}
+        self.installed['python'] = Release(
+            name='python', version=self.interpretor.get_pyversion())
 
-        if self.interpretor == sys.executable:
-            for path in sys.path:
-                package = load_package(path, self.interpretor)
-                if package is not None:
-                    self.add(package)
+        if not no_defaults:
+            if self.interpretor == sys.executable:
+                for path in sys.path:
+                    package = load_package(path, self.interpretor)
+                    if package is not None:
+                        self.add(package)
 
     def __len__(self):
         return len(self.installed)

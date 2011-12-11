@@ -11,7 +11,7 @@ logger = logging.getLogger('zeam.setup')
 class Template(Recipe):
     """Create files and folder from a given template.
     """
-    requirements = ['Genshi']
+    recipe_requirements = ['Genshi']
 
     def prepare(self, status):
         from genshi.template import NewTextTemplate, MarkupTemplate

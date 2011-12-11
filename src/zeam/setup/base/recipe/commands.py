@@ -29,16 +29,19 @@ class Paths(object):
                 logger.error(
                     u"WARNING: Missing installed path %s, ignore it",
                     path)
-                return
+                return False
         data = self._data
         for piece in path.split(os.path.sep):
             data = data.setdefault(piece, {})
         data[None] = {'added': added, 'directory': os.path.isdir(path)}
         self._len += 1
+        return True
 
     def extend(self, paths, verify=True, added=True):
+        all_added = True
         for path in paths:
-            self.add(path, verify=verify, added=added)
+            all_added = all_added and self.add(path, verify=verify, added=added)
+        return all_added
 
     def rename(self, old, new):
 
@@ -123,35 +126,47 @@ class Paths(object):
         return False
 
 
-class PartInstalled(object):
+class PartStatus(object):
 
-    def __init__(self, section):
-        self.__name = 'installed:' + section.name
-        installed_paths = []
-        installed_section = section.utilities.installed.get(self.__name, None)
-        if installed_section is not None:
-            installed_paths = installed_section.get('paths', '').as_list()
-        self.packages = WorkingSet()
+    def __init__(self, section, parts_status):
+        self._name = 'installed:' + section.name
+        self.packages = WorkingSet(no_defaults=True)
         self.paths = Paths()
-        self.installed_paths = Paths(installed_paths)
+        self.installed_paths = Paths()
+        self.parts = parts_status
+
+        installed_section = section.utilities.installed.get(self._name, None)
+        if installed_section is not None:
+            self.enabled = self.installed_paths.extend(
+                installed_section.get('paths', '').as_list())
+        else:
+            self.enabled = True
+
+        # Register ourselves to be seen by other status
+        parts_status[section.name] = self
 
     def save(self, configuration):
-        section = Section(self.__name, configuration=configuration)
+        section = Section(self._name, configuration=configuration)
         if self.paths:
             section['paths'] = self.paths.as_list()
         if self.packages:
             section['packages'] = self.packages.as_requirements()
-        configuration[self.__name] = section
+        configuration[self._name] = section
         return section
+
+    def __repr__(self):
+        return '<%s for %s>' % (self.__class__.__name__, self._name)
 
 
 class Part(object):
 
-    def __init__(self, section, install_set, install_set_directory):
+    def __init__(self, section, parts_status,
+                 install_set, install_set_directory):
         logger.info('Load installation for %s' % section.name)
         self.name = section.name
         self.recipes = []
-        self.installed = PartInstalled(section)
+        self.requires = set([])
+        self.installed = PartStatus(section, parts_status)
         # For installation only
         installer = PackageInstaller(section, install_set)
         get_entry_point = install_set.get_entry_point
@@ -173,9 +188,17 @@ class Part(object):
             if factory is None:
                 raise ConfigurationError(u"Could load recipe", recipe)
             instance = factory(section)
+            self.requires.update(instance.recipe_requires)
             # Install dynamic dependencies if required
-            install_packages(instance.requirements)
+            install_packages(instance.recipe_requirements)
             self.recipes.append(instance)
+
+    def __lt__(self, other):
+        if not isinstance(other, Part):
+            raise TypeError(u"Can only compare parts")
+        if self.name in other.requires:
+            return True
+        return False
 
     def prepare(self):
         logger.warn('Prepare installation for %s.' % self.name)
@@ -189,6 +212,9 @@ class Part(object):
 
     def finalize(self, configuration):
         self.installed.save(configuration)
+
+    def __repr__(self):
+        return '<%s for %s>' % (self.__class__.__name__, self.name)
 
 
 class Installer(object):
@@ -205,17 +231,23 @@ class Installer(object):
 
         # Lookup parts
         self.parts = []
+        parts_status = {}
         setup = configuration['setup']
         for name in setup['install'].as_list():
             part = Part(
                 self.configuration[name],
+                parts_status,
                 install_set,
                 self.install_deps_directory)
             self.parts.append(part)
 
+        # XXX validate dependency information
+
+        # Organise recipe order using dependency informations
+        self.parts.sort()
+
     def run(self):
         __status__ = u"Preparing installation."
-        # Organise recipe order
 
         # Prepare recipe
         for part in self.parts:

@@ -1,7 +1,9 @@
 
+import re
 import os
 
 from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name
@@ -35,6 +37,8 @@ if _interactive:
     code.interact(local=globals())
 """
 
+INSTALLED_SET = re.compile(r'^\$<installed:(?P<name>[^>]+)>$')
+
 
 def install_scripts(
     working_set, package_name, directory,
@@ -67,19 +71,27 @@ class Package(Recipe):
             'directory',
             '${setup:lib_directory}').as_text()
 
-        if 'packages' not in options:
-            self.packages = [get_package_name(options).as_text()]
+        requirements = []
+        self.extra_sets = []
+        if 'packages' in options:
+            for requirement in options['packages'].as_list():
+                match = INSTALLED_SET.match(requirement)
+                if match:
+                    self.extra_sets.append(match.group('name'))
+                else:
+                    requirements.append(requirement)
         else:
-            self.packages = options['packages'].as_list()
+            requirements = [get_package_name(options).as_text()]
+        self.requirements = Requirements.parse(requirements)
+        if self.extra_sets:
+            self.recipe_requires.update(self.extra_sets)
 
         self.wanted_scripts = None
         if 'scripts' in options:
             self.wanted_scripts = options['scripts'].as_list()
-
         self.extra_args = []
         if 'extra_args' in options:
             self.extra_args = options['extra_args'].as_list()
-
         self.extra_paths = []
         if 'extra_paths' in options:
             self.extra_paths = options['extra_paths'].as_list()
@@ -89,11 +101,19 @@ class Package(Recipe):
     def prepare(self, status):
         __status__ = u"Install required packages."
         self.working_set = WorkingSet(
-            self.options.get_with_default(
-                'python_executable', 'setup').as_text())
-        installer = PackageInstaller(self.options, self.working_set)
-        status.packages.extend(
-            installer(Requirements.parse(self.packages), self.directory))
+            interpretor=self.options.get_with_default(
+                'python_executable', 'setup').as_text(),
+            no_defaults=True)
+        if self.extra_sets:
+            for name in self.extra_sets:
+                if name not in status.parts:
+                    raise ConfigurationError(
+                        u"Specified part doesn't exists", name)
+                self.working_set.extend(status.parts[name].packages)
+                status.packages.extend(status.parts[name].packages)
+        if self.requirements:
+            installer = PackageInstaller(self.options, self.working_set)
+            status.packages.extend(installer(self.requirements, self.directory))
 
     def install(self, status):
         __status__ = u"Install required scripts."
@@ -101,11 +121,11 @@ class Package(Recipe):
             'bin_directory', 'setup').as_text()
         create_scripts = lambda p: status.paths.extend(
             install_scripts(
-                self.working_set, p, bin_directory,
+                self.working_set, p.name, bin_directory,
                 extra_args=self.extra_args,
                 wanted_scripts=self.wanted_scripts,
                 extra_paths=self.extra_paths))
-        map(create_scripts, self.packages)
+        map(create_scripts, self.requirements)
 
 
 class Interpreter(Package):
