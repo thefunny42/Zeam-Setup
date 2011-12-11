@@ -98,13 +98,13 @@ class RemoteSource(object):
         """Load links from the given URL. Return True upon success.
         """
         if url in self.broken_links:
-            logger.debug('Ignoring broken url %s.' % url)
+            logger.debug("Ignoring broken url '%s'.", url)
             return False
         if url not in self.links:
             try:
                 links = get_links(url)
             except NetworkError:
-                logger.warn('URL %s inaccessible, mark as broken.' % url)
+                logger.warn("URL '%s' inaccessible, mark as broken.", url)
                 self.broken_links.append(url)
                 return False
             self.links[url] = links
@@ -125,11 +125,13 @@ class RemoteSource(object):
         if depth > self.max_depth:
             return None
 
-        pyversion = interpretor.get_pyversion()
-        platform = interpretor.get_platform()
-        self.get_links(find_link)
+        if not self.get_links(find_link):
+            # The given link is not accessible.
+            return None
 
         # Look for a software in the cache
+        pyversion = interpretor.get_pyversion()
+        platform = interpretor.get_platform()
         installers = self.installers.get_installers_for(
             requirement, pyversion, platform)
         if installers:
