@@ -12,13 +12,15 @@ from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.version import Requirements
 
 logger = logging.getLogger('zeam.setup')
-
+_marker = object()
 
 class Paths(object):
 
-    def __init__(self):
+    def __init__(self, paths=None):
         self.__data = {}
         self.__len = 0
+        if paths:
+            self.extend(paths)
 
     def add(self, path):
         data = self.__data
@@ -54,13 +56,28 @@ class Paths(object):
     def __len__(self):
         return self.__len
 
+    def __contains__(self, path):
+        data = self.__data
+        for piece in path.split(os.path.sep):
+            data = data.get(piece, _marker)
+            if data is _marker:
+                return False
+        if None in data:
+            return True
+        return False
+
 
 class PartInstalled(object):
 
-    def __init__(self, name):
-        self.__name = 'installed:' + name
+    def __init__(self, section):
+        self.__name = 'installed:' + section.name
+        installed_paths = []
+        installed_section = section.utilities.installed.get(self.__name, None)
+        if installed_section is not None:
+            installed_paths = installed_section.get('paths', '').as_list()
         self.packages = WorkingSet()
         self.paths = Paths()
+        self.installed_paths = Paths(installed_paths)
 
     def save(self, configuration):
         section = Section(self.__name, configuration=configuration)
@@ -74,11 +91,11 @@ class PartInstalled(object):
 
 class Part(object):
 
-    def __init__(self, name, section, install_set, install_set_directory):
-        logger.info('Load installation for %s' % name)
-        self.name = name
+    def __init__(self, section, install_set, install_set_directory):
+        logger.info('Load installation for %s' % section.name)
+        self.name = section.name
         self.recipes = []
-        self.installed = PartInstalled(name)
+        self.installed = PartInstalled(section)
         # For installation only
         installer = PackageInstaller(section, install_set)
         get_entry_point = install_set.get_entry_point
@@ -135,7 +152,6 @@ class Installer(object):
         setup = configuration['setup']
         for name in setup['install'].as_list():
             part = Part(
-                name,
                 self.configuration[name],
                 install_set,
                 self.install_deps_directory)
@@ -144,11 +160,17 @@ class Installer(object):
     def run(self):
         __status__ = u"Preparing installation."
         # Organise recipe order
-        # Look for update/uninstall/install
 
         # Prepare recipe
         for part in self.parts:
             part.prepare()
+
+        # Look for update/uninstall/install
+        # - Copy, don't uninstall the old one.
+        # - Move, reinstall all things.
+
+        # - Uninstall remove parts
+        # - Install added parts
 
         # Uninstall in reverse order of install
         # Update

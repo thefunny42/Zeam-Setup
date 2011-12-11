@@ -198,7 +198,7 @@ class Configuration(object):
     """
     default_section = 'setup'
 
-    def __init__(self, location):
+    def __init__(self, location=None):
         self._location = location
         self.sections = {}
         self.utilities = Utilities(self)
@@ -206,7 +206,9 @@ class Configuration(object):
     def get_cfg_directory(self):
         """Return the directory where the config file resides.
         """
-        return os.path.dirname(self._location)
+        if self._location:
+            return os.path.dirname(self._location)
+        return None
 
     @classmethod
     def read(cls, uri):

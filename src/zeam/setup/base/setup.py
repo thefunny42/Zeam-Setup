@@ -46,15 +46,25 @@ def get_default_cfg_path():
     return default_cfg
 
 
-def get_previous_cfg_path(config):
+def get_previous_cfg_path(configuration):
     """Return a path to the previous configuration used to setup this
     environment.
     """
-    destination = config['setup']['prefix_directory'].as_text()
-    zsetup_dest = os.path.join(destination, DEFAULT_CONFIG_DIR)
-    if not os.path.isdir(zsetup_dest):
-        os.makedirs(zsetup_dest)
-    return os.path.join(zsetup_dest, 'installed.cfg')
+    destination = configuration['setup']['prefix_directory'].as_text()
+    zsetup_path = os.path.join(destination, DEFAULT_CONFIG_DIR)
+    if not os.path.isdir(zsetup_path):
+        os.makedirs(zsetup_path)
+    return os.path.join(zsetup_path, 'installed.cfg')
+
+
+def get_previous_cfg(configuration):
+    """Return a previous configuration used to setup this environment.
+    """
+    cfg_path = get_previous_cfg_path(configuration)
+    if os.path.isfile(cfg_path):
+        logger.info(u'Loading previous configuration')
+        return Configuration.read(cfg_path)
+    return Configuration()
 
 
 def bootstrap_cfg(config, options):
@@ -117,6 +127,7 @@ def bootstrap_cfg(config, options):
 
     config.utilities.register('sources', Sources)
     config.utilities.register('package', current_package)
+    config.utilities.register('installed', get_previous_cfg)
 
 
 class BootstrapCommand(object):
@@ -166,19 +177,13 @@ class BootstrapCommand(object):
             configuration += Configuration.read(get_default_cfg_path())
 
             bootstrap_cfg(configuration, options)
-            previous_config = None
-            previous_cfg_path = get_previous_cfg_path(configuration)
-            if os.path.isfile(previous_cfg_path):
-                logger.info(u'Loading previous configuration')
-                previous_config = Configuration.read(previous_cfg_path)
 
             self.command(configuration, options, args)
 
-            zsetup_fd = open(previous_cfg_path, 'w')
+            zsetup_fd = open(get_previous_cfg_path(configuration), 'w')
             configuration.write(zsetup_fd)
             zsetup_fd.close()
-
-        except Exception, error:
+        except Exception:
             report_error(options.debug, True)
 
 
