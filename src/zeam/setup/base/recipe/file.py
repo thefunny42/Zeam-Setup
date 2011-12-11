@@ -21,6 +21,7 @@ def install_data(source_path, destination_path, status, move=True):
         logger.debug(
             u"Skipping already installed directory or file %s.",
             destination_path)
+        status.paths.add(destination_path, added=False)
     else:
         if os.path.exists(destination_path):
             raise InstallationError(
@@ -40,7 +41,7 @@ def install_data(source_path, destination_path, status, move=True):
             shutil.move(source_path, destination_path)
         else:
             shutil.copy2(source_path, destination_path)
-    status.paths.add(destination_path)
+        status.paths.add(destination_path, added=True)
 
 def install_specified_data(origin_path, target_path, infos, status, move=True):
     """Install specified folders or files from an origin path into the

@@ -13,8 +13,14 @@ class Template(Recipe):
     """
     requirements = ['Genshi']
 
-    def render(self, source_path, output_path, factory):
-        logger.info('Creating file %s.' % output_path)
+    def prepare(self, status):
+        from genshi.template import NewTextTemplate, MarkupTemplate
+
+        self.formats = {'.template_xml': MarkupTemplate,
+                        '.template_text': NewTextTemplate}
+
+    def render_template(self, source_path, output_path, factory):
+        logger.info('Creating file %s from template.' % output_path)
         success = False
         source_file = open_uri(source_path)
         try:
@@ -33,20 +39,27 @@ class Template(Recipe):
             source_file.close()
         if success:
             os.remove(source_path)
+        return output_path
+
+    def render_file(self, filename, prefix=None):
+        for format, factory in self.formats.items():
+            if filename.endswith(format):
+                if prefix:
+                    filename = os.path.join(prefix, filename)
+                return self.render_template(
+                    filename,
+                    filename[:-len(format)],
+                    factory)
+
+    def render_directory(self, path):
+        for prefix, directories, filenames in os.walk(path):
+            for filename in filenames:
+                self.render_file(filename, prefix)
 
     def install(self, status):
         __status__ = u"Installing templates."
-        from genshi.template import NewTextTemplate, MarkupTemplate
-
-        available_formats = {'.template_xml': MarkupTemplate,
-                             '.template_text': NewTextTemplate}
-
-        for base_path in status.paths.current:
-            for path, directories, filenames in os.walk(base_path):
-                for filename in filenames:
-                    for format, factory in available_formats.items():
-                        if filename.endswith(format):
-                            self.render(
-                                os.path.join(path, filename),
-                                os.path.join(path, filename[:-len(format)]),
-                                factory)
+        for path in status.paths.get_added():
+            if os.path.isdir(path):
+                self.render_directory(path)
+            else:
+                assert status.paths.rename(path, self.render_file(path))
