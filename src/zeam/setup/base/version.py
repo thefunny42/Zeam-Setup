@@ -108,7 +108,7 @@ class Version(object):
         return ''.join(rendered_version)
 
     def __repr__(self):
-        return '%s.parse(%r)' % (self.__class__.__name__, self.__str__())
+        return '<%s %s>' % (self.__class__.__name__, self.__str__())
 
 
 def reduce_requirements(*reqs):
