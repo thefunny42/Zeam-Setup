@@ -2,6 +2,7 @@
 import logging
 import os
 import re
+import threading
 
 from zeam.setup.base.sources.collection import Installers, PackageInstallers
 from zeam.setup.base.sources.installers import (
@@ -92,7 +93,7 @@ class RemoteSearchQuery(object):
         self.pyversion = interpretor.get_pyversion()
         self.platform = interpretor.get_platform()
 
-    def lookup(self):
+    def query(self):
         return self.cache.get_installers_for(
             self.requirement, self.pyversion, self.platform)
 
@@ -108,26 +109,46 @@ class RemoteSource(object):
         self.broken_links = []  # List of links that doesn't works.
         self.max_depth = options.get('max_depth', '4').as_int()
         self.links = {}
+        self.downloading_links = {}
+        self.lock = threading.Lock()
         self.cache = Installers()
         self.downloader = DownloadManager(self.get_download_directory())
 
+    def download_link(self, url):
+        """Effectively download a URL in the link cache.
+        """
+        self.lock.acquire()
+        if url in self.downloading_links:
+            self.lock.release()
+            # We are looking at this page, just wait.
+            self.downloading_links[url].wait()
+            return url in self.links
+
+        # Add a Event and wait.
+        self.downloading_links[url] = threading.Event()
+        self.lock.release()
+
+        try:
+            links = get_links(url, lower=True)
+        except NetworkError:
+            logger.warn("URL '%s' inaccessible, mark as broken.", url)
+            self.broken_links.append(url)
+        else:
+            self.links[url] = links
+            # Add found software in the cache
+            self.cache.extend(get_installers_from_links(self, links))
+
+        self.downloading_links[url].set()
+        return url in self.links
+
     def get_links(self, url):
-        """Load links from the given URL. Return True upon success.
+        """Load links from the given URL if needed. Return True upon success.
         """
         if url in self.broken_links:
             logger.debug("Ignoring broken url '%s'.", url)
             return False
         if url not in self.links:
-            try:
-                links = get_links(url, lower=True)
-            except NetworkError:
-                logger.warn("URL '%s' inaccessible, mark as broken.", url)
-                self.broken_links.append(url)
-                return False
-            self.links[url] = links
-            # Add found software in the cache
-            self.cache.extend(get_installers_from_links(self, links))
-            return True
+            return self.download_link(url)
         return True
 
     def get_download_directory(self):
@@ -137,7 +158,7 @@ class RemoteSource(object):
         create_directory(directory)
         return directory
 
-    def get_download_packages(self, link, search, depth=0):
+    def get_packages(self, link, search, depth=0):
         if depth > self.max_depth:
             return None
 
@@ -146,33 +167,27 @@ class RemoteSource(object):
             return None
 
         # Look for a software in the cache
-        packages = search.lookup()
+        packages = search.query()
         if packages:
             return packages
 
         # No software, look for an another link with the name of the software
         links = self.links[link]
         if search.key in links:
-            return self.get_download_packages(
-                links[search.key], search, depth + 1)
-        else:
+            return self.get_packages(links[search.key], search, depth + 1)
+        elif depth:
             # Ok, look for links that contains download url (pypi compliant)
             for label in links:
                 if DOWNLOAD_URL.match(label):
                     link = links[label]
                     if link not in self.links:
-                        candidates = self.get_download_packages(
-                            link, search, depth + 1)
+                        candidates = self.get_packages(link, search, depth + 1)
                         if candidates is not None:
                             return candidates
         return None
 
     def initialize(self, first_time):
-        if first_time:
-            __status__ = u"Preload find links."
-            # Preload all links in cache
-            for find_link in self.find_links:
-                self.get_links(find_link)
+        pass
 
     def available(self, configuration):
         setup_config = configuration['setup']
@@ -186,7 +201,7 @@ class RemoteSource(object):
         for find_link in self.find_links:
             __status__ = u"Locating remote source for %s on %s" % (
                 search.name, find_link)
-            packages = self.get_download_packages(find_link, search)
+            packages = self.get_packages(find_link, search)
             if packages is not None:
                 return packages
         raise PackageNotFound(requirement)
@@ -265,9 +280,13 @@ class VCSSource(object):
         __status__ = u"Preparing remote development sources."
         if not first_time:
             return
+        section_names = self.options['sources'].as_list()
+        if not len(section_names):
+            # If we have no sources, initialize nothing.
+            return
         VCS.initialize()
         create_directory(self.directory)
-        for section_name in self.options['sources'].as_list():
+        for section_name in section_names:
             section = self.options.configuration['vcs:' + section_name]
             for package_name, source_info in section.items():
                 parsed_source_info = source_info.as_words()

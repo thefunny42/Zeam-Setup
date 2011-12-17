@@ -9,7 +9,7 @@ import sys
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.distribution.release import current_package, set_loaders
 from zeam.setup.base.configuration import Configuration
-from zeam.setup.base.error import InstallationError, report_error
+from zeam.setup.base.error import InstallationError, logs
 from zeam.setup.base.recipe.commands import Installer
 from zeam.setup.base.egginfo.commands import EggInfo
 from zeam.setup.base.utils import create_directory
@@ -17,11 +17,6 @@ from zeam.setup.base.sources.sources import Sources
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
-VERBOSE_LVL_TO_LOGGING_LVL = {0: logging.ERROR,
-                              1: logging.WARNING,
-                              2: logging.INFO,
-                              3: logging.DEBUG}
-VERBOSE_LVL = lambda lvl: VERBOSE_LVL_TO_LOGGING_LVL.get(lvl, logging.DEBUG)
 
 logger = logging.getLogger('zeam.setup')
 
@@ -167,8 +162,7 @@ class BootstrapCommand(object):
         """
         parser = self.options()
         (options, args) = parser.parse_args()
-        logger.addHandler(logging.StreamHandler(sys.stdout))
-        logger.setLevel(VERBOSE_LVL(options.verbosity))
+        logs.configure(options.verbosity, options.debug)
 
         try:
             logger.info(u'Reading configuration %s' % options.config)
@@ -184,7 +178,7 @@ class BootstrapCommand(object):
             configuration.write(zsetup_fd)
             zsetup_fd.close()
         except Exception:
-            report_error(options.debug, True)
+            logs.report(True)
 
 
 class SetupCommand(BootstrapCommand):

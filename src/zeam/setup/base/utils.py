@@ -135,13 +135,15 @@ def rewrite_links(base_uri, links, lower=False):
 def get_links(uri, lower=False):
     """Read all available links from a page.
     """
-
-    input = open_uri(uri)
-    html = input.read()
-    input.close()
-
-    return dict(rewrite_links(uri, HTML_LINK.findall(html), lower=lower))
-
+    http_stream = open_uri(uri)
+    try:
+        content_type = http_stream.headers.get('content-type', '').split(';')[0]
+        if content_type not in ['text/html']:
+            return {}
+        html = http_stream.read()
+        return dict(rewrite_links(uri, HTML_LINK.findall(html), lower=lower))
+    finally:
+        http_stream.close()
 
 def create_directory(directory):
     """Create a directory called directory if it doesn't exits

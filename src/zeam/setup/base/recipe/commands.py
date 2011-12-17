@@ -40,7 +40,7 @@ class Paths(object):
     def extend(self, paths, verify=True, added=True):
         all_added = True
         for path in paths:
-            all_added = all_added and self.add(path, verify=verify, added=added)
+            all_added = self.add(path, verify=verify, added=added) and all_added
         return all_added
 
     def rename(self, old, new):

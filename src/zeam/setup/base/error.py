@@ -2,59 +2,110 @@
 import logging
 import pdb
 import sys
+import thread
 import threading
 import traceback
+from datetime import datetime
 
 logger = logging.getLogger('zeam.setup')
 
-__reporting_lock = threading.Lock()
-
-def create_report(type, error, trace, filename='error.log'):
-    """Log last error in a file.
-    """
-    try:
-        error_file = open(filename, 'w')
-        error_file.write(u'%s: %s:\n' % (type.__name__, error))
-        traceback.print_tb(trace, None, error_file)
-        error_file.close()
-    except IOError:
-        pass
+VERBOSE_LVL_TO_LOGGING_LVL = {0: logging.ERROR,
+                              1: logging.WARNING,
+                              2: logging.INFO,
+                              3: logging.DEBUG}
+VERBOSE_LVL = lambda lvl: VERBOSE_LVL_TO_LOGGING_LVL.get(lvl, logging.DEBUG)
 
 
-def report_error(debug=False, fatal=True):
-    """Display the last error, and quit.
-    """
-    try:
-        __reporting_lock.acquire()
-        logger.critical(u'\nAn error happened:')
-        exc_info = sys.exc_info()
-        type, error, trace = exc_info
-        while trace is not None:
-            locals = trace.tb_frame.f_locals
-            if '__status__' in locals:
-                logger.critical(u'While: %s' % locals['__status__'])
-            trace = trace.tb_next
+class NamedFormatter(logging.Formatter):
 
-        type, error, trace = exc_info
-        if not debug:
-            create_report(type, error, trace)
+    def __init__(self, get_name, fmt=None):
+        logging.Formatter.__init__(self, fmt=fmt)
+        self._get_name = get_name
 
-        if debug:
-            logger.critical(u'\nDebuging error:')
-            logger.critical(u'\n%s: %s:' % (type.__name__, error))
-            pdb.post_mortem(trace)
-            if fatal:
-                sys.exit(0)
-        else:
-            if issubclass(type, InstallationError):
-                logger.critical(error.msg())
+    def format(self, record):
+        message = logging.Formatter.format(self, record)
+        return '[%s] %s' % (self._get_name(), message)
+
+
+class LoggerUtility(object):
+    filename = 'error.log'
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._failed = False
+        self._debug = False
+        self._names = {thread.get_ident(): 'manager'}
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(NamedFormatter(self._get_name, '%(message)s'))
+        logger.addHandler(handler)
+
+    def configure(self, level, debug=False):
+        logger.setLevel(VERBOSE_LVL(level))
+        self._debug = debug
+
+    def register(self, name):
+        self._names[thread.get_ident()] = name
+
+    def unregister(self):
+        ident = thread.get_ident()
+        if ident in self._names:
+            del self._names[ident]
+
+    def _get_name(self):
+        return self._names.get(thread.get_ident(), u'unknown')
+
+    def _create_report(self, cls, error, trace):
+        """Log last error in a file.
+        """
+        try:
+            error_file = open(self.filename, self.failed and 'a' or 'w')
+            error_file.write(u'==== %s in % s====\n' % (
+                    datetime.now(), self._get_name()))
+            error_file.write(u'%s: %s:\n' % (cls.__name__, error))
+            traceback.print_tb(trace, None, error_file)
+            error_file.close()
+        except IOError:
+            pass
+
+    def report(self, fatal=True):
+        """Display the last error, and quit.
+        """
+        self.lock.acquire()
+        try:
+            logger.critical(u'\nAn error happened:')
+            exc_info = sys.exc_info()
+            cls, error, trace = exc_info
+            while trace is not None:
+                locals = trace.tb_frame.f_locals
+                if '__status__' in locals:
+                    logger.critical(u'While: %s' % locals['__status__'])
+                trace = trace.tb_next
+
+            cls, error, trace = exc_info
+            if not self._debug:
+                self._create_report(cls, error, trace)
+
+            if self._debug:
+                logger.critical(u'\nDebuging error:')
+                logger.critical(u'\n%s: %s:' % (cls.__name__, error))
+                pdb.post_mortem(trace)
+                if fatal:
+                    sys.exit(0)
             else:
-                logger.critical(
-                    u'\nUnexpected error. Please contact vendor with error.log')
-            if fatal:
-                sys.exit(-1)
-    finally:
-        __reporting_lock.release()
+                if issubclass(cls, InstallationError):
+                    logger.critical(error.msg())
+                else:
+                    logger.critical(
+                        u'\nUnexpected error. '
+                        u'Please contact vendor with error.log')
+                if fatal:
+                    sys.exit(-1)
+        finally:
+            self.failed = True
+            self.lock.release()
+
+# Expose API.
+logs = LoggerUtility()
 
 
 class InstallationError(Exception):

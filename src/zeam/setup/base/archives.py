@@ -11,10 +11,10 @@ class ZipArchive(object):
     def __init__(self, filename, mode):
         self.filename = filename
         self.format = os.path.splitext(self.filename)[-1]
-        self.__handle = zipfile.ZipFile(filename, mode)
+        self._zip = zipfile.ZipFile(filename, mode)
 
     def add(self, filename, dest_filename):
-        self.__handle.write(filename, dest_filename)
+        self._zip.write(filename, dest_filename)
 
     def extract(self, destination):
         if self.format == '.egg':
@@ -24,7 +24,7 @@ class ZipArchive(object):
                 destination,
                 os.path.splitext(os.path.basename(self.filename))[0])
 
-        for filename in self.__handle.namelist():
+        for filename in self._zip.namelist():
             target_filename = os.path.join(destination, filename)
 
             # Create directory for target_filename
@@ -34,45 +34,42 @@ class ZipArchive(object):
 
             # Extract the file
             output = open(target_filename, 'wb')
-            output.write(self.__handle.read(filename))
+            output.write(self._zip.read(filename))
             output.close()
 
     def close(self):
-        self.__handle.close()
+        self._zip.close()
 
 
 class TarArchive(object):
     """Manage a tar archive.
     """
-
     _format = ''
 
     def __init__(self, filename, mode):
         self.filename = filename
-        self.__handle = tarfile.open(filename, mode + self._format)
+        self._tar = tarfile.open(filename, mode + self._format)
 
     def add(self, filename, dest_filename):
-        self.__handle.add(filename, dest_filename, False)
+        self._tar.add(filename, dest_filename, False)
 
     def extract(self, destination):
-        for entry in self.__handle:
-            self.__handle.extract(entry, destination)
+        for entry in self._tar:
+            self._tar.extract(entry, destination)
 
     def close(self):
-        self.__handle.close()
+        self._tar.close()
 
 
 class TarGzArchive(TarArchive):
     """Manage a tar.gz archive.
     """
-
     _format = ':gz'
 
 
 class TarBz2Archive(TarArchive):
     """Manage a tar.bz2 archive.
     """
-
     _format = ':bz2'
 
 
