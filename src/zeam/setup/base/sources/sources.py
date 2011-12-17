@@ -80,6 +80,23 @@ def get_eggs_from_directory(source, path):
             yield installer
 
 
+class RemoteSearchQuery(object):
+    """Bind a search for a requirement.
+    """
+
+    def __init__(self, requirement, interpretor, cache):
+        self.name = requirement.name
+        self.key = requirement.name.lower()
+        self.requirement = requirement
+        self.cache = cache
+        self.pyversion = interpretor.get_pyversion()
+        self.platform = interpretor.get_platform()
+
+    def lookup(self):
+        return self.cache.get_installers_for(
+            self.requirement, self.pyversion, self.platform)
+
+
 class RemoteSource(object):
     """Download software from da internet, in order to install it.
     """
@@ -91,7 +108,7 @@ class RemoteSource(object):
         self.broken_links = []  # List of links that doesn't works.
         self.max_depth = options.get('max_depth', '4').as_int()
         self.links = {}
-        self.installers = Installers()
+        self.cache = Installers()
         self.downloader = DownloadManager(self.get_download_directory())
 
     def get_links(self, url):
@@ -102,16 +119,16 @@ class RemoteSource(object):
             return False
         if url not in self.links:
             try:
-                links = get_links(url)
+                links = get_links(url, lower=True)
             except NetworkError:
                 logger.warn("URL '%s' inaccessible, mark as broken.", url)
                 self.broken_links.append(url)
                 return False
             self.links[url] = links
             # Add found software in the cache
-            self.installers.extend(get_installers_from_links(self, links))
+            self.cache.extend(get_installers_from_links(self, links))
             return True
-        return False
+        return True
 
     def get_download_directory(self):
         """Return the created download directory.
@@ -120,28 +137,24 @@ class RemoteSource(object):
         create_directory(directory)
         return directory
 
-    def get_download_packages(
-        self, requirement, find_link, interpretor, depth=0):
+    def get_download_packages(self, link, search, depth=0):
         if depth > self.max_depth:
             return None
 
-        if not self.get_links(find_link):
+        if not self.get_links(link):
             # The given link is not accessible.
             return None
 
         # Look for a software in the cache
-        pyversion = interpretor.get_pyversion()
-        platform = interpretor.get_platform()
-        installers = self.installers.get_installers_for(
-            requirement, pyversion, platform)
-        if installers:
-            return installers
+        packages = search.lookup()
+        if packages:
+            return packages
 
         # No software, look for an another link with the name of the software
-        links = self.links[find_link]
-        if requirement.name in links:
+        links = self.links[link]
+        if search.key in links:
             return self.get_download_packages(
-                requirement, links[requirement.name], interpretor, depth + 1)
+                links[search.key], search, depth + 1)
         else:
             # Ok, look for links that contains download url (pypi compliant)
             for label in links:
@@ -149,7 +162,7 @@ class RemoteSource(object):
                     link = links[label]
                     if link not in self.links:
                         candidates = self.get_download_packages(
-                            requirement, link, interpretor, depth + 1)
+                            link, search, depth + 1)
                         if candidates is not None:
                             return candidates
         return None
@@ -168,11 +181,12 @@ class RemoteSource(object):
         return not offline
 
     def search(self, requirement, interpretor):
+        search = RemoteSearchQuery(requirement, interpretor, self.cache)
+
         for find_link in self.find_links:
             __status__ = u"Locating remote source for %s on %s" % (
-                requirement, find_link)
-            packages = self.get_download_packages(
-                requirement, find_link, interpretor)
+                search.name, find_link)
+            packages = self.get_download_packages(find_link, search)
             if packages is not None:
                 return packages
         raise PackageNotFound(requirement)
@@ -283,7 +297,7 @@ class VCSSource(object):
         raise PackageNotFound(requirement)
 
     def __repr__(self):
-        return '<VCSSource at %s>' % (self.type, self.path)
+        return '<VCSSource at %s>' % (self.directory)
 
 
 class FakeSource(object):

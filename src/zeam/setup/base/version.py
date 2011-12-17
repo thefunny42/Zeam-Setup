@@ -226,6 +226,7 @@ class Requirement(object):
 
     def __init__(self, name, versions, extras=None):
         self.name = name
+        self.key = name.lower()
         self.versions = versions
         if extras is None:
             extras = frozenset()
@@ -249,7 +250,7 @@ class Requirement(object):
         """Tells you if the given release match the requirement of
         not.
         """
-        if release.name != self.name:
+        if release.name.lower() != self.key:
             return False
         for op, version in self.versions:
             if not op(release.version, version):

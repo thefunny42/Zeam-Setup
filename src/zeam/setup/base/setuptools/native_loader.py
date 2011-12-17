@@ -14,9 +14,10 @@ logger = logging.getLogger('zeam.setup')
 def find_egg_info(distribution, base_path):
     """Go through a path to find an egg-info directory.
     """
-    wanted_directory = distribution.name + '.egg-info'
+    # We need to be case insensitif here as well.
+    wanted_directory = (distribution.name + '.egg-info').lower()
     for path, directories, filenames in os.walk(base_path):
-        if wanted_directory in directories:
+        if wanted_directory in map(lambda s: s.lower(), directories):
             return path, os.path.join(path, wanted_directory)
     return None, None
 
@@ -82,12 +83,12 @@ class NativeSetuptoolsLoaderFactory(object):
             egg_info_parent, egg_info = find_egg_info(distribution, path)
             if egg_info is not None and os.path.isdir(egg_info):
                 # We will use the egg SOURCES.txt as input for a
-                # MANIFEST if it doesn't exists. Most of packages miss
-                # on and won't install everything without one.
+                # MANIFEST. Most of packages miss one or have a
+                # incomplete one and won't install everything without
+                # one.
                 source_file = os.path.join(egg_info, 'SOURCES.txt')
                 manifest_file = os.path.join(path, 'MANIFEST.in')
-                if (os.path.isfile(source_file) and
-                    not os.path.isfile(manifest_file)):
+                if os.path.isfile(source_file):
                     create_manifest_from_source(source_file, manifest_file)
                 shutil.rmtree(egg_info)
 
@@ -102,8 +103,7 @@ class NativeSetuptoolsLoaderFactory(object):
                         source_path=egg_info_parent, execute=execute)
                 else:
                     logger.debug(
-                        u"Could not read setup tools output %s in  %s, " % (
-                            output, path))
+                        u"Could not find egg-info in  %s, " % (path))
             else:
                 logger.debug(
                     u"Setuptools retuned status code %s in  %s, " % (

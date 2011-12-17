@@ -100,7 +100,7 @@ def open_uri(uri):
         raise FileError(uri, e.args[1])
 
 
-def rewrite_links(base_uri, links):
+def rewrite_links(base_uri, links, lower=False):
     """This rewrite a list of links as full uri, using base_uri as
     source.
     """
@@ -126,10 +126,13 @@ def rewrite_links(base_uri, links):
             name = os.path.basename(link_parts[2])
         else:
             name = STRING_TAGS.sub('', name)
-        yield (name.strip(), url,)
+        key = name.strip()
+        if lower:
+            key = key.lower()
+        yield (key, url)
 
 
-def get_links(uri):
+def get_links(uri, lower=False):
     """Read all available links from a page.
     """
 
@@ -137,7 +140,7 @@ def get_links(uri):
     html = input.read()
     input.close()
 
-    return dict(rewrite_links(uri, HTML_LINK.findall(html)))
+    return dict(rewrite_links(uri, HTML_LINK.findall(html), lower=lower))
 
 
 def create_directory(directory):

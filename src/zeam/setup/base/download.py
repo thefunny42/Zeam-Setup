@@ -90,7 +90,7 @@ class DownloadManager(object):
             logger.info("Downloading %s into %s..." % (url, base_filename))
             request = urllib2.Request(url=url)
             input = urllib2.urlopen(request)
-            output = open(target_path, 'w')
+            output = open(target_path, 'wb')
             buffer = input.read(CHUNK_SIZE)
             while buffer:
                 output.write(buffer)
