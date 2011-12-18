@@ -2,21 +2,16 @@
 class Recipe(object):
     """Install a part of the software.
     """
-    recipe_requirements = []
-    recipe_requires = set([])
 
-    def __init__(self, options):
+    def __init__(self, options, status):
         self.options = options
-        self.recipe_requires.update(options.get('requires', '').as_list())
+        self.status = status
 
-    def prepare(self, status):
+    def prepare(self):
         pass
 
-    def install(self, status):
+    def install(self):
         pass
 
-    def uninstall(self, status):
-        pass
-
-    def update(self, status):
+    def uninstall(self):
         pass

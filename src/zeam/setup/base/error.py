@@ -5,6 +5,7 @@ import sys
 import thread
 import threading
 import traceback
+import os
 from datetime import datetime
 
 logger = logging.getLogger('zeam.setup')
@@ -34,7 +35,7 @@ class LoggerUtility(object):
         self._lock = threading.Lock()
         self._failed = False
         self._debug = False
-        self._names = {thread.get_ident(): 'manager'}
+        self._names = {thread.get_ident(): os.path.basename(sys.argv[0])}
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(NamedFormatter(self._get_name, '%(message)s'))
         logger.addHandler(handler)
@@ -58,7 +59,7 @@ class LoggerUtility(object):
         """Log last error in a file.
         """
         try:
-            error_file = open(self.filename, self.failed and 'a' or 'w')
+            error_file = open(self.filename, self._failed and 'a' or 'w')
             error_file.write(u'==== %s in % s====\n' % (
                     datetime.now(), self._get_name()))
             error_file.write(u'%s: %s:\n' % (cls.__name__, error))
@@ -70,9 +71,10 @@ class LoggerUtility(object):
     def report(self, fatal=True):
         """Display the last error, and quit.
         """
-        self.lock.acquire()
+        self._lock.acquire()
         try:
-            logger.critical(u'\nAn error happened:')
+            logger.critical(u'')
+            logger.critical(u'An error happened:')
             exc_info = sys.exc_info()
             cls, error, trace = exc_info
             while trace is not None:
@@ -95,14 +97,15 @@ class LoggerUtility(object):
                 if issubclass(cls, InstallationError):
                     logger.critical(error.msg())
                 else:
+                    logger.critical(u'')
                     logger.critical(
-                        u'\nUnexpected error. '
+                        u'Unexpected error. '
                         u'Please contact vendor with error.log')
                 if fatal:
                     sys.exit(-1)
         finally:
-            self.failed = True
-            self.lock.release()
+            self._failed = True
+            self._lock.release()
 
 # Expose API.
 logs = LoggerUtility()

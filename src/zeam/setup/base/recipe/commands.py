@@ -27,7 +27,7 @@ class Paths(object):
         if verify:
             if not os.path.exists(path):
                 logger.error(
-                    u"WARNING: Missing installed path %s, ignore it",
+                    u"WARNING: Missing installed path %s.",
                     path)
                 return False
         data = self._data
@@ -92,7 +92,7 @@ class Paths(object):
             matches['directory'] = directory
         return self.as_list(True, matches=matches)
 
-    def as_list(self, simplify=False, matches={}):
+    def as_list(self, simplify=False, matches={}, prefixes={}):
         result = []
 
         def build(prefix, data):
@@ -109,7 +109,17 @@ class Paths(object):
                 else:
                     build(prefix + [key], value)
 
-        build([], self._data)
+        if prefixes:
+            for path, replace in prefixes.iteritems():
+                data = self._data
+                for piece in path.split(os.path.sep):
+                    data = data.get(piece)
+                    if data is None:
+                        break
+                else:
+                    build([replace], data)
+        else:
+            build([], self._data)
         return result
 
     def __len__(self):
@@ -128,30 +138,76 @@ class Paths(object):
 
 class PartStatus(object):
 
-    def __init__(self, section, parts_status):
-        self._name = 'installed:' + section.name
+    def __init__(self, section, installer):
+        setup = section.configuration['setup']
+        self._name = section.name
+        self._installed_name = 'installed:' + self._name
+        self._prefix = setup['prefix_directory'].as_text()
+        self.requirements = []
         self.packages = WorkingSet(no_defaults=True)
         self.paths = Paths()
         self.installed_paths = Paths()
-        self.parts = parts_status
+        self.depends = set(section.get('depends', '').as_list())
+        self.depends_paths = Paths()
+        self.parts = installer.parts_status
 
-        installed_section = section.utilities.installed.get(self._name, None)
-        if installed_section is not None:
-            self.enabled = self.installed_paths.extend(
-                installed_section.get('paths', '').as_list())
+        installed_cfg = section.utilities.get('installed')
+        if installed_cfg is not None:
+            # We have a previous configuration
+            self._installed_section = installed_cfg.get(
+                self._installed_name, None)
+            if self._installed_section is not None:
+                get = self._installed_section.get
+                # The part is installed if an installed path is missing
+                # Or depending paths are missing, or install prefix changed
+                # Or the configuration changed.
+                self._enabled = (
+                    not (self.installed_paths.extend(
+                            get('paths', '').as_list()) and
+                         Paths().extend(get('depends', '').as_list()) and
+                         installed_cfg.get(self._name, None) == section) or
+                    installer.prefix_changed)
+                # XXX Should reinstall in case of dependency change as well
+            else:
+                self._enabled = True
+
+            # Register ourselves to be seen by other status
+            installer.parts_status[section.name] = self
         else:
-            self.enabled = True
+            # With no previous configuration, we are uninstalling.
+            self._installed_section = section.configuration.get(
+                self._installed_name, None)
+            if self._installed_section is not None:
+                self.installed_paths.extend(
+                    self._installed_section.get('paths', '').as_list())
+            self._enabled = True
 
-        # Register ourselves to be seen by other status
-        parts_status[section.name] = self
+    def enable(self):
+        self._enabled = True
+
+    def is_enabled(self):
+        return self._enabled
 
     def save(self, configuration):
-        section = Section(self._name, configuration=configuration)
-        if self.paths:
-            section['paths'] = self.paths.as_list()
-        if self.packages:
-            section['packages'] = self.packages.as_requirements()
-        configuration[self._name] = section
+        if self.is_enabled():
+            # Save new information
+            section = Section(self._installed_name, configuration=configuration)
+            if self.paths:
+                section['paths'] = self.paths.as_list(
+                    prefixes={self._prefix: '${setup:prefix_directory}'})
+            if self.packages:
+                #section['packages'] = self.packages.as_requirements()
+                self.depends_paths.extend(
+                    [p.path for p in self.packages.installed.values()
+                     if p.path is not None],
+                    verify=False)
+            if self.depends_paths:
+                section['depends'] = self.depends_paths.as_list(
+                    prefixes={self._prefix: '${setup:prefix_directory}'})
+        else:
+            # Save old information
+            section = self._installed_section.__copy__()
+        configuration[self._installed_name] = section
         return section
 
     def __repr__(self):
@@ -160,61 +216,161 @@ class PartStatus(object):
 
 class Part(object):
 
-    def __init__(self, section, parts_status,
-                 install_set, install_set_directory):
-        logger.info('Load installation for %s' % section.name)
+    def __init__(self, section, installer):
+        logger.warn('Load installation for %s' % section.name)
         self.name = section.name
         self.recipes = []
-        self.requires = set([])
-        self.installed = PartStatus(section, parts_status)
-        # For installation only
-        installer = PackageInstaller(section, install_set)
-        get_entry_point = install_set.get_entry_point
-
-        def install_packages(names):
-            installer(
-                Requirements.parse(names), directory=install_set_directory)
-            for name in names:
-                install_set.get(name).activate()
+        self.status = PartStatus(section, installer)
+        self.installer = installer
 
         for recipe in section['recipe'].as_list():
             try:
-                factory = get_entry_point('setup_installers', recipe)
+                factory = self.installer.get_recipe_entry_point(
+                    'setup_installers', recipe)
             except PackageNotFound, error:
                 # The package is not installed, install it and try again
-                install_packages([error.args[0]])
-                factory = get_entry_point('setup_installers', recipe)
+                self.installer.add_recipe_packages([error.args[0]])
+                factory = self.installer.get_recipe_entry_point(
+                    'setup_installers', recipe)
 
             if factory is None:
                 raise ConfigurationError(u"Could load recipe", recipe)
-            instance = factory(section)
-            self.requires.update(instance.recipe_requires)
-            # Install dynamic dependencies if required
-            install_packages(instance.recipe_requirements)
-            self.recipes.append(instance)
+            self.recipes.append(factory(section, self.status))
 
     def __lt__(self, other):
         if not isinstance(other, Part):
-            raise TypeError(u"Can only compare parts")
-        if self.name in other.requires:
+            return NotImplemented
+        if self.name in other.status.depends:
             return True
         return False
 
     def prepare(self):
-        logger.warn('Prepare installation for %s.' % self.name)
-        for recipe in self.recipes:
-            recipe.prepare(self.installed)
+        # Verify dependencies first.
+        if self.status.is_enabled():
+            logger.warn(u'Prepare installation for %s.', self.name)
+            if self.status.requirements:
+                self.installer.add_recipe_packages(self.status.requirements)
+            for recipe in self.recipes:
+                recipe.prepare()
+        else:
+            logger.warn(u'Nothing to prepare for %s.', self.name)
 
     def install(self):
-        logger.warn('Install %s.' % self.name)
-        for recipe in self.recipes:
-            recipe.install(self.installed)
+        if self.status.is_enabled():
+            logger.warn(u'Install %s.', self.name)
+            for recipe in self.recipes:
+                recipe.install()
+        else:
+            logger.warn(u'Nothing to install for %s.', self.name)
+
+    def uninstall(self):
+        if self.status.is_enabled():
+            logger.warn(u'Uninstall %s.', self.name)
+            for recipe in reversed(self.recipes):
+                # We execute the recipes in reverse order here.
+                recipe.uninstall()
+        else:
+            logger.warn(u'Nothing to unstall for %s.', self.name)
 
     def finalize(self, configuration):
-        self.installed.save(configuration)
+        self.status.save(configuration)
 
     def __repr__(self):
         return '<%s for %s>' % (self.__class__.__name__, self.name)
+
+
+class InstallerStatus(object):
+    """Keep and update status for an installer.
+    """
+
+    def __init__(self, configuration):
+        # Store all parts status for mutual access
+        self.parts_status = {}
+
+        # Look which parts must installed
+        self._setup = configuration['setup']
+        to_install_names = set(self._setup['install'].as_list())
+
+        # Look previous configuration
+        installed_cfg = configuration.utilities.installed
+        installed_setup = installed_cfg.get('setup', None)
+        if installed_setup is not None:
+            self.prefix_changed = (
+                self._setup['prefix_directory'].as_text() !=
+                installed_setup['prefix_directory'].as_text())
+            if self.prefix_changed:
+                # Set prefix in previous configuration to the new not to
+                # confuse installed paths.
+                installed_setup['prefix_directory'].set_value(
+                    self._setup['prefix_directory'].as_text())
+            # Look what should be uninstalled
+            to_uninstall_names = set(installed_setup['install'].as_list())
+            to_uninstall_names -= to_install_names
+        else:
+            self.prefix_changed = False
+            to_uninstall_names = []
+
+        self.to_uninstall = [
+            (name, installed_cfg[name]) for name in to_uninstall_names]
+        self.to_install = [
+            (name, configuration[name]) for name in to_install_names]
+
+        # Setup working set: used only for recipes
+        self._install_set = WorkingSet()
+        self._install_directory = tempfile.mkdtemp('zeam.setup.install')
+        self._installer = PackageInstaller(self._setup, self._install_set)
+        self.get_recipe_entry_point = self._install_set.get_entry_point
+
+    def add_recipe_packages(self, names):
+        # This must be used only to install recipe and recipe dependency.
+        install_set = self._installer(
+            Requirements.parse(names),
+            directory=self._install_directory)
+        for name in names:
+            install_set.get(name).activate()
+
+    def verify_dependencies(self):
+        cache = dict()
+        markers = set()
+        partitions = dict()
+
+        def explore(name, is_top=False):
+            if name in markers:
+                raise ConfigurationError(
+                    u"Circular dependencies detected between parts", name)
+            if name not in cache:
+                group = cache[name] = [name]
+                markers.add(name)
+                for depend in self.parts_status[name].depends:
+                    if depend not in self.parts_status:
+                        raise ConfigurationError(
+                            u"Depends on missing part", name, depend)
+                    all_depends, is_cached = explore(depend)
+                    if is_cached:
+                        if depend in partitions:
+                            del partitions[depend]
+                    group.extend(all_depends)
+                markers.remove(name)
+                if is_top:
+                    partitions[name] = group
+                return (group, False)
+            return (cache[name], True)
+
+        map(lambda name: explore(name, True), self.parts_status.keys())
+
+        # Enable partitions that at leat a part enabled.
+        for partition in partitions.values():
+            for name in partition:
+                if self.parts_status[name].is_enabled():
+                    break
+            else:
+                continue
+            for name in partition:
+                self.parts_status[name].enable()
+
+    def finalize(self):
+        # Remove unused software.
+        shutil.rmtree(self._install_directory)
 
 
 class Installer(object):
@@ -225,52 +381,44 @@ class Installer(object):
         __status__ = u"Loading installation recipes."
         self.configuration = configuration
 
-        # Setup working set: used only for installation
-        install_set = WorkingSet()
-        self.install_deps_directory = tempfile.mkdtemp('zeam.setup.install')
-
         # Lookup parts
-        self.parts = []
-        parts_status = {}
-        setup = configuration['setup']
-        for name in setup['install'].as_list():
-            part = Part(
-                self.configuration[name],
-                parts_status,
-                install_set,
-                self.install_deps_directory)
-            self.parts.append(part)
+        self.status = InstallerStatus(configuration)
+        self.parts_to_uninstall = []
+        for name, section in self.status.to_uninstall:
+            part = Part(section, self.status)
+            self.parts_to_uninstall.append(part)
+        self.parts_to_install = []
+        for name, section in self.status.to_install:
+            part = Part(section, self.status)
+            self.parts_to_install.append(part)
 
-        # XXX validate dependency information
+        # Organize recipe
+        self.status.verify_dependencies()
 
-        # Organise recipe order using dependency informations
-        self.parts.sort()
+        # Uninstall are in reverse order of dependency informatiom
+        self.parts_to_uninstall.sort(reverse=True)
+        # Install are in order of dependency informations
+        self.parts_to_install.sort()
 
     def run(self):
-        __status__ = u"Preparing installation."
-
         # Prepare recipe
-        for part in self.parts:
+        __status__ = u"Preparing installation."
+        for part in self.parts_to_install:
             part.prepare()
 
-        # Look for update/uninstall/install
-        # - Copy, don't uninstall the old one.
-        # - Move, reinstall all things.
+        # Uninstall what you need to uninstall first.
+        __status__ = u"Running un-installation."
+        for part in self.parts_to_uninstall:
+            part.uninstall()
 
-        # - Uninstall remove parts
-        # - Install added parts
-
-        # Uninstall in reverse order of install
-        # Update
-        # Install in order
+        # Install
         __status__ = u"Running installation."
-        for part in self.parts:
+        for part in self.parts_to_install:
             part.install()
 
         # Save status
         __status__ = u"Finalize installation."
-        for part in self.parts:
+        for part in self.parts_to_install:
             part.finalize(self.configuration)
 
-        # Remove unused software.
-        shutil.rmtree(self.install_deps_directory)
+        self.status.finalize()

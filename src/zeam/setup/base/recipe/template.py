@@ -11,9 +11,12 @@ logger = logging.getLogger('zeam.setup')
 class Template(Recipe):
     """Create files and folder from a given template.
     """
-    recipe_requirements = ['Genshi']
 
-    def prepare(self, status):
+    def __init__(self, options, status):
+        super(Template, self).__init__(options, status)
+        status.requirements.append('Genshi')
+
+    def prepare(self):
         from genshi.template import NewTextTemplate, MarkupTemplate
 
         self.formats = {'.template_xml': MarkupTemplate,
@@ -56,10 +59,10 @@ class Template(Recipe):
             for filename in filenames:
                 self.render_file(filename, prefix)
 
-    def install(self, status):
+    def install(self):
         __status__ = u"Installing templates."
-        for path in status.paths.get_added():
+        for path in self.status.paths.get_added():
             if os.path.isdir(path):
                 self.render_directory(path)
             else:
-                assert status.paths.rename(path, self.render_file(path))
+                assert self.status.paths.rename(path, self.render_file(path))

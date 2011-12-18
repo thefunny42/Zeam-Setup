@@ -200,8 +200,8 @@ class PackageInstallerWorker(threading.Thread):
         candidate_packages = self.sources.search(
             requirement, self.interpretor)
         package = candidate_packages.get_most_recent()
-        logger.info(u"Choosing version %s for %s.",
-                    str(package.version), requirement)
+        logger.info(
+            u"Choosing version %s for %s.", str(package.version), requirement)
         release, loader = package.install(
             self.target_directory,
             self.interpretor,

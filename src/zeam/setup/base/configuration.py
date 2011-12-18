@@ -140,57 +140,19 @@ class Utilities(object):
     def register(self, name, factory):
         self._factories[name] = factory
 
-    def __getattr__(self, key):
+    def get(self, key, default=None):
         if key in self._utilities:
             return self._utilities[key]
         if key in self._factories:
             utility = self._factories[key](self._configuration)
             self._utilities[key] = utility
             return utility
-        raise AttributeError(key)
+        if default is marker:
+            raise AttributeError(key)
+        return default
 
-
-class ConfigurationDiffUtility(object):
-    """Utlity to trace changes between two different configurations.
-    """
-
-    def __init__(self, configuration):
-        self._configuration = configuration
-
-    def get_option_changes(self, section):
-        """Return a tuple (added, changed, removed) indicating the
-        mutation in a section.
-        """
-        section_name = section.name
-        if section_name not in self._configuration:
-            return (section, None)
-
-    def get_option_values_changes(self, option):
-        """Return a tuple (added, removed) of values changes. Order of
-        items are preserved.
-        """
-        assert isinstance(option, Option)
-        option_name = option.name
-        section_name = option.section.name
-        if section_name not in self._configration:
-            # Section was not here, everything is new
-            return (option.as_list(), None)
-        previous_section = self._configuraction[section_name]
-        if option_name not in previous_section:
-            # Option was not here, everything is new
-            return (option.as_list(), None)
-        previous_option = previous_section[option_name]
-        values = option.as_list()
-        previous_values = previous_option.as_list()
-        added = []
-        removed = []
-        for value in values:
-            if value not in previous_values:
-                added.append(value)
-        for value in previous_values:
-            if value not in values:
-                removed.append(value)
-        return (added, removed)
+    def __getattr__(self, key):
+        return self.get(key, marker)
 
 
 class Configuration(object):
@@ -415,6 +377,21 @@ class Section(object):
     def __contains__(self, key):
         return self.options.__contains__(key)
 
+    def __eq__(self, other):
+        if not isinstance(other, Section):
+            return NotImplemented
+        local_options = set(self.options.keys())
+        other_options = set(other.options.keys())
+        if local_options != other_options:
+            return False
+        for name in local_options:
+            if self.options[name] != other.options[name]:
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def items(self):
         """Iter on options.
         """
@@ -487,6 +464,14 @@ class Option(object):
         else:
             value = self._value
         return self.__class__(self.name, value, location=self._location)
+
+    def __eq__(self, other):
+        if not isinstance(other, Option):
+            return NotImplemented
+        return set(self.as_list()) == set(other.as_list())
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def get_value(self):
         """Return the computed value of the option interpreted.

@@ -89,8 +89,8 @@ class File(Recipe):
     """Download a list of files and archives in a folder.
     """
 
-    def __init__(self, options):
-        super(File, self).__init__(options)
+    def __init__(self, options, status):
+        super(File, self).__init__(options, status)
         self.files = parse_files(options, 'files')
         self.urls = parse_files(options, 'urls')
         self.directory = options['directory'].as_text()
@@ -100,12 +100,12 @@ class File(Recipe):
         create_directory(download_path)
         self.downloader = DownloadManager(download_path)
 
-    def prepare(self, status):
+    def prepare(self):
         __status__ = u"Download files."
         process = lambda (uri, parts): (self.downloader(uri), parts)
         self.files = map(process, self.files) + map(process, self.urls)
 
-    def install(self, status):
+    def install(self):
         __status__ = u"Install files."
         target_directory = self.directory
         for filename, parts in self.files:
@@ -119,13 +119,13 @@ class File(Recipe):
                             extract_path,
                             target_directory,
                             parts,
-                            status,
+                            self.status,
                             move=True)
                     else:
                         install_folder_data(
                             extract_path,
                             target_directory,
-                            status,
+                            self.status,
                             move=True)
                 finally:
                     shutil.rmtree(extract_path)
@@ -136,7 +136,7 @@ class File(Recipe):
                             filename,
                             target_directory,
                             parts,
-                            status,
+                            self.status,
                             move=False)
                     else:
                         raise ConfigurationError(
@@ -145,5 +145,13 @@ class File(Recipe):
                 else:
                     target_path = os.path.join(
                         target_directory, os.path.basename(filename))
-                    install_data(filename, target_path, status, move=False)
+                    install_data(filename, target_path, self.status, move=False)
 
+    def uninstall(self):
+        __status__ = u"Uninstalling files."
+        for filename in self.status.installed_paths.as_list():
+            if os.path.exists(filename):
+                shutil.rmtree(filename)
+            else:
+                raise InstallationError(
+                    u"Missing files while uninstalling", filename)

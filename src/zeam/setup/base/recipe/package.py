@@ -3,7 +3,7 @@ import re
 import os
 
 from zeam.setup.base.distribution.workingset import WorkingSet
-from zeam.setup.base.error import ConfigurationError
+from zeam.setup.base.error import ConfigurationError, InstallationError
 from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name
@@ -40,36 +40,19 @@ if _interactive:
 INSTALLED_SET = re.compile(r'^\$<installed:(?P<name>[^>]+)>$')
 
 
-def install_scripts(
-    working_set, package_name, directory,
-    extra_args=[], wanted_scripts=None, extra_paths=[]):
-    created_scripts = []
-    scripts = working_set.list_entry_points('console_scripts', package_name)
-
-    args = ', '.join(extra_args)
-
-    for script_name, entry_point in scripts.items():
-        if wanted_scripts is not None and script_name not in wanted_scripts:
-            continue
-        package, callable = entry_point['destination'].split(':')
-        script_path = os.path.join(directory, script_name)
-        script_body = SCRIPT_BODY % {
-            'args': args, 'package': package, 'callable': callable}
-        created_scripts.append(
-            working_set.create_script(script_path, script_body, extra_paths))
-    return created_scripts
-
-
 class Package(Recipe):
     """Install console_scripts of a package.
     """
 
-    def __init__(self, options):
-        super(Package, self).__init__(options)
+    def __init__(self, options, status):
+        super(Package, self).__init__(options, status)
 
         self.directory = options.get(
             'directory',
             '${setup:lib_directory}').as_text()
+        self.bin_directory = options.get(
+            'bin_directory',
+            '${setup:bin_directory}').as_text()
 
         requirements = []
         self.extra_sets = []
@@ -84,7 +67,7 @@ class Package(Recipe):
             requirements = [get_package_name(options).as_text()]
         self.requirements = Requirements.parse(requirements)
         if self.extra_sets:
-            self.recipe_requires.update(self.extra_sets)
+            status.depends.update(self.extra_sets)
 
         self.wanted_scripts = None
         if 'scripts' in options:
@@ -98,7 +81,7 @@ class Package(Recipe):
 
         self.working_set = None
 
-    def prepare(self, status):
+    def prepare(self):
         __status__ = u"Install required packages."
         self.working_set = WorkingSet(
             interpretor=self.options.get_with_default(
@@ -106,26 +89,51 @@ class Package(Recipe):
             no_defaults=True)
         if self.extra_sets:
             for name in self.extra_sets:
-                if name not in status.parts:
+                if name not in self.status.parts:
                     raise ConfigurationError(
                         u"Specified part doesn't exists", name)
-                self.working_set.extend(status.parts[name].packages)
-                status.packages.extend(status.parts[name].packages)
+                self.working_set.extend(self.status.parts[name].packages)
+                self.status.packages.extend(self.status.parts[name].packages)
         if self.requirements:
             installer = PackageInstaller(self.options, self.working_set)
-            status.packages.extend(installer(self.requirements, self.directory))
+            self.status.packages.extend(
+                installer(self.requirements, self.directory))
 
-    def install(self, status):
+    def create_scripts(self, requirement):
+        wanted_scripts = []
+        if self.wanted_scripts is not None:
+            wanted_scripts = self.wanted_scripts
+        scripts = self.working_set.list_entry_points(
+            'console_scripts', requirement.name)
+        args = ', '.join(self.extra_args)
+
+        for script_name, entry_point in scripts.items():
+            if script_name not in wanted_scripts:
+                continue
+            script_path = os.path.join(self.bin_directory, script_name)
+            if script_path not in self.status.installed_paths:
+                if os.path.exists(script_path):
+                    raise InstallationError(
+                        u"Script already exists", script_path)
+            package, main = entry_point['destination'].split(':')
+            script_body = SCRIPT_BODY % {
+                'args': args, 'package': package, 'callable': main}
+            self.status.paths.add(
+                self.working_set.create_script(
+                    script_path, script_body, self.extra_paths))
+
+    def install(self):
         __status__ = u"Install required scripts."
-        bin_directory = self.options.get_with_default(
-            'bin_directory', 'setup').as_text()
-        create_scripts = lambda p: status.paths.extend(
-            install_scripts(
-                self.working_set, p.name, bin_directory,
-                extra_args=self.extra_args,
-                wanted_scripts=self.wanted_scripts,
-                extra_paths=self.extra_paths))
-        map(create_scripts, self.requirements)
+        map(self.create_scripts, self.requirements)
+
+    def uninstall(self):
+        __status__ = u"Uninstall scripts."
+        for script in self.status.installed_paths.as_list():
+            if os.path.isfile(script):
+                os.remove(script)
+            else:
+                raise InstallationError(
+                    u"Missing script while uninstalling", script)
 
 
 class Interpreter(Package):
@@ -133,13 +141,15 @@ class Interpreter(Package):
     environment.
     """
 
-    def install(self, status):
-        bin_directory = self.options.get_with_default(
-            'bin_directory', 'setup').as_text()
-        status.paths.add(
+    def install(self):
+        script_path = os.path.join(self.bin_directory, self.options.name)
+        if script_path not in self.status.installed_paths:
+            if os.path.exists(script_path):
+                raise InstallationError(
+                    u"Script already exists", script_path)
+
+        self.status.paths.add(
             self.working_set.create_script(
-                os.path.join(bin_directory, self.options.name),
-                INTERPRETER_BODY,
-                extra_paths=self.extra_paths))
+                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths))
 
 
