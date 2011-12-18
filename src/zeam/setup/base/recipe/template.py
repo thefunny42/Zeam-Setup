@@ -23,6 +23,7 @@ class Template(Recipe):
                         '.template_text': NewTextTemplate}
 
     def render_template(self, source_path, output_path, factory):
+        __status__ = u"Rendering template %s." % output_path
         logger.info('Creating file %s from template.' % output_path)
         success = False
         source_file = open_uri(source_path)

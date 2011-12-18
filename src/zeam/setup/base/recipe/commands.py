@@ -167,7 +167,6 @@ class PartStatus(object):
                          Paths().extend(get('depends', '').as_list()) and
                          installed_cfg.get(self._name, None) == section) or
                     installer.prefix_changed)
-                # XXX Should reinstall in case of dependency change as well
             else:
                 self._enabled = True
 

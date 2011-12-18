@@ -60,7 +60,7 @@ class LoggerUtility(object):
         """
         try:
             error_file = open(self.filename, self._failed and 'a' or 'w')
-            error_file.write(u'==== %s in % s====\n' % (
+            error_file.write(u'==== %s in %s ====\n' % (
                     datetime.now(), self._get_name()))
             error_file.write(u'%s: %s:\n' % (cls.__name__, error))
             traceback.print_tb(trace, None, error_file)

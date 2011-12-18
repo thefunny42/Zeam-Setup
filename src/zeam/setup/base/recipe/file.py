@@ -151,7 +151,10 @@ class File(Recipe):
         __status__ = u"Uninstalling files."
         for filename in self.status.installed_paths.as_list():
             if os.path.exists(filename):
-                shutil.rmtree(filename)
+                if os.path.isdir(filename):
+                    shutil.rmtree(filename)
+                else:
+                    os.remove(filename)
             else:
                 raise InstallationError(
                     u"Missing files while uninstalling", filename)
