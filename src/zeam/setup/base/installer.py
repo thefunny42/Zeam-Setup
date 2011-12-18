@@ -16,21 +16,17 @@ class PackageInstaller(object):
     sources.
     """
 
-    def __init__(self, options, working_set, no_kgs=False):
+    def __init__(self, options, working_set):
         __status__ = u"Configuring package installer."
-        configuration = options.configuration
         self.interpretor = working_set.interpretor
         self.working_set = working_set
-        self.sources = configuration.utilities.sources
+        self.kgs = get_kgs_requirements(options)
+        self.sources = options.utilities.sources
         self._to_install = Requirements()
         self._verify_being_installed = Requirements()
         self._being_installed = Requirements()
         self._lock = threading.RLock()
         self._wait = threading.Condition(threading.RLock())
-        self.kgs = None
-        versions = options.get_with_default('versions', 'setup', '').as_list()
-        if versions:
-            self.kgs = get_kgs_requirements(versions, configuration)
         self._worker_count = options.get_with_default(
             'install_workers', 'setup', '5').as_int()
         self._options = options

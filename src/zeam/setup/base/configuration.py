@@ -291,6 +291,11 @@ class Configuration(object):
         """
         return self.sections.iteritems()
 
+    def keys(self):
+        """All section names.
+        """
+        return self.sections.keys()
+
 
 class Section(object):
     """Section of a configuration file.
@@ -396,6 +401,11 @@ class Section(object):
         """Iter on options.
         """
         return self.options.iteritems()
+
+    def keys(self):
+        """All options keys.
+        """
+        return self.options.keys()
 
     def _write(self, stream):
         stream.write('[' + self.name + ']\n')
