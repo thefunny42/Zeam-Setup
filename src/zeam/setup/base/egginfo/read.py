@@ -33,7 +33,7 @@ def read_pkg_info(path):
     for line in pkg_info.readlines():
         if line and line[0] in '#;':
             continue
-        if line[0].isupper():
+        if line[0].isupper() and ':' in line:
             if key is not None and value is not None:
                 add_metadata(key, value)
             key, value = line.split(':', 1)

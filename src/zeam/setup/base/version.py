@@ -238,9 +238,11 @@ class Requirement(object):
         version_requirements = []
         for operator, version in REQUIREMENT_VERSION_PARSE.findall(
             groups['requirements']):
-            version_requirements.append(
-                (REQUIREMENT_TO_OPERATORS(operator),
-                 Version.parse(version)))
+            if version != 'dev':
+                # We ignore the dev crap
+                version_requirements.append(
+                    (REQUIREMENT_TO_OPERATORS(operator),
+                     Version.parse(version)))
         extras = groups.get('extras', None)
         if extras:
             extras = frozenset(s.strip() for s in extras.split(','))
