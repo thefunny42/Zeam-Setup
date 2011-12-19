@@ -68,7 +68,10 @@ def is_remote_uri(uri):
     """Tell you if the given uri is remote.
     """
     # XXX Todo check for SSL availability
-    return uri.startswith('http://') or uri.startswith('https://')
+    for protocol in ['http://', 'https://', 'ftp://', 'ftps://']:
+        if uri.startswith(protocol):
+            return True
+    return False
 
 def relative_uri(origin, target, is_container=False):
     """Return an URI for target, paying attention that if it was

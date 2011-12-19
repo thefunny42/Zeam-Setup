@@ -104,4 +104,16 @@ class SourceTestCase(unittest.TestCase):
             {'name': 'elementtree', 'format': 'zip',
              'url': None, 'pyversion': None, 'platform': None,
              'version': Version.parse('1.2.7-20070827-preview'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'python-dateutil-1.4.tar.gz'),
+            {'name': 'python-dateutil', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('1.4'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'python-dateutil-1.4dev-r42.tar.gz'),
+            {'name': 'python-dateutil', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('1.4dev-r42'), 'path': None})
 

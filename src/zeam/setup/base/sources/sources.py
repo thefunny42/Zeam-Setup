@@ -4,7 +4,7 @@ import os
 import re
 import threading
 
-from zeam.setup.base.sources.collection import Installers, PackageInstallers
+from zeam.setup.base.sources.collection import Installers
 from zeam.setup.base.sources.installers import (
     UndownloadedPackageInstaller,
     ExtractedPackageInstaller,
@@ -22,17 +22,17 @@ from zeam.setup.base.vcs import VCS
 logger = logging.getLogger('zeam.setup')
 
 RELEASE_TARBALL = re.compile(
-    r'^(?P<name>[^-]+)-(?P<version>[^-]*(-[\d]+)?(-preview)?)'
+    r'^(?P<name>.*?)-(?P<version>[^-]*(-[\d]+)?(-preview)?(-r[\d]+)?)'
     r'(-py(?P<pyversion>[^-]+)(-(?P<platform>[\w]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)
 DOWNLOAD_URL = re.compile(r'.*download.*', re.IGNORECASE)
 
 
-def get_installer_from_name(source, name, url=None, path=None):
+def get_installer_from_name(source, link, url=None, path=None):
     """Return a not installed installer from the given name.
     """
-    info = RELEASE_TARBALL.match(name)
+    info = RELEASE_TARBALL.match(link)
     if info:
         try:
             name = info.group('name')
@@ -45,7 +45,7 @@ def get_installer_from_name(source, name, url=None, path=None):
                 name=name, version=version, format=format, url=url, path=path,
                 pyversion=pyversion, platform=platform)
         except InvalidVersion:
-            logger.debug("Can't parse version for link %s, ignoring it." % name)
+            logger.debug("Can't process '%s', ignoring it." % link)
             return None
     return None
 
@@ -258,6 +258,15 @@ class EggsSource(LocalSource):
     finder = get_eggs_from_directory
 
 
+class VCSSourcePackage(object):
+
+    def __init__(self, package, vcs, uri, section):
+        self.package = package
+        self.vcs = vcs
+        self.uri = uri
+        self.section = section
+
+
 class VCSSource(object):
     """This sources fetch the code from various popular version
     control system.
@@ -276,29 +285,31 @@ class VCSSource(object):
         if self.develop:
             self.factory = PackageInstaller
 
+    def _sources(self):
+        for name in self.options['sources'].as_list():
+            section = self.options.configuration['vcs:' + name]
+            for package, info in section.items():
+                parsed_info = info.as_words()
+                if len(parsed_info) < 2:
+                    raise ConfigurationError(
+                        info.location,
+                        u"Malformed source description for package %s" % (
+                            package))
+                yield VCSSourcePackage(
+                    package, parsed_info[0], parsed_info[1], section)
+
     def initialize(self, first_time):
         __status__ = u"Preparing remote development sources."
         if not first_time:
             return
-        section_names = self.options['sources'].as_list()
-        if not len(section_names):
-            # If we have no sources, initialize nothing.
-            return
-        VCS.initialize()
-        create_directory(self.directory)
-        for section_name in section_names:
-            section = self.options.configuration['vcs:' + section_name]
-            for package_name, source_info in section.items():
-                parsed_source_info = source_info.as_words()
-                if len(parsed_source_info) < 2:
-                    raise ConfigurationError(
-                        source_info.location,
-                        u"Malformed source description for package %s" % (
-                            package_name))
-                uri = parsed_source_info[1]
-                vcs = VCS.get(parsed_source_info[0], package_name, source_info)
-                directory = os.path.join(self.directory, package_name)
-                self.sources[package_name] = vcs(uri, directory)
+        sources = list(self._sources())
+        if sources:
+            VCS.initialize()
+            create_directory(self.directory)
+            for source in sources:
+                vcs = VCS.get(source.vcs, source.package, source.section)
+                directory = os.path.join(self.directory, source.package)
+                self.sources[source.package] = vcs(source.uri, directory)
 
     def available(self, configuration):
         # This source provider is always available
@@ -311,8 +322,8 @@ class VCSSource(object):
                 raise PackageNotFound(requirement)
             source = self.sources[name]
             source.install()
-            return PackageInstallers(
-                name, [self.factory(self, name=name, path=source.directory)])
+            installer = self.factory(self, name=name, path=source.directory)
+            return Installers([installer]).get_installers_for(requirement)
         raise PackageNotFound(requirement)
 
     def __repr__(self):

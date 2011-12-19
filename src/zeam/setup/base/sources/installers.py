@@ -21,6 +21,7 @@ class FakeInstaller(object):
 
     def __init__(self, requirement):
         self.name = requirement.name
+        self.key = requirement.key
         if (len(requirement.versions) == 1 and
             requirement.versions[0][0] == operator.eq):
             self.version = requirement.versions[0][1]
@@ -64,12 +65,14 @@ class PackageInstaller(object):
         assert 'name' in informations
         informations.setdefault('version', None)
         self.informations = informations
+        # Be compatible with setuptools rules.
+        self.key = informations['name'].lower().replace('-', '_')
 
     def filter(self, requirement, pyversion=None, platform=None):
-        if self.pyversion is not None:
+        if pyversion is not None and self.pyversion is not None:
             if pyversion != self.pyversion:
                 return False
-        if self.platform is not None:
+        if platform is not None and self.platform is not None:
             if platform != self.platform:
                 return False
         return requirement.match(self)

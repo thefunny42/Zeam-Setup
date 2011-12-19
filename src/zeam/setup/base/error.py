@@ -7,6 +7,7 @@ import threading
 import traceback
 import os
 from datetime import datetime
+from cStringIO import StringIO
 
 logger = logging.getLogger('zeam.setup')
 
@@ -33,12 +34,14 @@ class LoggerUtility(object):
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._failed = False
+        self._append_to_file = False
         self._debug = False
         self._names = {thread.get_ident(): os.path.basename(sys.argv[0])}
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(NamedFormatter(self._get_name, '%(message)s'))
-        logger.addHandler(handler)
+        self._logs = StringIO()
+        for stream in [sys.stdout, self._logs]:
+            handler = logging.StreamHandler(stream)
+            handler.setFormatter(NamedFormatter(self._get_name, '%(message)s'))
+            logger.addHandler(handler)
 
     def configure(self, level, debug=False):
         logger.setLevel(VERBOSE_LVL(level))
@@ -55,20 +58,27 @@ class LoggerUtility(object):
     def _get_name(self):
         return self._names.get(thread.get_ident(), u'unknown')
 
+    def _open_error_file(self):
+        # Return a file suitable to log errors.
+        try:
+            error_file =open(self.filename, self._append_to_file and 'a' or 'w')
+            self._append_to_file = True
+            return error_file
+        except IOError:
+            return None
+
     def _create_report(self, cls, error, trace):
         """Log last error in a file.
         """
-        try:
-            error_file = open(self.filename, self._failed and 'a' or 'w')
+        error_file = self._open_error_file()
+        if error_file is not None:
             error_file.write(u'==== %s in %s ====\n' % (
                     datetime.now(), self._get_name()))
             error_file.write(u'%s: %s:\n' % (cls.__name__, error))
             traceback.print_tb(trace, None, error_file)
             error_file.close()
-        except IOError:
-            pass
 
-    def report(self, fatal=True):
+    def report(self, fatal=True, configuration=None):
         """Display the last error, and quit.
         """
         self._lock.acquire()
@@ -102,9 +112,18 @@ class LoggerUtility(object):
                         u'Unexpected error. '
                         u'Please contact vendor with error.log')
                 if fatal:
+                    error_file = self._open_error_file()
+                    if error_file is not None:
+                        if configuration is not None:
+                            try:
+                                error_file.write('\n==== configuration ====\n')
+                                configuration.write(error_file)
+                            except:
+                                pass
+                        error_file.write('\n==== log ====\n')
+                        error_file.write(self._logs.getvalue())
                     sys.exit(-1)
         finally:
-            self._failed = True
             self._lock.release()
 
 # Expose API.

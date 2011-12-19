@@ -75,7 +75,7 @@ def bootstrap_cfg(config, options):
     setup['offline'] = bool(options.offline)
 
     def set_timeout(timeout):
-        logger.info(u'Setting networking timeout to %d seconds' % timeout)
+        logger.info(u'Setting networking timeout to %d seconds.', timeout)
         socket.setdefaulttimeout(timeout)
 
     # Network timeout
@@ -164,6 +164,7 @@ class BootstrapCommand(object):
         (options, args) = parser.parse_args()
         logs.configure(options.verbosity, options.debug)
 
+        configuration = None
         try:
             logger.info(u'Reading configuration %s' % options.config)
             configuration = Configuration.read(options.config)
@@ -178,7 +179,7 @@ class BootstrapCommand(object):
             configuration.write(zsetup_fd)
             zsetup_fd.close()
         except Exception:
-            logs.report(True)
+            logs.report(fatal=True, configuration=configuration)
 
 
 class SetupCommand(BootstrapCommand):

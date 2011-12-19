@@ -98,6 +98,12 @@ class RequirementTestCase(unittest.TestCase):
         self.assertEqual(str(req.versions[0][1]), '2.12.3dev')
         self.assertEqual(str(req), 'Zope2>=2.12.3dev')
 
+        req = Requirement.parse('python-memcached >= 1.0, ==dev')
+        self.assertEqual(req.name, 'python-memcached')
+        self.assertEqual(len(req.versions), 1)
+        self.assertEqual(str(req.versions[0][1]), '1.0')
+        self.assertEqual(str(req), 'python-memcached>=1.0')
+
     def test_parse_extras(self):
         """Test requirement parsing and printing with extras
         """

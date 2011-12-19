@@ -40,6 +40,16 @@ class Release(object):
         self.extras = {}
         self.extensions = []
 
+    @apply
+    def name():
+        # Write a property for name, in order to set key.
+        def getter(self):
+            return self._name
+        def setter(self, name):
+            self._name = name
+            self.key = name and name.lower().replace('-', '_') or None
+        return property(getter, setter)
+
     def __lt__(self, other):
         return self.version < other
 
@@ -67,7 +77,8 @@ class Release(object):
         sys.path.insert(len(sys.path) and 1 or 0, self.path)
 
     def get_egg_directory(self, interpretor):
-        """Return a directory name suitable to store the egg.
+        """Return a directory name suitable to store the egg,
+        compatible with setuptools format.
         """
         interpretor_pyversion = interpretor.get_pyversion()
         if self.pyversion is not None:
@@ -75,7 +86,7 @@ class Release(object):
                 raise PackageError(
                     u"Package %s requires Python %s is used with %s" % (
                         self.name, self.pyversion, interpretor_pyversion))
-        items = [self.name,
+        items = [self.name.replace('-', '_'),
                  str(self.version),
                  'py%s' % (self.pyversion or interpretor_pyversion)]
         if self.extensions:

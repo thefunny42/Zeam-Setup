@@ -54,20 +54,16 @@ class Installers(object):
     """Represent the available software.
     """
 
-    def __init__(self, case_sensitive=False):
+    def __init__(self, installers=[]):
         self.installers = {}
-        self.case_sensitive = case_sensitive
-        self._key = lambda k: k.lower()
-        if case_sensitive:
-            self._key = lambda k: k
+        for installer in installers:
+            self.add(installer)
 
     def add(self, installer):
         """Add a software to the available ones.
         """
         default = PackageInstallers(installer.name)
-        installers = self.installers.setdefault(
-            self._key(installer.name), default)
-        installers.add(installer)
+        self.installers.setdefault(installer.key, default).add(installer)
 
     def extend(self, installers):
         """Extend the available software by adding a list of installers to it.
@@ -80,12 +76,11 @@ class Installers(object):
 
     def __getitem__(self, key):
         if isinstance(key, Requirement):
-            return self.installers[self._key(key.name)][key]
-        return self.installer[self._key(key)]
+            return self.installers[key.key][key]
+        return self.installer[key]
 
     def get_installers_for(self, requirement, pyversion=None, platform=None):
-        key = self._key(requirement.name)
-        if not key in self.installers:
+        if not requirement.key in self.installers:
             return []
-        return self.installers[key].get_installers_for(
+        return self.installers[requirement.key].get_installers_for(
             requirement, pyversion=pyversion, platform=platform)

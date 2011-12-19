@@ -48,7 +48,7 @@ class KnownGoodVersionSet(object):
         return requirement
 
     def unused(self):
-        return list(set(self.versions.keys()) - self.used)
+        return sorted(set(self.versions.keys()) - self.used)
 
     def log_usage(self):
         if self.missing:

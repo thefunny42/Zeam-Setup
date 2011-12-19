@@ -15,7 +15,9 @@ def find_egg_info(distribution, base_path):
     """Go through a path to find an egg-info directory.
     """
     # We need to be case insensitif here as well.
-    wanted_directory = (distribution.name + '.egg-info').lower()
+    # Setuptools replace - with _ (why ?)
+    wanted_directory = (distribution.name.replace('-', '_') +
+                        '.egg-info').lower()
     for path, directories, filenames in os.walk(base_path):
         if wanted_directory in map(lambda s: s.lower(), directories):
             return path, os.path.join(path, wanted_directory)

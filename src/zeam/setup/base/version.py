@@ -7,7 +7,9 @@ VERSION_REPLACE = {
     'alpha': 'a', 'beta': 'b', 'pre':'c', 'preview':'c', '-':'final-',
     'post': 'final-', 'rc':'c'}.get
 REQUIREMENT_NAME_PARSE = re.compile(
-    r'^(?P<name>[\w.]+)\s*(\[(?P<extras>[\w\s.,]+)\])?\s*(?P<requirements>.*)$')
+    r'^(?P<name>[\w._-]+)\s*'
+    r'(\[(?P<extras>[\w\s.,]+)\])?\s*'
+    r'(?P<requirements>.*)$')
 REQUIREMENT_VERSION_PARSE = re.compile(
     r'(?P<operator>[<>=!]=)\s*(?P<version>[\da-z.\-]+)\s*,?')
 REQUIREMENT_TO_OPERATORS = {'==': operator.eq, '>=': operator.ge,
@@ -226,7 +228,7 @@ class Requirement(object):
 
     def __init__(self, name, versions, extras=None):
         self.name = name
-        self.key = name.lower()
+        self.key = name.lower().replace('-', '_')
         self.versions = versions
         if extras is None:
             extras = frozenset()
@@ -252,7 +254,7 @@ class Requirement(object):
         """Tells you if the given release match the requirement of
         not.
         """
-        if release.name.lower() != self.key:
+        if release.key != self.key:
             return False
         for op, version in self.versions:
             if not op(release.version, version):
