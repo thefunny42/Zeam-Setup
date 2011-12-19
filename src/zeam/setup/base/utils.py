@@ -42,12 +42,15 @@ def get_cmd_output(*cmd, **opts):
     """
     path = opts.get('path', None)
     environ = opts.get('environ', None)
+    cmd_environ = None
     debug_msg = 'Running command: %s' % ' '.join(cmd)
     debug_extra = []
     if path:
         debug_extra.append('in %s' % (path))
     if environ:
         debug_extra.append(' '.join(map('='.join, environ.items())))
+        cmd_environ = os.environ.copy()
+        cmd_environ.update(environ)
     if debug_extra:
         debug_msg += ' [' + ' '.join(debug_extra) + ']'
     logger.debug(debug_msg)
@@ -59,7 +62,7 @@ def get_cmd_output(*cmd, **opts):
     process = subprocess.Popen(
         cmd,
         stdin=subprocess.PIPE, stdout=stdout, stderr=stderr,
-        cwd=path, env=environ)
+        cwd=path, env=cmd_environ)
     stdout, stderr = process.communicate()
     return stdout, stderr, process.returncode
 

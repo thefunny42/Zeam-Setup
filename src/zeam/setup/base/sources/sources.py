@@ -17,13 +17,13 @@ from zeam.setup.base.error import NetworkError
 from zeam.setup.base.utils import get_links, create_directory
 from zeam.setup.base.version import Version, InvalidVersion
 from zeam.setup.base.version import Requirements
-from zeam.setup.base.vcs import VCS
+from zeam.setup.base.vcs import VCS, VCSCheckout
 
 logger = logging.getLogger('zeam.setup')
 
 RELEASE_TARBALL = re.compile(
-    r'^(?P<name>.*?)-(?P<version>[^-]*(-[\d]+)?(-preview)?(-r[\d]+)?)'
-    r'(-py(?P<pyversion>[^-]+)(-(?P<platform>[\w]+))?)?'
+    r'^(?P<name>.*?)-(?P<version>[^-]*(-[\d]+)?(-[\w]+)?(-r[\d]+)?)'
+    r'(-py(?P<pyversion>[\d.]+)(-(?P<platform>[\w]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)
 DOWNLOAD_URL = re.compile(r'.*download.*', re.IGNORECASE)
@@ -258,15 +258,6 @@ class EggsSource(LocalSource):
     finder = get_eggs_from_directory
 
 
-class VCSSourcePackage(object):
-
-    def __init__(self, package, vcs, uri, section):
-        self.package = package
-        self.vcs = vcs
-        self.uri = uri
-        self.section = section
-
-
 class VCSSource(object):
     """This sources fetch the code from various popular version
     control system.
@@ -289,14 +280,8 @@ class VCSSource(object):
         for name in self.options['sources'].as_list():
             section = self.options.configuration['vcs:' + name]
             for package, info in section.items():
-                parsed_info = info.as_words()
-                if len(parsed_info) < 2:
-                    raise ConfigurationError(
-                        info.location,
-                        u"Malformed source description for package %s" % (
-                            package))
-                yield VCSSourcePackage(
-                    package, parsed_info[0], parsed_info[1], section)
+                yield VCSCheckout(
+                    package, info, info.as_words(), self.directory)
 
     def initialize(self, first_time):
         __status__ = u"Preparing remote development sources."
@@ -307,9 +292,7 @@ class VCSSource(object):
             VCS.initialize()
             create_directory(self.directory)
             for source in sources:
-                vcs = VCS.get(source.vcs, source.package, source.section)
-                directory = os.path.join(self.directory, source.package)
-                self.sources[source.package] = vcs(source.uri, directory)
+                self.sources[source.name] = VCS(source)
 
     def available(self, configuration):
         # This source provider is always available
@@ -320,10 +303,11 @@ class VCSSource(object):
         if name in self.sources:
             if self.enabled and name not in self.enabled:
                 raise PackageNotFound(requirement)
-            source = self.sources[name]
-            source.install()
+            source = self.sources[name]()
             installer = self.factory(self, name=name, path=source.directory)
-            return Installers([installer]).get_installers_for(requirement)
+            packages = Installers([installer]).get_installers_for(requirement)
+            if packages:
+                return packages
         raise PackageNotFound(requirement)
 
     def __repr__(self):

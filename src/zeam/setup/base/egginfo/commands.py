@@ -38,7 +38,7 @@ class Installed(object):
             if package.summary:
                 logger.warning("  Description:")
                 logger.warning("  %s" % package.summary)
-            requires = package.requirements.requirements
+            requires = package.requirements
             if requires:
                 logger.info("  Requires:")
                 for dependency in requires:

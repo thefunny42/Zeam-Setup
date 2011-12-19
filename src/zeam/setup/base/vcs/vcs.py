@@ -2,27 +2,71 @@
 import os
 
 from zeam.setup.base.vcs.error import VCSConfigurationError, VCSError
+from zeam.setup.base.error import ConfigurationError
+
+
+class VCSCheckout(object):
+
+    def __init__(self, name, origin, options, directory):
+        self.name = name
+        self.defined_at = origin.location
+        if len(options) < 2:
+            raise ConfigurationError(
+                self.defined_at,
+                u"Malformed source description for package",
+                name)
+        self.vcs = options[0]
+        self.uri = options[1]
+        self.branch = None
+        self.directory = os.path.join(directory, name)
+
+        for extra in options[2:]:
+            if not '=' in extra:
+                raise ConfigurationError(
+                    self.defined_at,
+                    u"Malformed source option for package",
+                    name)
+            name, value = extra.split('=', 1)
+            if name in self.__dict__:
+                self.__dict__[name] = value
 
 
 class VCS(object):
     """Base API to access a project in a VCS.
     """
 
-    def __init__(self, uri, directory, generic_options=[]):
-        self.uri = uri
-        self.directory = directory
-        self.generic_options = generic_options
+    def __init__(self, package, options=[]):
+        self.package = package
+        self.options = options
+        self.install = None     # Method called to do the work
 
-    def install(self):
-        if not os.path.isdir(self.directory):
-            if os.path.exists(self.directory):
-                raise VCSError(
-                    u"Checkout directory %s exists but is not a directory" % (
-                        self.directory))
-            self.checkout()
-        else:
-            # XXX Should do this only in newest mode ?
-            self.update()
+    @property
+    def directory(self):
+        return self.package.directory
+
+    def prepare(self):
+        if self.install is None:
+            if not os.path.isdir(self.package.directory):
+                if os.path.exists(self.package.directory):
+                    raise VCSError(
+                        u"Checkout directory exists but is not a directory",
+                        self.package.directory)
+                self.install = self.checkout
+            else:
+                # XXX Should do this only in newest mode ?
+                if self.verify():
+                    self.install = self.update
+                else:
+                    self.install = self.switch
+
+    def __call__(self):
+        self.prepare()
+        assert self.install is not None
+        self.install()
+        return self
+
+    def verify(self):
+        return True
 
     def checkout(self):
         raise NotImplementedError()
@@ -30,15 +74,18 @@ class VCS(object):
     def update(self):
         raise NotImplementedError()
 
+    def switch(self):
+        raise NotImplementedError()
+
 
 class VCSFactory(object):
     """Create a new instance of a VCS worker.
     """
+    software_name = 'Unix'
+    available = False
+    version = '0.0'
 
-    def available(self):
-        raise NotImplementedError()
-
-    def __call__(self, uri, directory):
+    def __call__(self, package):
         raise NotImplementedError()
 
 
@@ -47,17 +94,17 @@ class Develop(VCS):
     """
 
     def install(self):
-        if not os.path.exists(self.directory):
-            os.symlink(os.path.abspath(self.uri), self.directory)
+        if not os.path.exists(self.package.directory):
+            os.symlink(
+                os.path.abspath(self.package.uri),
+                self.package.directory)
 
 
 class DevelopFactory(VCSFactory):
+    available = True
 
-    def available(self):
-        return True
-
-    def __call__(self, uri, directory):
-        return Develop(uri, directory)
+    def __call__(self, package):
+        return Develop(package)
 
 
 class VCSRegistry(object):
@@ -65,35 +112,34 @@ class VCSRegistry(object):
     """
 
     def __init__(self, factories):
-        self.__initialized = False
-        self.__factories = factories
-        self.__vcs = {}
+        self._initialized = False
+        self._factories = factories
+        self._vcs = {}
 
     def initialize(self):
         """Instentiate VCS factories. This will detect if they are
         available or not.
         """
         __status__ = u"Detecting VCS systems."
-        if self.__initialized:
+        if self._initialized:
             return
-        for name, factory in self.__factories.iteritems():
-            self.__vcs[name] = factory()
-        self.__initialized = True
+        for name, factory in self._factories.iteritems():
+            self._vcs[name] = factory()
+        self._initialized = True
 
-    def get(self, name, package_name, source_info):
+    def __call__(self, package):
         """Return a VCS instance called name of the package
         package_name located at source_info url.
         """
-        if name not in self.__vcs:
+        if package.vcs not in self._vcs:
             raise VCSConfigurationError(
-                source_info.location,
-                u"Unknown VCS system '%s' for package %s" % (
-                    name, package_name))
-        factory = self.__vcs[name]
-        if not factory.available():
+                package.defined_at, u"Unknown VCS system for package",
+                package.vcs, package.name)
+        factory = self._vcs[package.vcs]
+        if not factory.available:
             raise VCSConfigurationError(
-                source_info.location,
+                package.defined_at,
                 u"VCS system '%s' is not available, "
                 u"please install '%s' first" % (
-                    name, factory.package_name))
-        return factory
+                    package.vcs, factory.software_name))
+        return factory(package)

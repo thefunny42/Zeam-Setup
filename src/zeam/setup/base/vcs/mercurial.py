@@ -11,29 +11,36 @@ logger = logging.getLogger('zeam.setup')
 
 class Mercurial(VCS):
 
+    def _run_mercurial(self, arguments, error=None, path=None):
+        command = ['hg']
+        command.extend(arguments)
+        command.extend(['--quiet', '--noninteractive'])
+        stdout, stderr, code = get_cmd_output(*command, path=path)
+        if code:
+            logger.info(stderr)
+            if error is None:
+                error = u"Error while running mercurial command for"
+            raise MercurialError(error,  self.package.uri)
+
     def checkout(self):
-        stdout, stderr, returncode = get_cmd_output(
-            'hg', 'clone', self.uri, self.directory)
-        if returncode:
-            raise MercurialError(u"Error while cloning %s" % self.uri)
+        self._run_mercurial(
+            ['clone', self.package.uri, self.package.directory],
+            error=u"Error while cloning")
 
     def update(self):
-        stdout, stderr, returncode = get_cmd_output(
-            'hg', 'pull', '-u', path=self.directory)
-        if returncode:
-            raise MercurialError(u"Error while pulling %s" % self.uri)
+        self._run_mercurial(
+            ['pull', '-u'],
+            error=u"Error while pulling",
+            path=self.package.directory)
 
 
 class MercurialFactory(VCSFactory):
-    package_name = 'mercurial'
+    software_name = 'mercurial'
 
     def __init__(self):
-        self.__available, self.__version = have_cmd('hg', '--version')
-        if isinstance(self.__version, str):
-            logger.info('Found Mercurial version %s' % self.__version)
+        self.available, self.version = have_cmd('hg', '--version')
+        if isinstance(self.version, str):
+            logger.info('Found Mercurial version %s' % self.version)
 
-    def avaiable(self):
-        return self.__available
-
-    def __call__(self, uri, directory):
-        return Mercurial(uri, directory)
+    def __call__(self, package):
+        return Mercurial(package)

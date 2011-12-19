@@ -116,4 +116,28 @@ class SourceTestCase(unittest.TestCase):
             {'name': 'python-dateutil', 'format': 'tar.gz',
              'url': None, 'pyversion': None, 'platform': None,
              'version': Version.parse('1.4dev-r42'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'python-dateutil-1.4dev-r42-py2.5.tar.gz'),
+            {'name': 'python-dateutil', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.5', 'platform': None,
+             'version': Version.parse('1.4dev-r42'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'python-dateutil-1.4dev-r42-py2.5-win.tar.gz'),
+            {'name': 'python-dateutil', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.5', 'platform': 'win',
+             'version': Version.parse('1.4dev-r42'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'five.megrok.z3cform-0.1a1-infrae.tar.gz'),
+            {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('0.1a1-infrae'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'five.megrok.z3cform-0.1a1-infrae-py2.6-linux.tar.gz'),
+            {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': 'linux',
+             'version': Version.parse('0.1a1-infrae'), 'path': None})
 

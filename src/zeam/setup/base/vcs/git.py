@@ -10,29 +10,35 @@ logger = logging.getLogger('zeam.setup')
 
 class Git(VCS):
 
+    def _run_git(self, arguments, error=None, path=None):
+        command = ['git']
+        command.extend(arguments)
+        stdout, stderr, code = get_cmd_output(*command, path=path)
+        if code:
+            logger.info(stderr)
+            if error is None:
+                error = u"Error while running git command for"
+            raise GitError(error,  self.package.uri)
+
     def checkout(self):
-        stdout, stderr, returncode = get_cmd_output(
-            'git', 'clone', '--quiet', self.uri, self.directory)
-        if returncode:
-            raise GitError(u"Error while cloning %s" % self.uri)
+        self._run_git(
+            ['clone', '--quiet', self.package.uri, self.package.directory],
+            error=u"Error while cloning")
 
     def update(self):
-        stdout, stderr, returncode = get_cmd_output(
-            'git', 'pull', path=self.directory)
-        if returncode:
-            raise GitError(u"Error while pulling %s" % self.uri)
+        self._run_git(
+            ['pull'],
+            path=self.package.directory,
+            error=u"Error while pulling")
 
 
 class GitFactory(VCSFactory):
-    package_name = 'git-core'
+    software_name = 'git-core'
 
     def __init__(self):
-        self.__available, self.__version = have_cmd('git', '--version')
-        if isinstance(self.__version, str):
-            logger.info('Found Git version %s' % self.__version)
+        self.available, self.version = have_cmd('git', '--version')
+        if isinstance(self.version, str):
+            logger.info('Found Git version %s' % self.version)
 
-    def available(self):
-        return self.__available
-
-    def __call__(self, uri, directory):
-        return Git(uri, directory)
+    def __call__(self, package):
+        return Git(package)

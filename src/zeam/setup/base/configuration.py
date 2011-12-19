@@ -2,6 +2,7 @@
 import os
 import re
 import logging
+import shlex
 
 from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.utils import open_uri, relative_uri
@@ -568,31 +569,10 @@ class Option(object):
         pair of " to escape spaces in it, or you can use \ just before
         (to write " write \", for \ write \\).
         """
-        words = []
-        word = ""
-        is_escaped = False
-        is_previous_backslash = False
-        for letter in self.get_value():
-            if letter == '\\':
-                if not is_previous_backslash:
-                    is_previous_backslash = True
-                    continue
-            if not is_previous_backslash and letter == '"':
-                is_escaped = not is_escaped
-                continue
-            if (not is_escaped and
-                not is_previous_backslash and
-                letter.isspace()):
-                if word:
-                    words.append(word)
-                    word = ""
-                continue
-            word += letter
-            is_previous_backslash = False
-        if is_escaped or is_previous_backslash:
+        value = self.get_value()
+        try:
+            return shlex.split(value)
+        except ValueError:
             raise ConfigurationError(
                 self.location,
                 u"malformed last word for option %s" % self.name)
-        if word:
-            words.append(word)
-        return words
