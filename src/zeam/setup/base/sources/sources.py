@@ -22,8 +22,8 @@ from zeam.setup.base.vcs import VCS, VCSCheckout
 logger = logging.getLogger('zeam.setup')
 
 RELEASE_TARBALL = re.compile(
-    r'^(?P<name>.*?)-(?P<version>[^-]*(-[\d]+)?(-[\w]+)?(-r[\d]+)?)'
-    r'(-py(?P<pyversion>[\d.]+)(-(?P<platform>[\w]+))?)?'
+    r'^(?P<name>.*?)-(?P<version>[^-]*(-[\d]+)?(-[\w]+)*(-r[\d]+)?)'
+    r'(-py(?P<pyversion>[\d.]+)(-(?P<platform>[\w\d_.-]+))?)?'
     r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
     re.IGNORECASE)
 DOWNLOAD_URL = re.compile(r'.*download.*', re.IGNORECASE)

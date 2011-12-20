@@ -86,6 +86,6 @@ class Test(object):
         # Disable logger except for error while running the tests.
         log_level = logger.level
         logger.setLevel(logging.FATAL)
-        results = unittest.TextTestRunner(verbosity=verbosity).run(suite)
+        unittest.TextTestRunner(verbosity=verbosity).run(suite)
         logger.setLevel(log_level)
 

@@ -30,7 +30,7 @@ class PythonInterpreter(object):
             )[0].strip()
         self._platform = get_cmd_output(
             path, "-c",
-            "print __import__('sys').platform")[0].strip()
+            "print __import__('distutils.util').util.get_platform()")[0].strip()
         self._setuptools = False
         self._lock = threading.RLock()
 

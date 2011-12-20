@@ -78,6 +78,11 @@ class SourceTestCase(unittest.TestCase):
              'url': None, 'pyversion': '2.7', 'platform': 'win32',
              'version': Version.parse('1.0'), 'path': None})
         self.assertEqual(
+            get_installer_from_name(source, 'setup-1.0-py2.7-win-amd64.egg'),
+            {'name': 'setup', 'format': 'egg',
+             'url': None, 'pyversion': '2.7', 'platform': 'win-amd64',
+             'version': Version.parse('1.0'), 'path': None})
+        self.assertEqual(
             get_installer_from_name(source, 'setup-3.5.0-1.tar.gz'),
             {'name': 'setup', 'format': 'tar.gz',
              'url': None, 'pyversion': None, 'platform': None,
@@ -86,6 +91,12 @@ class SourceTestCase(unittest.TestCase):
             get_installer_from_name(source, 'setup-3.5.0-1-py2.6-mac.tar.gz'),
             {'name': 'setup', 'format': 'tar.gz',
              'url': None, 'pyversion': '2.6', 'platform': 'mac',
+             'version': Version.parse('3.5-1'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source, 'setup-3.5.0-1-py2.6-macosx-10.6-x86_64.tar.gz'),
+            {'name': 'setup', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': 'macosx-10.6-x86_64',
              'version': Version.parse('3.5-1'), 'path': None})
         self.assertEqual(
             get_installer_from_name(source, 'setuptools-0.6c11-py2.6.egg'),
@@ -130,14 +141,40 @@ class SourceTestCase(unittest.TestCase):
              'version': Version.parse('1.4dev-r42'), 'path': None})
         self.assertEqual(
             get_installer_from_name(
+                source, 'python-dateutil-1.4dev-r42-py2.5-win-i386.tar.gz'),
+            {'name': 'python-dateutil', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.5', 'platform': 'win-i386',
+             'version': Version.parse('1.4dev-r42'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
                 source, 'five.megrok.z3cform-0.1a1-infrae.tar.gz'),
             {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
              'url': None, 'pyversion': None, 'platform': None,
              'version': Version.parse('0.1a1-infrae'), 'path': None})
         self.assertEqual(
             get_installer_from_name(
+                source, 'five.megrok.z3cform-0.1a1-infrae-all.tar.gz'),
+            {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
+             'url': None, 'pyversion': None, 'platform': None,
+             'version': Version.parse('0.1a1-infrae-all'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
                 source, 'five.megrok.z3cform-0.1a1-infrae-py2.6-linux.tar.gz'),
             {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
              'url': None, 'pyversion': '2.6', 'platform': 'linux',
              'version': Version.parse('0.1a1-infrae'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source,
+                'five.megrok.z3cform-0.1a1-ext-all-py2.6-linux.tar.gz'),
+            {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': 'linux',
+             'version': Version.parse('0.1a1-ext-all'), 'path': None})
+        self.assertEqual(
+            get_installer_from_name(
+                source,
+                'five.megrok.z3cform-0.1a1-ext-all-py2.6-linux-x86_64.tar.gz'),
+            {'name': 'five.megrok.z3cform', 'format': 'tar.gz',
+             'url': None, 'pyversion': '2.6', 'platform': 'linux-x86_64',
+             'version': Version.parse('0.1a1-ext-all'), 'path': None})
 
