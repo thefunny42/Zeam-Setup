@@ -6,8 +6,9 @@ except ImportError:
     import elementtree.ElementTree as etree
 
 from zeam.setup.base.vcs.vcs import VCS, VCSFactory
-from zeam.setup.base.utils import have_cmd, get_cmd_output
+from zeam.setup.base.utils import have_cmd, get_cmd_output, compare_uri
 from zeam.setup.base.vcs.error import SubversionError
+
 
 logger = logging.getLogger('zeam.setup')
 INVALID_CERTIFICATE = 'certificate verification failed: issuer is not trusted'
@@ -58,7 +59,6 @@ class Subversion(VCS):
         stdout, stderr, code = get_cmd_output(
             *command, environ={'LC_ALL': 'C'}, path=path)
         if code:
-            logger.info(stderr)
             reason = stderr.strip().split('\n')[-1]
             if INVALID_CERTIFICATE in reason:
                 raise SubversionError(
@@ -71,7 +71,8 @@ class Subversion(VCS):
                     self.package.uri)
             if error is None:
                 error = u"Error while running svn command"
-            raise SubversionError(error, self.package.uri)
+            raise SubversionError(
+                error, self.package.uri, detail=stderr, command=command)
         return stdout
 
     def checkout(self):
@@ -95,7 +96,7 @@ class Subversion(VCS):
             raise SubversionError(
                 u"Could not read the output",
                 self.package.directory)
-        if current_uri != self.package.uri:
+        if not compare_uri(current_uri, self.package.uri):
             if not self.package.uri.startswith(current_root):
                 raise SubversionError(
                     u"Cannot switch to a different repository",

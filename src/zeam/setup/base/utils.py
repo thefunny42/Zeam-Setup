@@ -66,7 +66,6 @@ def get_cmd_output(*cmd, **opts):
     stdout, stderr = process.communicate()
     return stdout, stderr, process.returncode
 
-
 def is_remote_uri(uri):
     """Tell you if the given uri is remote.
     """
@@ -105,6 +104,10 @@ def open_uri(uri):
     except IOError, e:
         raise FileError(uri, e.args[1])
 
+def compare_uri(uri1, uri2):
+    """Compare two URIs together, discarding the last '/'.
+    """
+    return uri1.rstrip('/') == uri2.rstrip('/')
 
 def rewrite_links(base_uri, links, lower=False):
     """This rewrite a list of links as full uri, using base_uri as

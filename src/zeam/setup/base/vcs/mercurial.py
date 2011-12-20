@@ -2,7 +2,7 @@
 
 import logging
 
-from zeam.setup.base.utils import have_cmd, get_cmd_output
+from zeam.setup.base.utils import have_cmd, get_cmd_output, compare_uri
 from zeam.setup.base.vcs.error import MercurialError
 from zeam.setup.base.vcs.vcs import VCS, VCSFactory
 
@@ -11,22 +11,37 @@ logger = logging.getLogger('zeam.setup')
 
 class Mercurial(VCS):
 
+    def __init__(self, package, options=[]):
+        super(Mercurial, self).__init__(package, options=options)
+        # Support for branch names as '#' in URL.
+        if '#' in package.uri:
+            uri, branch = package.uri.split('#', 1)
+            if package.branch is not None and branch != package.branch:
+                raise MercurialError(
+                    u"Different branches are given in the URI and as option",
+                    package.uri, package.branch)
+            package.branch = branch
+        if package.branch == 'default':
+            package.branch = None
+
     def _run_mercurial(self, arguments, error=None, path=None):
         command = ['hg']
         command.extend(arguments)
         command.extend(['--quiet', '--noninteractive'])
         stdout, stderr, code = get_cmd_output(*command, path=path)
         if code:
-            logger.info(stderr)
             if error is None:
                 error = u"Error while running mercurial command for"
-            raise MercurialError(error,  self.package.uri)
+            raise MercurialError(
+                error,  self.package.uri, command=command, detail=stderr)
         return stdout
 
     def checkout(self):
         self._run_mercurial(
             ['clone', self.package.uri, self.package.directory],
             error=u"Error while cloning")
+        if self.package.branch:
+            self.switch()
 
     def update(self):
         self._run_mercurial(
@@ -38,10 +53,10 @@ class Mercurial(VCS):
         current_uri = self._run_mercurial(
             ['showconfig', 'paths.default'],
             path=self.package.directory,
-            error=u"Error while reading the current repository path.")
+            error=u"Error while reading the current repository path")
         if '#' in current_uri:
             current_uri = current_uri.split('#', 1)[0]
-        if current_uri != self.package.uri:
+        if not compare_uri(current_uri, self.package.uri):
             raise MercurialError(
                 u"Cannot switch to a different repository.")
         current_branch = self._run_mercurial(
@@ -59,7 +74,7 @@ class Mercurial(VCS):
         changes = self._run_mercurial(
             ['status'],
             path=self.package.directory,
-            error=u"Error while checking file statuses")
+            error=u"Error while checking for changes")
         return bool(len(changes.strip()))
 
     def switch(self):

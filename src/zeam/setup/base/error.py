@@ -106,6 +106,8 @@ class LoggerUtility(object):
             else:
                 if issubclass(cls, InstallationError):
                     logger.critical(error.msg())
+                    for line in error.extra():
+                        logger.info(line)
                 else:
                     logger.critical(u'')
                     logger.critical(
@@ -135,13 +137,22 @@ class InstallationError(Exception):
     """
     name = u'Installation error'
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         self.args = args
+        self.detail = kwargs.get('detail', None)
+        self.command = kwargs.get('command', None)
 
     def msg(self):
         # Remove None values from args
         args = filter(lambda a: a, self.args)
         return u': '.join((self.name, ) + args)
+
+    def extra(self):
+        if self.command:
+            yield '$ ' + ' '.join(self.command)
+        if self.detail:
+            for line in self.detail.splitlines():
+                yield line
 
     __str__ = msg
 
