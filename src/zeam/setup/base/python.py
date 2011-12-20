@@ -1,7 +1,17 @@
 
 import sys
+import tempfile
+import atexit
+import os
+import logging
+import shutil
+import threading
 
 from zeam.setup.base.utils import get_cmd_output
+from zeam.setup.base.setuptools import setuptoolize, install_setuptools
+from zeam.setup.base.error import InstallationError
+
+logger = logging.getLogger('zeam.setup')
 
 
 class PythonInterpreter(object):
@@ -21,6 +31,8 @@ class PythonInterpreter(object):
         self._platform = get_cmd_output(
             path, "-c",
             "print __import__('sys').platform")[0].strip()
+        self._setuptools = False
+        self._lock = threading.RLock()
 
     @classmethod
     def detect(cls, path=None):
@@ -54,12 +66,58 @@ class PythonInterpreter(object):
         module_file = module.__file__
         if module_file.endswith('.pyc'):
             module_file = module_file[:-1]
-        cmd = [self._path, module_file]
+        cmd = [self._path]
+        if 'python_options' in opts:
+            cmd.extend(opts['python_options'])
+            del opts['python_options']
+        cmd.append(module_file)
         cmd.extend(args)
         return get_cmd_output(*cmd, **opts)
+
+    def execute_setuptools(self, *cmd, **options):
+        """Execute a setuptools command with this interpreter.
+        """
+        if self._setuptools is False:
+            self._lock.acquire()
+            try:
+                if self._setuptools is False:
+                    self._setuptools = find_setuptools(self)
+            finally:
+                self._lock.release()
+
+        if self._setuptools is not None:
+            options.setdefault('environ', {})
+            options['environ']['PYTHONPATH'] = self._setuptools
+            options['python_options'] = ['-S']
+        return self.execute_module(setuptoolize, *cmd, **options)
 
     def get_pyversion(self):
         return self._version
 
     def get_platform(self):
         return self._platform
+
+
+def find_setuptools(interpreter):
+    install_path = tempfile.mkdtemp('zeam.setup.setuptools')
+    atexit.register(shutil.rmtree, install_path)
+    stdout, stderr, code = interpreter.execute_module(
+        install_setuptools, install_path, python_options=['-S'])
+    installed = os.listdir(install_path)
+    if code or len(installed) != 1:
+        stdout, stderr, code = interpreter.execute_external(
+            '-c', 'import setuptools')
+        if code:
+            raise InstallationError(
+                u"Setuptools installation failed."
+                u"Please sent an insult to setuptools author.")
+        logger.critical(
+            u"ERROR: Setuptools installation failed. "
+            u"We will try to continue with the version "
+            u"installed on the system, but that might "
+            u"trigger random unincomphrensible errors.")
+        setuptools_path = None
+    else:
+        setuptools_path = os.path.join(install_path, installed[0])
+    return setuptools_path
+

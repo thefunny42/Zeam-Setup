@@ -1,13 +1,10 @@
 
-import atexit
 import logging
 import os
 import shutil
-import tempfile
-
+import threading
 
 from zeam.setup.base.egginfo.loader import EggLoader
-from zeam.setup.base.setuptools import setuptoolize
 
 logger = logging.getLogger('zeam.setup')
 
@@ -56,27 +53,6 @@ class NativeSetuptoolsLoaderFactory(object):
     """Load a setuptool source package.
     """
 
-    def __init__(self):
-        try:
-            import setuptools
-            self.setuptools_path = None
-        except ImportError:
-            logger.info('Installing setuptools')
-            from ez_setup import download_setuptools
-            self.setuptools_path = tempfile.mkdtemp('zeam.setup.setuptools')
-            download_setuptools(to_dir=self.setuptools_path)
-            atexit.register(shutil.rmtree, self.setuptools_path)
-
-    def setuptools(self, interpreter):
-
-        def run(*cmd, **options):
-            if self.setuptools_path is not None:
-                options.setdefault('environ', {})
-                options['environ']['PYTHONPATH'] = self.setuptools_path
-            return interpreter.execute_module(setuptoolize, *cmd, **options)
-
-        return run
-
     def __call__(self, distribution, path, interpretor):
         setup_py = os.path.join(path, 'setup.py')
         if os.path.isfile(setup_py):
@@ -95,7 +71,7 @@ class NativeSetuptoolsLoaderFactory(object):
                 shutil.rmtree(egg_info)
 
             # Get fresh egg_info
-            execute = self.setuptools(interpretor)
+            execute = interpretor.execute_setuptools
             output, _, code = execute('egg_info', path=path)
             if not code:
                 egg_info_parent, egg_info = find_egg_info(distribution, path)
@@ -111,3 +87,4 @@ class NativeSetuptoolsLoaderFactory(object):
                     u"Setuptools retuned status code %s in  %s, " % (
                         code, path))
         return None
+

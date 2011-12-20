@@ -28,7 +28,7 @@ class Git(VCS):
 
     def update(self):
         self._run_git(
-            ['pull'],
+            ['pull', '--quiet'],
             path=self.package.directory,
             error=u"Error while pulling")
 
