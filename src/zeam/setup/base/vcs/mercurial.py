@@ -21,6 +21,7 @@ class Mercurial(VCS):
             if error is None:
                 error = u"Error while running mercurial command for"
             raise MercurialError(error,  self.package.uri)
+        return stdout
 
     def checkout(self):
         self._run_mercurial(
@@ -30,8 +31,51 @@ class Mercurial(VCS):
     def update(self):
         self._run_mercurial(
             ['pull', '-u'],
-            error=u"Error while pulling",
-            path=self.package.directory)
+            path=self.package.directory,
+            error=u"Error while pulling")
+
+    def verify(self):
+        current_uri = self._run_mercurial(
+            ['showconfig', 'paths.default'],
+            path=self.package.directory,
+            error=u"Error while reading the current repository path.")
+        if '#' in current_uri:
+            current_uri = current_uri.split('#', 1)[0]
+        if current_uri != self.package.uri:
+            raise MercurialError(
+                u"Cannot switch to a different repository.")
+        current_branch = self._run_mercurial(
+            ['branch'],
+            path=self.package.directory,
+            error=u"Error while reading the current branch")
+        if self.package.branch:
+            if self.package.branch != current_branch:
+                return True
+        elif current_branch != 'default':
+            return True
+        return False
+
+    def status(self):
+        changes = self._run_mercurial(
+            ['status'],
+            path=self.package.directory,
+            error=u"Error while checking file statuses")
+        return bool(len(changes.strip()))
+
+    def switch(self):
+        self._run_mercurial(
+            ['update', '-r', 'branch(%r)' % self.package.branch],
+            path=self.package.directory,
+            error=u"Error while switching branch")
+
+
+class MercurialPre17(Mercurial):
+
+    def switch(self):
+        self._run_mercurial(
+            ['update', self.package.branch],
+            path=self.package.directory,
+            error=u"Error while switching branch")
 
 
 class MercurialFactory(VCSFactory):
@@ -43,4 +87,9 @@ class MercurialFactory(VCSFactory):
             logger.info('Found Mercurial version %s' % self.version)
 
     def __call__(self, package):
+        if self.version < '1.7':
+            logger.error(
+                u"Using an *old* mercurial version, "
+                u"we recommand you to upgrade your Mercurial.")
+            return MercurialPre17(package)
         return Mercurial(package)

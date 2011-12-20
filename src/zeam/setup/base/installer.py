@@ -31,7 +31,7 @@ class PackageInstaller(object):
             'install_workers', 'setup', '5').as_int()
         self._options = options
         self._first_done = False
-        self._installation_failed = None
+        self._error = None
 
     def _wakeup_workers(self):
         # Wake up some workers to work.
@@ -83,8 +83,8 @@ class PackageInstaller(object):
     def mark_failed(self, error):
         self._lock.acquire()
         try:
-            logger.debug(u'Installer failed')
-            self._installation_failed = error
+            logger.debug(u'Failure')
+            self._error = error
             logs.report(fatal=False)
             self._wait.acquire()
             self._wait.notifyAll()
@@ -95,7 +95,7 @@ class PackageInstaller(object):
     def get_requirement(self):
         self._lock.acquire()
         try:
-            if self._installation_failed is not None:
+            if self._error is not None:
                 return INSTALLATION_DONE
             if not self._to_install:
                 if not self._being_installed:
@@ -158,8 +158,8 @@ class PackageInstaller(object):
                 workers.append(worker)
             for worker in workers:
                 worker.join()
-            if self._installation_failed is not None:
-                raise self._installation_failed
+            if self._error is not None:
+                raise self._error
             else:
                 if self.kgs is not None:
                     self.kgs.log_usage()

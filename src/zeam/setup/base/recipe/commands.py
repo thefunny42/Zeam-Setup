@@ -1,139 +1,16 @@
 
-import os
 import shutil
 import tempfile
 import logging
-import operator
 
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.configuration import Section
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.installer import PackageInstaller
 from zeam.setup.base.version import Requirements
+from zeam.setup.base.recipe.utils import Paths
 
 logger = logging.getLogger('zeam.setup')
-_marker = object()
-
-
-class Paths(object):
-
-    def __init__(self, paths=None, verify=True):
-        self._data = {}
-        self._len = 0
-        if paths:
-            self.extend(paths, verify=verify)
-
-    def add(self, path, verify=True, added=True):
-        if verify:
-            if not os.path.exists(path):
-                logger.error(
-                    u"WARNING: Missing installed path %s.",
-                    path)
-                return False
-        data = self._data
-        for piece in path.split(os.path.sep):
-            data = data.setdefault(piece, {})
-        data[None] = {'added': added, 'directory': os.path.isdir(path)}
-        self._len += 1
-        return True
-
-    def extend(self, paths, verify=True, added=True):
-        all_added = True
-        for path in paths:
-            all_added = self.add(path, verify=verify, added=added) and all_added
-        return all_added
-
-    def rename(self, old, new):
-
-        def rename_sub(old_data, old_ids, new_data, new_ids):
-            assert len(old_ids) == len(new_ids), \
-                'Path of different depths are not supported'
-
-            if not old_ids:
-                if None not in old_data:
-                    raise ValueError
-                new_data[None] = old_data[None]
-                del old_data[None]
-                return len(old_data) == 0
-
-            old_id = old_ids.pop(0)
-            new_id = new_ids.pop(0)
-
-            if old_id not in old_data:
-                raise ValueError
-
-            add_data = new_data.get(new_id, {})
-            unique = len(old_data[old_id]) == 1
-
-            prune = rename_sub(
-                old_data[old_id], old_ids,
-                add_data, new_ids)
-
-            prune = unique and prune
-            new_data[new_id] = add_data
-
-            if old_id == new_id:
-                return prune
-            if prune:
-                del old_data[old_id]
-            return prune
-
-        try:
-            rename_sub(
-                self._data, old.split(os.path.sep),
-                self._data, new.split(os.path.sep))
-            return True
-        except ValueError:
-            return False
-
-    def get_added(self, directory=None):
-        matches = {'added': True}
-        if directory is not None:
-            matches['directory'] = directory
-        return self.as_list(True, matches=matches)
-
-    def as_list(self, simplify=False, matches={}, prefixes={}):
-        result = []
-
-        def build(prefix, data):
-            for key, value in sorted(data.items(), key=operator.itemgetter(0)):
-                if key is None:
-                    for match_key, match_value in matches.items():
-                        if value.get(match_key, None) != match_value:
-                            break
-                    else:
-                        result.append(os.path.sep.join(prefix))
-                        if simplify:
-                            # None is always the smallest.
-                            break
-                else:
-                    build(prefix + [key], value)
-
-        if prefixes:
-            for path, replace in prefixes.iteritems():
-                data = self._data
-                for piece in path.split(os.path.sep):
-                    data = data.get(piece)
-                    if data is None:
-                        break
-                else:
-                    build([replace], data)
-        else:
-            build([], self._data)
-        return result
-
-    def __len__(self):
-        return self._len
-
-    def __contains__(self, path):
-        data = self._data
-        for piece in path.split(os.path.sep):
-            data = data.get(piece, _marker)
-            if data is _marker:
-                return False
-        if None in data:
-            return True
-        return False
 
 
 class PartStatus(object):
@@ -243,14 +120,14 @@ class Part(object):
             return True
         return False
 
-    def prepare(self):
+    def preinstall(self):
         # Verify dependencies first.
         if self.status.is_enabled():
             logger.warn(u'Prepare installation for %s.', self.name)
             if self.status.requirements:
                 self.installer.add_recipe_packages(self.status.requirements)
             for recipe in self.recipes:
-                recipe.prepare()
+                recipe.preinstall()
         else:
             logger.warn(u'Nothing to prepare for %s.', self.name)
 
@@ -262,6 +139,15 @@ class Part(object):
         else:
             logger.warn(u'Nothing to install for %s.', self.name)
 
+    def preuninstall(self):
+        if self.status.is_enabled():
+            logger.warn(u'Pre-uninstall %s.', self.name)
+            for recipe in reversed(self.recipes):
+                # We execute the recipes in reverse order here.
+                recipe.preuninstall()
+        else:
+            logger.warn(u'Nothing to pre-uninstall for %s.', self.name)
+
     def uninstall(self):
         if self.status.is_enabled():
             logger.warn(u'Uninstall %s.', self.name)
@@ -269,7 +155,7 @@ class Part(object):
                 # We execute the recipes in reverse order here.
                 recipe.uninstall()
         else:
-            logger.warn(u'Nothing to unstall for %s.', self.name)
+            logger.warn(u'Nothing to uninstall for %s.', self.name)
 
     def finalize(self, configuration):
         self.status.save(configuration)
@@ -400,10 +286,15 @@ class Installer(object):
         self.parts_to_install.sort()
 
     def run(self):
-        # Prepare recipe
+        # Prepare parts to install
         __status__ = u"Preparing installation."
         for part in self.parts_to_install:
-            part.prepare()
+            part.preinstall()
+
+        # Prepare parts to install
+        __status__ = u"Preparing un-installation."
+        for part in self.parts_to_uninstall:
+            part.preuninstall()
 
         # Uninstall what you need to uninstall first.
         __status__ = u"Running un-installation."

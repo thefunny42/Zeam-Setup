@@ -16,7 +16,7 @@ class Template(Recipe):
         super(Template, self).__init__(options, status)
         status.requirements.append('Genshi')
 
-    def prepare(self):
+    def preinstall(self):
         from genshi.template import NewTextTemplate, MarkupTemplate
 
         self.formats = {'.template_xml': MarkupTemplate,

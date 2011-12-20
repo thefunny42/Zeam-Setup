@@ -15,7 +15,7 @@ AUTHORIZATION_FAILED = 'authorization failed'
 
 
 def read_info(xml):
-    # Read the output of svn status in XML.
+    # Read the output of svn info in XML.
     try:
         dom = etree.fromstring(xml)
     except:
@@ -33,6 +33,20 @@ def read_info(xml):
     if root is None:
         return None, None
     return url.text.strip(), root.text.strip()
+
+def read_status(xml):
+    # Read the output of svn status in XML. Return False if the output
+    # is dirty.
+    try:
+        dom = etree.fromstring(xml)
+    except:
+        return False
+    for target in dom.findall('target'):
+        for entry in target.findall('entry'):
+            status = entry.find('wc-status')
+            if status is not None and status.get('item') != 'external':
+                return False
+    return True
 
 
 class Subversion(VCS):
@@ -56,14 +70,14 @@ class Subversion(VCS):
                     u"Invalid username or password",
                     self.package.uri)
             if error is None:
-                error = u"Error while running svn command for"
+                error = u"Error while running svn command"
             raise SubversionError(error, self.package.uri)
         return stdout
 
     def checkout(self):
         self._run_svn(
             ['co', self.package.uri, self.package.directory],
-            error=u"Error while doing check out of")
+            error=u"Error while checking out")
 
     def update(self):
         self._run_svn(
@@ -75,26 +89,32 @@ class Subversion(VCS):
         xml = self._run_svn(
             ['info', '--xml'],
             path=self.package.directory,
-            error="Checkout directory is not a valid Subversion checkout")
+            error="Checkout directory is not a valid checkout")
         current_uri, current_root = read_info(xml)
         if current_uri is None:
             raise SubversionError(
-                u"Could not read the output of Subversion",
+                u"Could not read the output",
                 self.package.directory)
         if current_uri != self.package.uri:
             if not self.package.uri.startswith(current_root):
                 raise SubversionError(
-                    u"Cannot switch to a different Subversion repository",
+                    u"Cannot switch to a different repository",
                     current_root, self.package.uri)
             return False
         return True
 
+    def status(self):
+        xml = self._run_svn(
+            ['status', '--xml'],
+            path=self.package.directory,
+            error="Checkout directory is not a valid checkout")
+        return read_status(xml)
+
     def switch(self):
-        # XXX Verify uncommited changes first.
         self._run_svn(
             ['switch', self.package.uri],
             path=self.package.directory,
-            error=u"Error cannot switch Subversion repository")
+            error=u"Error switching repository URI")
 
 
 class SubversionFactory(VCSFactory):

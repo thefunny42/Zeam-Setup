@@ -1,10 +1,13 @@
 
+import shutil
 import shlex
 
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.vcs import VCSCheckout, VCS
+from zeam.setup.base.vcs.error import VCSError
 from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.utils import create_directory
+from zeam.setup.base.recipe.utils import MultiTask
 
 
 class VersionSystemCheckout(Recipe):
@@ -13,7 +16,7 @@ class VersionSystemCheckout(Recipe):
         __status__ = u"Reading VCS URIs."
         super(VersionSystemCheckout, self).__init__(options, status)
         self.directory = options['directory'].as_text()
-        self.uris = []
+        self.packages = {}
         self.repositories = []
 
         uris = options['uris']
@@ -23,23 +26,61 @@ class VersionSystemCheckout(Recipe):
             except ValueError:
                 raise ConfigurationError(
                     uris.location,
-                    u"Malformed URIs for option %s on line %d" % (
+                    u"Malformed URIs for option %s on line %d." % (
                         uris.name, index))
-            self.uris.append(
-                VCSCheckout(values[0], uris, values[1:], self.directory))
+            package = VCSCheckout(values[0], uris, values[1:], self.directory)
+            if package.directory in self.packages:
+                raise ConfigurationError(
+                    uris.location,
+                    u"Duplicate checkout directory for %s on line %d." %(
+                        package.name, index))
+            self.packages[package.directory] = package
 
-    def prepare(self):
-        __status__ = u"Preparing VCS URIs."
-        if self.uris:
+        self._do = MultiTask(options, 'vcs')
+
+    def preinstall(self):
+        __status__ = u"Preparing installing VCS directories."
+        if self.packages:
             VCS.initialize()
             create_directory(self.directory)
-            for uri in self.uris:
-                repository = VCS(uri)
+
+            def prepare(package):
+                repository = VCS(package)
                 repository.prepare()
-                self.repositories.append(repository)
+                return repository
+
+            self.repositories.extend(self._do(prepare, self.packages.values()))
 
     def install(self):
-        __status__ = u"Checkout VCS URIs."
-        for repository in self.repositories:
+        __status__ = u"Checkout VCS directories."
+
+        def install(repository):
             repository.install()
-            self.status.paths.add(repository.directory)
+            return repository.directory
+
+        self.status.paths.extend(self._do(install, self.repositories))
+
+    def preuninstall(self):
+        __status__ = u"Prepare to remove VCS directories."
+        paths = self.status.installed_paths.as_list()
+        if paths:
+            VCS.initialize()
+
+            def status(path):
+                if path not in self.packages:
+                    raise ConfigurationError(
+                        u"Missing VCS repository definition for",
+                        path)
+                repository = VCS(self.packages[path])
+                if not repository.status():
+                    raise VCSError(
+                        u"Checkout directory has local modification "
+                        u"and is scheduled to be deleted", path)
+                return repository
+
+            self.repositories.extend(self._do(status, paths))
+
+    def uninstall(self):
+        __status__ = u"Removing VCS directories."
+        for path in self.status.installed_paths.as_list():
+            shutil.rmtree(path)

@@ -81,7 +81,7 @@ class Package(Recipe):
 
         self.working_set = None
 
-    def prepare(self):
+    def preinstall(self):
         __status__ = u"Install required packages."
         self.working_set = WorkingSet(
             interpretor=self.options.get_with_default(

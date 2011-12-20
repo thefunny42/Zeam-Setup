@@ -10,6 +10,8 @@ from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.error import ConfigurationError, InstallationError
 from zeam.setup.base.utils import create_directory, relative_uri
+from zeam.setup.base.recipe.utils import MultiTask
+
 
 logger = logging.getLogger('zeam.setup')
 
@@ -99,11 +101,12 @@ class File(Recipe):
             '${setup:prefix_directory}/download').as_text()
         create_directory(download_path)
         self.downloader = DownloadManager(download_path)
+        self._do = MultiTask(options, 'download')
 
-    def prepare(self):
+    def preinstall(self):
         __status__ = u"Download files."
-        process = lambda (uri, parts): (self.downloader(uri), parts)
-        self.files = map(process, self.files) + map(process, self.urls)
+        download = lambda (uri, parts): (self.downloader(uri), parts)
+        self.files = self._do(download, self.files + self.urls)
 
     def install(self):
         __status__ = u"Install files."

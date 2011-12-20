@@ -45,6 +45,8 @@ class VCS(object):
         return self.package.directory
 
     def prepare(self):
+        """Determine what must be done.
+        """
         if self.install is None:
             if not os.path.isdir(self.package.directory):
                 if os.path.exists(self.package.directory):
@@ -57,6 +59,11 @@ class VCS(object):
                 if self.verify():
                     self.install = self.update
                 else:
+                    if not self.status():
+                        raise VCSError(
+                            u"Checkout directory must switched "
+                            u"and is locally modified",
+                            self.package.directory)
                     self.install = self.switch
 
     def __call__(self):
@@ -65,16 +72,29 @@ class VCS(object):
         self.install()
         return self
 
+    def status(self):
+        """Return True if the checkout is clean and have been modified.
+        """
+        return True
+
     def verify(self):
+        """Return True if the checkout match the given package uri.
+        """
         return True
 
     def checkout(self):
+        """Checkout the code on the filesystem.
+        """
         raise NotImplementedError()
 
     def update(self):
+        """Update the code on the filesystem.
+        """
         raise NotImplementedError()
 
     def switch(self):
+        """Switch a branch on the filesystem.
+        """
         raise NotImplementedError()
 
 
@@ -93,11 +113,13 @@ class Develop(VCS):
     """VCS VCS: no VCS, just do a symlink to the sources.
     """
 
-    def install(self):
+    def checkout(self):
         if not os.path.exists(self.package.directory):
             os.symlink(
                 os.path.abspath(self.package.uri),
                 self.package.directory)
+
+    update = checkout
 
 
 class DevelopFactory(VCSFactory):

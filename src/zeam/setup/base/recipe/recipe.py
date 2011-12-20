@@ -7,10 +7,13 @@ class Recipe(object):
         self.options = options
         self.status = status
 
-    def prepare(self):
+    def preinstall(self):
         pass
 
     def install(self):
+        pass
+
+    def preuninstall(self):
         pass
 
     def uninstall(self):
