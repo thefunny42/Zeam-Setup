@@ -20,9 +20,10 @@ class Mercurial(VCS):
                 raise MercurialError(
                     u"Different branches are given in the URI and as option",
                     package.uri, package.branch)
+            package.uri = uri
             package.branch = branch
-        if package.branch == 'default':
-            package.branch = None
+        if package.branch is None:
+            package.branch = 'default'
 
     def _run_mercurial(self, arguments, error=None, path=None):
         command = ['hg']
@@ -34,7 +35,7 @@ class Mercurial(VCS):
                 error = u"Error while running mercurial command for"
             raise MercurialError(
                 error,  self.package.uri, command=command, detail=stderr)
-        return stdout
+        return stdout.strip()
 
     def checkout(self):
         self._run_mercurial(
@@ -63,19 +64,16 @@ class Mercurial(VCS):
             ['branch'],
             path=self.package.directory,
             error=u"Error while reading the current branch")
-        if self.package.branch:
-            if self.package.branch != current_branch:
-                return True
-        elif current_branch != 'default':
-            return True
-        return False
+        if self.package.branch != current_branch:
+            return False
+        return True
 
     def status(self):
         changes = self._run_mercurial(
             ['status'],
             path=self.package.directory,
             error=u"Error while checking for changes")
-        return bool(len(changes.strip()))
+        return not len(changes)
 
     def switch(self):
         self._run_mercurial(
