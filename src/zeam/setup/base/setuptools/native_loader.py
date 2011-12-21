@@ -2,7 +2,6 @@
 import logging
 import os
 import shutil
-import threading
 
 from zeam.setup.base.egginfo.loader import EggLoader
 
@@ -53,7 +52,7 @@ class NativeSetuptoolsLoaderFactory(object):
     """Load a setuptool source package.
     """
 
-    def __call__(self, distribution, path, interpretor):
+    def __call__(self, distribution, path, interpretor, trust=-99):
         setup_py = os.path.join(path, 'setup.py')
         if os.path.isfile(setup_py):
             # You need to clean first the egg_info. install_requires
@@ -64,10 +63,11 @@ class NativeSetuptoolsLoaderFactory(object):
                 # MANIFEST. Most of packages miss one or have a
                 # incomplete one and won't install everything without
                 # one.
-                source_file = os.path.join(egg_info, 'SOURCES.txt')
-                manifest_file = os.path.join(path, 'MANIFEST.in')
-                if os.path.isfile(source_file):
-                    create_manifest_from_source(source_file, manifest_file)
+                if trust < 0:
+                    source_file = os.path.join(egg_info, 'SOURCES.txt')
+                    manifest_file = os.path.join(path, 'MANIFEST.in')
+                    if os.path.isfile(source_file):
+                        create_manifest_from_source(source_file, manifest_file)
                 shutil.rmtree(egg_info)
 
             # Get fresh egg_info

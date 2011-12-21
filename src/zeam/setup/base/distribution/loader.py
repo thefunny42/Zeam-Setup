@@ -129,7 +129,7 @@ class SetupLoaderFactory(object):
     """Load a zeam.setup package.
     """
 
-    def __call__(self, distribution, path, interpretor):
+    def __call__(self, distribution, path, interpretor, trust=-99):
         setup_cfg = os.path.join(path, 'setup.cfg')
         if os.path.isfile(setup_cfg):
             configuration = Configuration.read(setup_cfg)

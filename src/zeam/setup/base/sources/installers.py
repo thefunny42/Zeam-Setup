@@ -19,9 +19,10 @@ class FakeInstaller(object):
     """Doesn't install anything, fake a distribution for a requirement.
     """
 
-    def __init__(self, requirement):
+    def __init__(self, requirement, trust=10):
         self.name = requirement.name
         self.key = requirement.key
+        self.trust = trust      # Level of quality of the packaging.
         if (len(requirement.versions) == 1 and
             requirement.versions[0][0] == operator.eq):
             self.version = requirement.versions[0][1]
@@ -62,6 +63,10 @@ class PackageInstaller(object):
 
     def __init__(self, source, **informations):
         self.source = source
+        self.trust = -99        # Level of trust of quality for the packaging.
+        if 'trust' in informations:
+            self.trust = informations['trust']
+            del informations['trust']
         assert 'name' in informations
         informations.setdefault('version', None)
         self.informations = informations
@@ -96,7 +101,8 @@ class PackageInstaller(object):
 
     def install(self, path, interpretor, install_dependencies):
         distribution = Release(**self.informations)
-        loader = load_metadata(distribution, distribution.path, interpretor)
+        loader = load_metadata(
+            distribution, distribution.path, interpretor, trust=self.trust)
         install_dependencies(distribution)
         return distribution, loader
 

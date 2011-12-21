@@ -304,7 +304,8 @@ class VCSSource(object):
             if self.enabled and name not in self.enabled:
                 raise PackageNotFound(requirement)
             source = self.sources[name]()
-            installer = self.factory(self, name=name, path=source.directory)
+            installer = self.factory(
+                self, name=name, path=source.directory, trust=0)
             packages = Installers([installer]).get_installers_for(requirement)
             if packages:
                 return packages

@@ -152,9 +152,9 @@ def set_loaders(names):
 set_loaders(['egg', 'native_setuptools', 'zeam_setup'])
 
 
-def load_metadata(distribution, path, interpretor):
+def load_metadata(distribution, path, interpretor, trust=-99):
     for factory in LOADERS:
-        loader = factory(distribution, path, interpretor)
+        loader = factory(distribution, path, interpretor, trust=trust)
         if loader is not None:
             assert loader.load() is distribution
             return loader

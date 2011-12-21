@@ -43,7 +43,7 @@ class EggLoaderFactory(object):
     """Load an egg package.
     """
 
-    def __call__(self, distribution, path, interpreter):
+    def __call__(self, distribution, path, interpreter, trust=-99):
         egg_info = os.path.join(path, 'EGG-INFO')
         if os.path.isdir(egg_info):
             return EggLoader(path, egg_info, distribution)
