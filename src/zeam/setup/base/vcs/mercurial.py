@@ -41,7 +41,7 @@ class Mercurial(VCS):
         self._run_mercurial(
             ['clone', self.package.uri, self.package.directory],
             error=u"Error while cloning")
-        if self.package.branch:
+        if self.package.branch != 'default':
             self.switch()
 
     def update(self):

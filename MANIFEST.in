@@ -1,5 +1,6 @@
 # Manifest for zeam.setup
 recursive-include . *.py default.cfg MANIFEST.in
 include setup.cfg
-
+include bootstrap.py
+include bootstrap.pth
 

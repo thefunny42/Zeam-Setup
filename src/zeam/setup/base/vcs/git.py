@@ -54,7 +54,7 @@ class Git(VCS):
                 branch_parts = current_branch.split()
                 if len(branch_parts) < 2:
                     break
-                if branch_parts[1] != self.package.branch:
+                if branch_parts[-1] != self.package.branch:
                     return False
                 return True
         raise GitError(u"Cannot determine current branch")

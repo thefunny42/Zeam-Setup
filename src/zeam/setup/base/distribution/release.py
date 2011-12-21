@@ -73,7 +73,7 @@ class Release(object):
                 self.name, u'Trying to activate a non-installed package')
         if self.is_active():
             return
-        # XXX Should check dependencies here as well
+        # XXX Should only do it if the interpreter is the same
         sys.path.insert(len(sys.path) and 1 or 0, self.path)
 
     def get_egg_directory(self, interpretor):
@@ -93,6 +93,31 @@ class Release(object):
             items.append(get_platform())
         return '-'.join(items) + '.egg'
 
+    def _load(self, entry_point, group, name):
+        # Private helper to load an entry point.
+        parts = entry_point.split(':')
+        if len(parts) != 2:
+            raise PackageError(u"Invalid entry point '%s' for package %s" % (
+                    entry_point, self.name))
+        python_path, attribute = parts
+        try:
+            python_module = __import__(
+                python_path, globals(), globals(), [attribute])
+        except ImportError:
+            raise PackageError(
+                self.name,
+                u'Invalid module %s for entry point %s %s:%s' % (
+                    python_path, group, self.name, name))
+        try:
+            python_value = getattr(python_module, attribute)
+        except AttributeError:
+            raise PackageError(
+                self.name,
+                u'Invalid attribute %s in module %s ' \
+                    'for entry point %s %s:%s' % (
+                    attribute, python_path, group, self.name, name))
+        return python_value
+
     def get_entry_point(self, group, name):
         """Load the entry point called name in the given group and return it.
         """
@@ -106,24 +131,18 @@ class Release(object):
             self.activate()
 
         # Load the entry point
-        (python_path, attribute) = self.entry_points[group][name].split(':')
-        try:
-            python_module = __import__(
-                python_path, globals(), globals(), [attribute])
-        except ImportError:
-            raise PackageError(
-                self.name,
-                u'Invalid module %s for entry point %s %s:%s' % (
-                    python_path, group, self.name, name))
-        try:
-            entry_point = getattr(python_module, attribute)
-        except AttributeError:
-            raise PackageError(
-                self.name,
-                u'Invalid attribute %s in module %s ' \
-                    'for entry point %s %s:%s' % (
-                    attribute, python_path, group, self.name, name))
-        return entry_point
+        return self._load(self.entry_points[group][name], group, name)
+
+    def iter_all_entry_points(self, group):
+        """Load all entry points in the given group and return them.
+        """
+        if group in self.entry_points:
+            # Activate plugin if needed
+            if not self.is_active():
+                self.activate()
+
+            for name, entry_point in self.entry_points[group].iteritems():
+                yield (name, self._load(entry_point, group, name))
 
     def __str__(self):
         return '%s == %s' % (self.name, self.version)

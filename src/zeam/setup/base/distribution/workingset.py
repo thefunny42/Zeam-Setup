@@ -111,6 +111,19 @@ class WorkingSet(object):
         release = self.installed[package]
         return release.get_entry_point(group, entry_name)
 
+    def iter_all_entry_points(self, group, *package_names):
+        """Return all entry points for a given group in a list of packages.
+        """
+        if not package_names:
+            package_names = self.installed.keys()
+        for package_name in package_names:
+            if package_name not in self.installed:
+                raise PackageError(
+                    u"No package called %s in the environment" % package_name)
+            package = self.installed[package_name]
+            for entry_point in package.iter_all_entry_points(group):
+                yield entry_point
+
     def list_entry_points(self, group, *package_names):
         """List package package_name entry point in the given group.
         """

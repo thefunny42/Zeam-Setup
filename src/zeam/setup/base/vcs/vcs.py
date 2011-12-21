@@ -1,6 +1,7 @@
 
 import os
 
+from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.vcs.error import VCSConfigurationError, VCSError
 from zeam.setup.base.error import ConfigurationError
 
@@ -9,10 +10,10 @@ class VCSCheckout(object):
 
     def __init__(self, name, origin, options, directory):
         self.name = name
-        self.defined_at = origin.location
+        defined_at = origin.location
         if len(options) < 2:
             raise ConfigurationError(
-                self.defined_at,
+                defined_at,
                 u"Malformed source description for package",
                 name)
         self.vcs = options[0]
@@ -23,12 +24,16 @@ class VCSCheckout(object):
         for extra in options[2:]:
             if not '=' in extra:
                 raise ConfigurationError(
-                    self.defined_at,
+                    defined_at,
                     u"Malformed source option for package",
                     name)
             name, value = extra.split('=', 1)
             if name in self.__dict__:
                 self.__dict__[name] = value
+
+        # Those are not overridable options
+        self.defined_at = defined_at
+        self.defined_directory = origin.get_cfg_directory()
 
 
 class VCS(object):
@@ -78,7 +83,8 @@ class VCS(object):
         return True
 
     def verify(self):
-        """Return True if the checkout match the given package uri.
+        """Return True if the checkout match the given package uri,
+        False if it needs to be switched.
         """
         return True
 
@@ -109,33 +115,56 @@ class VCSFactory(object):
         raise NotImplementedError()
 
 
-class Develop(VCS):
+class FileSystem(VCS):
     """VCS VCS: no VCS, just do a symlink to the sources.
     """
 
+    def __init__(self, package, options=[]):
+        super(FileSystem, self).__init__(package, options=options)
+        if not os.path.isabs(self.package.uri):
+            self.package.uri = os.path.normpath(
+                os.path.join(self.package.defined_directory, self.package.uri))
+
     def checkout(self):
         if not os.path.exists(self.package.directory):
-            os.symlink(
-                os.path.abspath(self.package.uri),
-                self.package.directory)
+            os.symlink(self.package.uri, self.package.directory)
 
     update = checkout
 
+    def verify(self):
+        if os.path.islink(self.package.directory):
+            current = os.path.abspath(
+                os.readlink(self.package.directory))
+            if self.package.uri != current:
+                return False
+        return True
 
-class DevelopFactory(VCSFactory):
-    available = True
+    def switch(self):
+        try:
+            os.remove(self.package.directory)
+            os.symlink(
+                os.path.abspath(self.package.uri),
+                self.package.directory)
+        except OSError:
+            raise VCSError(
+                u"Error while updating filesystem link to",
+                self.package.uri)
+
+
+class FileSystemFactory(VCSFactory):
+
+    available = hasattr(os, 'symlink')
 
     def __call__(self, package):
-        return Develop(package)
+        return FileSystem(package)
 
 
 class VCSRegistry(object):
     """Register all available VCS.
     """
 
-    def __init__(self, factories):
+    def __init__(self):
         self._initialized = False
-        self._factories = factories
         self._vcs = {}
 
     def initialize(self):
@@ -145,7 +174,7 @@ class VCSRegistry(object):
         __status__ = u"Detecting VCS systems."
         if self._initialized:
             return
-        for name, factory in self._factories.iteritems():
+        for name, factory in WorkingSet().iter_all_entry_points('setup_vcs'):
             self._vcs[name] = factory()
         self._initialized = True
 

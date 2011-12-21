@@ -1,10 +1,5 @@
 
-from zeam.setup.base.vcs.vcs import VCSRegistry, DevelopFactory, VCSCheckout
-from zeam.setup.base.vcs.subversion import SubversionFactory
-from zeam.setup.base.vcs.git import GitFactory
-from zeam.setup.base.vcs.mercurial import MercurialFactory
+from zeam.setup.base.vcs.vcs import VCSRegistry, VCSCheckout
 
-VCS = VCSRegistry({'svn': SubversionFactory,
-                   'git': GitFactory,
-                   'hg': MercurialFactory,
-                   'develop': DevelopFactory})
+VCS = VCSRegistry()
+__all__ = ['VCS', 'VCSCheckout']
