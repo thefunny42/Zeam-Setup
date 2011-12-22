@@ -6,7 +6,7 @@ import shutil
 import socket
 import sys
 
-from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.distribution.release import current_package, set_loaders
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import InstallationError, logs
@@ -154,7 +154,7 @@ class BootstrapCommand(object):
     def command(self, configuration, options, args):
         """Pick a command and run it.
         """
-        EggInfo(configuration).run()
+        #EggInfo(configuration).run()
         Installer(configuration).run()
 
     def run(self):
@@ -189,17 +189,16 @@ class SetupCommand(BootstrapCommand):
     def command(self, configuration, options, args):
         """Pick a command and run it.
         """
-        environment = WorkingSet()
-        all_commands = environment.list_entry_points('setup_commands')
+        commands = working_set.list_entry_points('setup_commands')
         if len(args):
-            command = all_commands.get(args[0], None)
+            command = commands.get(args[0], None)
             if command is None:
                 raise InstallationError(u'Unknow command %s' % args[0])
         else:
-            command = all_commands.get('default', None)
+            command = commands.get('default', None)
             if command is None:
                 raise InstallationError(u'No command available')
-        command_class = environment.get_entry_point(
+        command_class = working_set.get_entry_point(
             'setup_commands', command['name'])
         processor = command_class(configuration)
         processor.run()

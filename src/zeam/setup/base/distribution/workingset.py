@@ -168,3 +168,6 @@ class WorkingSet(object):
         """Display as a list of a requirements (formatted as str).
         """
         return map(str, self.installed.values())
+
+
+working_set = WorkingSet()

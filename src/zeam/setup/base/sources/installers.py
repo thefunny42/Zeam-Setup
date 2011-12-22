@@ -13,6 +13,7 @@ from zeam.setup.base.version import Version, Requirements
 from zeam.setup.base.egginfo.write import write_egg_info
 
 logger = logging.getLogger('zeam.setup')
+marker = object()
 
 
 class FakeInstaller(object):
@@ -54,6 +55,31 @@ class FakeInstaller(object):
         distribution.path = install_path
         distribution.package_path = install_path
         return distribution, self
+
+
+class NullInstaller(object):
+    """Don't install anything, return an already installed package.
+    """
+
+    def __init__(self, distribution):
+        self.distribution = distribution
+
+    def filter(self, requirement, pyversion=None, platform=None):
+        # XXX check pyversion and blabla
+        return requirement.match(self.distribution)
+
+    def __lt__(self, other):
+        return False            # This is the most recent we got.
+
+    def __getattr__(self, key):
+        value = getattr(self.distribution, key, marker)
+        if value is marker:
+            raise AttributeError(key)
+        return value
+
+    def install(self, path, interpretor, install_dependencies):
+        install_dependencies(self.distribution)
+        return self.distribution, self
 
 
 class PackageInstaller(object):

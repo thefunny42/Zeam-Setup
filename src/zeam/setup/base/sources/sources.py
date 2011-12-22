@@ -3,9 +3,12 @@ import logging
 import os
 import re
 import threading
+import sys
 
+from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.sources.collection import Installers
 from zeam.setup.base.sources.installers import (
+    NullInstaller,
     UndownloadedPackageInstaller,
     ExtractedPackageInstaller,
     UninstalledPackageInstaller,
@@ -344,10 +347,44 @@ class FakeSource(object):
         return '<FakeSource>'
 
 
+class InstalledSource(object):
+    """This source report already installed packages in the Python
+    path. It only works if the target interpretor is the same used to
+    run the setup.
+    """
+
+    def __init__(self, options):
+        self.options = options
+        self.working_set = None
+        self.packages = options.get('packages', '').as_list()
+
+    def initialize(self, first_time):
+        if self.working_set is None:
+            self.working_set = working_set
+
+    def available(self, configuration):
+        return True
+
+    def search(self, requirement, interpretor):
+        if interpretor == sys.executable:
+            if not self.packages or requirement.name in self.packages:
+                if requirement.name in self.working_set:
+                    installer = NullInstaller(self.working_set[requirement])
+                    packages = Installers(
+                        [installer]).get_installers_for(requirement)
+                    if packages:
+                        return packages
+        raise PackageNotFound(requirement)
+
+    def __repr__(self):
+        return '<FakeSource>'
+
+
 SOURCE_PROVIDERS = {'local': LocalSource,
                     'remote': RemoteSource,
                     'eggs': EggsSource,
                     'vcs': VCSSource,
+                    'installed': InstalledSource,
                     'fake': FakeSource}
 
 class Sources(object):
@@ -359,14 +396,19 @@ class Sources(object):
         self.sources = []
         self.available_sources = []
         self.configuration = configuration
-        for source_name in configuration[section_name]['sources'].as_list():
-            source_config = configuration['source:' + source_name]
-            type = source_config['type'].as_text()
-            if type not in SOURCE_PROVIDERS:
+
+        defined_sources = working_set.list_entry_points('setup_sources')
+        for name in configuration[section_name]['sources'].as_list():
+            config = configuration['source:' + name]
+            source_type = config['type'].as_text()
+            if source_type not in defined_sources:
                 raise ConfigurationError(
                     u'Unknow source type %s for %s' % (
-                        type, source_name))
-            self.sources.append(SOURCE_PROVIDERS[type](source_config))
+                        source_type, name))
+            factory = working_set.get_entry_point(
+                'setup_sources',
+                defined_sources[source_type]['name'])
+            self.sources.append(factory(config))
         self._initialized = False
 
     def initialize(self):

@@ -1,7 +1,7 @@
 
 import os
 
-from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.vcs.error import VCSConfigurationError, VCSError
 from zeam.setup.base.error import ConfigurationError
 
@@ -174,7 +174,7 @@ class VCSRegistry(object):
         __status__ = u"Detecting VCS systems."
         if self._initialized:
             return
-        for name, factory in WorkingSet().iter_all_entry_points('setup_vcs'):
+        for name, factory in working_set.iter_all_entry_points('setup_vcs'):
             self._vcs[name] = factory()
         self._initialized = True
 

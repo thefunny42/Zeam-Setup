@@ -2,7 +2,7 @@
 import logging
 import sys
 
-from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.egginfo.write import write_egg_info
 
 logger = logging.getLogger('zeam.setup')
@@ -29,7 +29,7 @@ class Installed(object):
     def run(self):
         # It's not errors, but the moment we use the log facily to
         # report information.
-        installed = WorkingSet().installed.items()
+        installed = working_set.installed.items()
         installed.sort(key=lambda (k,v):k)
         logger.error("Running Python %s" % sys.version)
         logger.error("Installed packages:")

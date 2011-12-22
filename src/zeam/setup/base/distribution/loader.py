@@ -10,6 +10,7 @@ from zeam.setup.base.error import PackageError
 from zeam.setup.base.python import PythonInterpreter
 from zeam.setup.base.setuptools.autotools import AutomakeBuilder
 from zeam.setup.base.version import Version, Requirements
+from zeam.setup.base.egginfo.write import write_egg_info
 
 logger = logging.getLogger('zeam.setup')
 
@@ -102,6 +103,9 @@ class SetupLoader(object):
             for category_name in entry_points.as_list():
                 info = self.configuration['entry_points:' + category_name]
                 self.distribution.entry_points[category_name] = info.as_dict()
+
+        # XXX Experimental, should not be here, should be job of installer
+        write_egg_info(self.distribution)
         return self.distribution
 
     def install(self, install_path):
