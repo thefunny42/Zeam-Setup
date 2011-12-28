@@ -32,10 +32,11 @@ class ZipArchive(object):
             if not os.path.exists(target_path):
                 os.makedirs(target_path)
 
-            # Extract the file
-            output = open(target_filename, 'wb')
-            output.write(self._zip.read(filename))
-            output.close()
+            if filename[-1] != '/': # ZIP specs uses / as path separator
+                # Extract the file if it is not a folder
+                output = open(target_filename, 'wb')
+                output.write(self._zip.read(filename))
+                output.close()
 
     def close(self):
         self._zip.close()

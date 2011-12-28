@@ -182,13 +182,12 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
             # see if there is only one folder in the archive, ignore
             # what starts with .
             source_path = None
-            candidates_entries = filter(
-                lambda s: s and s[0] != '.', os.listdir(build_dir))
-            if len(candidates_entries) == 1:
-                candidate_path = os.path.join(build_dir, candidates_entries[0])
-                if os.path.isdir(candidate_path):
-                    # If there is only one directory in the archive use it.
-                    source_path = candidate_path
+            candidate_paths = filter(os.path.isdir, map(
+                    lambda p: os.path.join(build_dir, p),
+                    filter(lambda s: s and s[0] != '.', os.listdir(build_dir))))
+            if len(candidate_paths) == 1:
+                # If there is only one directory in the archive use it.
+                source_path = candidate_paths[0]
             if source_path is None:
                 raise PackageError(
                     u"Cannot introspect archive content for %s" % (archive,))

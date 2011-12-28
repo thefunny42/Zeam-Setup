@@ -1,5 +1,6 @@
 
 import logging
+import re
 
 from zeam.setup.base.utils import have_cmd, get_cmd_output
 from zeam.setup.base.vcs.vcs import VCS, VCSFactory
@@ -9,6 +10,8 @@ logger = logging.getLogger('zeam.setup')
 
 
 class Git(VCS):
+    prefix = "remotes/origin"
+    re_prefix = re.escape(prefix)
 
     def __init__(self, package, options=[]):
         super(Git, self).__init__(package, options=options)
@@ -30,6 +33,8 @@ class Git(VCS):
         self._run_git(
             ['clone', '--quiet', self.package.uri, self.package.directory],
             error=u"Error while cloning")
+        if self.package.branch != 'master':
+            self.switch()
 
     def update(self):
         self._run_git(
@@ -67,9 +72,27 @@ class Git(VCS):
         return not len(changes)
 
     def switch(self):
-        pass
+        branches = self._run_git(
+            ['branch', '-a'],
+            path=self.package.directory)
+        name = re.escape(self.package.branch)
+        pattern_local = "".join(("^(\*| ) ",  name, "$"))
+        pattern_remote = "".join(("^  ", self.re_prefix, "\/", name, "$"))
+        if re.search(pattern_local, branches, re.M):
+            self._run_git(
+                ['checkout', self.package.branch],
+                path=self.package.directory)
+        elif re.search(pattern_remote, branches, re.M):
+            self._run_git(
+                ['checkout', '-b', self.package.branch,
+                 '/'.join((self.prefix, self.package.branch))],
+                path=self.package.directory)
+
 
 class GitPre17(Git):
+    prefix = "origin"
+    re_prefix = re.escape(prefix)
+
 
     def status(self):
         return True
