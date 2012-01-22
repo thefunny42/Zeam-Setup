@@ -1,85 +1,46 @@
 
 import os
-
+import re
 import logging
 import tempfile
 import shutil
-import operator
 
 from zeam.setup.base.archives import ARCHIVE_MANAGER
 from zeam.setup.base.distribution.release import Release, load_metadata
 from zeam.setup.base.error import PackageError
-from zeam.setup.base.version import Version, Requirements
-from zeam.setup.base.egginfo.write import write_egg_info
+from zeam.setup.base.version import Version, InvalidVersion
 
 logger = logging.getLogger('zeam.setup')
 marker = object()
 
 
-class FakeInstaller(object):
-    """Doesn't install anything, fake a distribution for a requirement.
+
+RELEASE_TARBALL = re.compile(
+    r'^(?P<name>.*?)-(?P<version>[^-]*(-[\d]+)?(-[\w]+)*(-r[\d]+)?)'
+    r'(-py(?P<pyversion>[\d.]+)(-(?P<platform>[\w\d_.-]+))?)?'
+    r'\.(?P<format>zip|egg|tgz|tar\.gz)$',
+    re.IGNORECASE)
+
+
+def get_installer_from_name(source, link, url=None, path=None):
+    """Return a not installed installer from the given name.
     """
-
-    def __init__(self, requirement, trust=10):
-        self.name = requirement.name
-        self.key = requirement.key
-        self.trust = trust      # Level of quality of the packaging.
-        if (len(requirement.versions) == 1 and
-            requirement.versions[0][0] == operator.eq):
-            self.version = requirement.versions[0][1]
-        else:
-            self.version = Version.parse('0.0')
-        self.extras = {}
-        for extra in requirement.extras:
-            self.extras[extra] = Requirements()
-
-    def __lt__(self, other):
-        return True
-
-    def filter(self, requirement, pyversion=None, platform=None):
-        return requirement.match(self)
-
-    def install(self, path, interpretor, install_dependencies):
-        distribution = Release(name=self.name, version=self.version)
-        distribution.extras = self.extras.copy()
-
-        # Create a fake egg-info to make setuptools entry points works
-        # if the package is a dependency.
-        install_path = os.path.join(
-            path, distribution.get_egg_directory(interpretor))
-        if not os.path.isdir(install_path):
-            os.makedirs(install_path)
-        write_egg_info(distribution, package_path=install_path)
-
-        # Package path is now the installed path
-        distribution.path = install_path
-        distribution.package_path = install_path
-        return distribution, self
-
-
-class NullInstaller(object):
-    """Don't install anything, return an already installed package.
-    """
-
-    def __init__(self, distribution):
-        self.distribution = distribution
-
-    def filter(self, requirement, pyversion=None, platform=None):
-        # XXX check pyversion and blabla
-        return requirement.match(self.distribution)
-
-    def __lt__(self, other):
-        return False            # This is the most recent we got.
-
-    def __getattr__(self, key):
-        value = getattr(self.distribution, key, marker)
-        if value is marker:
-            raise AttributeError(key)
-        return value
-
-    def install(self, path, interpretor, install_dependencies):
-        install_dependencies(self.distribution)
-        return self.distribution, self
+    info = RELEASE_TARBALL.match(link)
+    if info:
+        try:
+            name = info.group('name')
+            version = Version.parse(info.group('version'))
+            format = info.group('format')
+            pyversion = info.group('pyversion')
+            platform = info.group('platform')
+            return source.factory(
+                source,
+                name=name, version=version, format=format, url=url, path=path,
+                pyversion=pyversion, platform=platform)
+        except InvalidVersion:
+            logger.debug("Can't process '%s', ignoring it." % link)
+            return None
+    return None
 
 
 class PackageInstaller(object):
@@ -202,13 +163,4 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
 
         return distribution, loader
 
-
-class UndownloadedPackageInstaller(UninstalledPackageInstaller):
-    """A release that you can download.
-    """
-
-    def install(self, path, interpretor, install_dependencies):
-        archive = self.source.downloader.download(self.url)
-        return super(UndownloadedPackageInstaller, self).install(
-            path, interpretor, install_dependencies, archive)
 

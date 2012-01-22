@@ -11,7 +11,9 @@ from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 VERSION = re.compile(
     r'version ([0-9.]+)')
 HTML_LINK = re.compile(
-    r'<a.*?href\s*=\s*["\'](?P<url>[^"\']+)["\'].*?>(?P<name>.+?)?</a>',
+    r'<a.*?href\s*=\s*["\'](?P<url>[^"\']+)["\'].*?'
+    r'(?:rel\s*=\s*["\'](?P<rel>[^"\']+)["\'].*?)?'
+    r'>(?P<name>.+?)?</a>',
     re.IGNORECASE)
 STRING_TAGS = re.compile(
     r'<(?P<tag>\S+)(\s.*?)?>.*?</(?P=tag)>|<\S+.*?/>')
@@ -121,7 +123,7 @@ def rewrite_links(base_uri, links, lower=False):
     elif not relative_path:
         relative_path = '/'
 
-    for url, name in links:
+    for url, rel, name in links:
         if url:
             if url[0] == '/':
                 # Convert absolute URL to absolute URI
@@ -138,6 +140,7 @@ def rewrite_links(base_uri, links, lower=False):
         key = name.strip()
         if lower:
             key = key.lower()
+        logger.info('%s: %s, %s', url, name, rel)
         yield (key, url)
 
 
