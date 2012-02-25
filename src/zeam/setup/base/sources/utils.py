@@ -6,7 +6,7 @@ import tempfile
 import shutil
 
 from zeam.setup.base.archives import ARCHIVE_MANAGER
-from zeam.setup.base.distribution.release import Release, load_metadata
+from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.error import PackageError
 from zeam.setup.base.version import Version, InvalidVersion
 
@@ -28,7 +28,7 @@ def get_installer_from_name(source, link, url=None, path=None):
     info = RELEASE_TARBALL.match(link)
     if info:
         try:
-            name = info.group('name')
+            name = info.group('name').lower()
             version = Version.parse(info.group('version'))
             format = info.group('format')
             pyversion = info.group('pyversion')
@@ -88,7 +88,7 @@ class PackageInstaller(object):
 
     def install(self, path, interpretor, install_dependencies):
         distribution = Release(**self.informations)
-        loader = load_metadata(
+        loader = self.source.options.utilities.releases.load(
             distribution, distribution.path, interpretor, trust=self.trust)
         install_dependencies(distribution)
         return distribution, loader

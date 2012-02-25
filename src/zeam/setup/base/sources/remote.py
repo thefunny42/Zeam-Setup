@@ -1,8 +1,10 @@
 
 import logging
+import os
 import re
 import threading
-
+import urlparse
+import HTMLParser
 
 from zeam.setup.base.sources import Installers
 from zeam.setup.base.sources.utils import (
@@ -11,21 +13,75 @@ from zeam.setup.base.sources.utils import (
 from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.error import PackageNotFound
 from zeam.setup.base.error import NetworkError
-from zeam.setup.base.utils import get_links, create_directory
-
+from zeam.setup.base.utils import open_uri, is_remote_uri, create_directory
 
 logger = logging.getLogger('zeam.setup')
 
-DOWNLOAD_URL = re.compile(r'.*download.*', re.IGNORECASE)
+FOLLOW_REL_LINK = set(['download', 'homepage'])
+DOWNLOAD_NAME = re.compile(r'\bdownload\b', re.IGNORECASE)
 
 
-def get_installers_from_links(source, links):
-    """Get downloadable software from links.
+class LinkParser(HTMLParser.HTMLParser):
+    """Collect links in an HTML file.
     """
-    for name, url in links.iteritems():
-        installer = get_installer_from_name(source, name, url=url)
-        if installer is not None:
-            yield installer
+
+    def __init__(self, base):
+        HTMLParser.HTMLParser.__init__(self)
+        self.links = []
+        self._buffer = None
+        self._link_attrs = None
+
+        base_parts = urlparse.urlparse(base)
+        self._base_uri = base_parts[0:2]
+        self._relative_path = base_parts[2]
+        if not self._relative_path.endswith('/'):
+            self._relative_path = os.path.dirname(self._relative_path)
+        elif not self._relative_path:
+            self._relative_path = '/'
+
+    def _get_link_attr(self, name):
+        if self._link_attrs is not None:
+            for tag, value in self._link_attrs:
+                if tag == name:
+                    return value
+        return None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            self._buffer = []
+            self._link_attrs = attrs
+
+    def handle_data(self, data):
+        if self._buffer is not None:
+            self._buffer.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == 'a':
+            href = self._get_link_attr('href')
+            #  We discard anchors and empty href.
+            if href and href[0] != '#':
+                href_parts = urlparse.urlparse(href)
+                # Convert absolute URL to absolute URI
+                if href[0] == '/':
+                    href = urlparse.urlunparse(self._base_uri +  href_parts[2:])
+                elif not is_remote_uri(href):
+                    # Handle relative URL
+                    href = urlparse.urlunparse(
+                        self._base_uri +
+                        ('/'.join((self._relative_path, href_parts[2])),) +
+                        href_parts[3:])
+
+                filename = os.path.basename(href_parts[2])
+                # If the content of the link is empty, we use the last
+                # part of path.
+                if self._buffer:
+                    name = ' '.join(self._buffer)
+                else:
+                    name = filename
+                rel = self._get_link_attr('rel')
+                self.links.append((href, filename, name, rel),)
+            self._link_attrs = None
+            self._buffer = None
 
 
 class UndownloadedPackageInstaller(UninstalledPackageInstaller):
@@ -38,21 +94,102 @@ class UndownloadedPackageInstaller(UninstalledPackageInstaller):
             path, interpretor, install_dependencies, archive)
 
 
+class RemoteURL(object):
+    """A remote url.
+    """
+
+    def __init__(self, source, uri, filename=None, name=None, rel=None):
+        self.source = source
+        self.uri = uri
+        self.name = name or ''
+        self.key = self.name.lower()
+        self.filename = filename or ''
+        if rel:
+            rel = rel.lower()
+        self.rel = rel
+
+    def __hash__(self):
+        return hash(self.uri)
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and other.uri == other.uri
+
+    def __str__(self):
+        return str(self.uri)
+
+    def __repr__(self):
+        return "<RemoteURL '%s'>" % (self.uri)
+
+    @property
+    def is_followable(self):
+        return DOWNLOAD_NAME.match(self.name) or (self.rel in FOLLOW_REL_LINK)
+
+    def follow(self):
+        """Follow this link to find more.
+        """
+        urls = []
+        installers = []
+        stream = open_uri(self.uri)
+        try:
+            content_type = stream.headers.get('content-type', '').split(';')[0]
+            if content_type not in ['text/html']:
+                raise NetworkError(self.uri, 'Not HTML')
+            parser = LinkParser(self.uri)
+            parser.feed(stream.read())
+        finally:
+            stream.close()
+        for url, filename, name, rel in parser.links:
+            installer = get_installer_from_name(self.source, filename, url=url)
+            if installer is not None:
+                installers.append(installer)
+            else:
+                urls.append(self.__class__(
+                        self.source, url, filename, name, rel))
+        return urls, installers
+
+
 class RemoteSearchQuery(object):
     """Bind a search for a requirement.
     """
+    # Condition to be tested in order to follow a download link
+    conditions = [
+        lambda self, link, depth: self.key == link.key,
+        lambda self, link, depth: depth and link.is_followable,
+        lambda self, link, depth: self.criteria.match(link.key)]
 
-    def __init__(self, requirement, interpretor, cache):
+    def __init__(self, source, requirement, interpretor):
+        self.source = source
         self.name = requirement.name
         self.key = requirement.name.lower()
+        self.criteria = re.compile(r'.*\b%s\b.*' % re.escape(self.key))
         self.requirement = requirement
-        self.cache = cache
         self.pyversion = interpretor.get_pyversion()
         self.platform = interpretor.get_platform()
 
-    def query(self):
-        return self.cache.get_installers_for(
+    def search(self, link, depth=0):
+        if depth > self.source.max_depth:
+            return None
+
+        __status__ = u"Locating remote source for %s on %s" % (self.name, link)
+        if not self.source.follow_links(link):
+            # The given link is not accessible.
+            return None
+
+        # Look for a software in the cache
+        packages = self.source.cache.get_installers_for(
             self.requirement, self.pyversion, self.platform)
+        if packages:
+            return packages
+
+        # No software, look for an another link to follow
+        links = self.source.links[link]
+        for condition in self.conditions:
+            for link in links:
+                if condition(self, link, depth):
+                    packages = self.search(link, depth + 1)
+                    if packages:
+                        return packages
+        return None
 
 
 class RemoteSource(object):
@@ -62,8 +199,9 @@ class RemoteSource(object):
 
     def __init__(self, options):
         self.options = options
-        self.find_links = options['urls'].as_list()
-        self.broken_links = []  # List of links that doesn't works.
+        self.find_links = map(
+            lambda uri: RemoteURL(self, uri), options['urls'].as_list())
+        self.broken_links = set([])  # List of links that doesn't works.
         self.max_depth = options.get('max_depth', '4').as_int()
         self.links = {}
         self.downloading_links = {}
@@ -87,19 +225,19 @@ class RemoteSource(object):
 
         try:
             try:
-                links = get_links(url, lower=True)
+                links, installers = url.follow()
             except NetworkError:
                 logger.warn("URL '%s' inaccessible, mark as broken.", url)
-                self.broken_links.append(url)
+                self.broken_links.add(url)
             else:
+                # Add found links and installers
                 self.links[url] = links
-                # Add found software in the cache
-                self.cache.extend(get_installers_from_links(self, links))
+                self.cache.extend(installers)
         finally:
             self.downloading_links[url].set()
         return url in self.links
 
-    def get_links(self, url):
+    def follow_links(self, url):
         """Load links from the given URL if needed. Return True upon success.
         """
         if url in self.broken_links:
@@ -116,34 +254,6 @@ class RemoteSource(object):
         create_directory(directory)
         return directory
 
-    def get_packages(self, link, search, depth=0):
-        if depth > self.max_depth:
-            return None
-
-        if not self.get_links(link):
-            # The given link is not accessible.
-            return None
-
-        # Look for a software in the cache
-        packages = search.query()
-        if packages:
-            return packages
-
-        # No software, look for an another link with the name of the software
-        links = self.links[link]
-        if search.key in links:
-            return self.get_packages(links[search.key], search, depth + 1)
-        elif depth:
-            # Ok, look for links that contains download url (pypi compliant)
-            for label in links:
-                if DOWNLOAD_URL.match(label):
-                    link = links[label]
-                    if link not in self.links:
-                        candidates = self.get_packages(link, search, depth + 1)
-                        if candidates is not None:
-                            return candidates
-        return None
-
     def initialize(self, first_time):
         pass
 
@@ -154,12 +264,10 @@ class RemoteSource(object):
         return not offline
 
     def search(self, requirement, interpretor):
-        search = RemoteSearchQuery(requirement, interpretor, self.cache)
+        query = RemoteSearchQuery(self, requirement, interpretor)
 
         for find_link in self.find_links:
-            __status__ = u"Locating remote source for %s on %s" % (
-                search.name, find_link)
-            packages = self.get_packages(find_link, search)
+            packages = query.search(find_link)
             if packages is not None:
                 return packages
         raise PackageNotFound(requirement)

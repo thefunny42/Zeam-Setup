@@ -3,6 +3,7 @@ import os
 import re
 import logging
 import shlex
+import threading
 
 from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.utils import open_uri, relative_uri
@@ -135,6 +136,7 @@ class Utilities(object):
 
     def __init__(self, configuration):
         self._configuration = configuration
+        self._lock = threading.Lock()
         self._utilities = {}
         self._factories = {}
 
@@ -145,9 +147,16 @@ class Utilities(object):
         if key in self._utilities:
             return self._utilities[key]
         if key in self._factories:
-            utility = self._factories[key](self._configuration)
-            self._utilities[key] = utility
-            return utility
+            self._lock.acquire()
+            try:
+                # We migth have one instance now, try again.
+                if key in self._utilities:
+                    return self._utilities[key]
+                utility = self._factories[key](self._configuration)
+                self._utilities[key] = utility
+                return utility
+            finally:
+                self._lock.release()
         if default is marker:
             raise AttributeError(key)
         return default

@@ -7,13 +7,13 @@ import socket
 import sys
 
 from zeam.setup.base.distribution.workingset import working_set
-from zeam.setup.base.distribution.release import current_package, set_loaders
+from zeam.setup.base.distribution.release import current_package, Loaders
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import InstallationError, logs
 from zeam.setup.base.recipe.commands import Installer
-from zeam.setup.base.egginfo.commands import EggInfo
 from zeam.setup.base.utils import create_directory
 from zeam.setup.base.sources.sources import Sources
+from zeam.setup.base.egginfo.commands import EggInfo
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
@@ -117,9 +117,7 @@ def bootstrap_cfg(config, options):
     if 'python_executable' not in setup:
         setup['python_executable'] = sys.executable
 
-    if 'install_loaders' in setup:
-        set_loaders(setup['install_loaders'].as_list())
-
+    config.utilities.register('releases', Loaders)
     config.utilities.register('sources', Sources)
     config.utilities.register('package', current_package)
     config.utilities.register('installed', get_previous_cfg)
@@ -154,7 +152,7 @@ class BootstrapCommand(object):
     def command(self, configuration, options, args):
         """Pick a command and run it.
         """
-        #EggInfo(configuration).run()
+        EggInfo(configuration).run()
         Installer(configuration).run()
 
     def run(self):

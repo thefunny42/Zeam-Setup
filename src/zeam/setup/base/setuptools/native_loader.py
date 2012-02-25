@@ -4,6 +4,8 @@ import os
 import shutil
 
 from zeam.setup.base.egginfo.loader import EggLoader
+from zeam.setup.base.error import InstallationError
+
 
 logger = logging.getLogger('zeam.setup')
 
@@ -52,6 +54,16 @@ class NativeSetuptoolsLoaderFactory(object):
     """Load a setuptool source package.
     """
 
+    def __init__(self, options):
+        self.options = options
+        self.setuptools_version = None
+        self.setuptools_errors = False
+        if options is not None:
+            if 'setuptools_errors' in options:
+                self.setuptools_errors = options['setuptools_errors'].as_bool()
+            if 'setuptools_version' in options:
+                self.setuptools_version = options['setuptools_version'].as_str()
+
     def __call__(self, distribution, path, interpretor, trust=-99):
         setup_py = os.path.join(path, 'setup.py')
         if os.path.isfile(setup_py):
@@ -70,9 +82,26 @@ class NativeSetuptoolsLoaderFactory(object):
                         create_manifest_from_source(source_file, manifest_file)
                 shutil.rmtree(egg_info)
 
-            # Get fresh egg_info
+            # Determine which version of setuptools to use
             execute = interpretor.execute_setuptools
-            output, _, code = execute('egg_info', path=path)
+            setuptools_version = None
+            if distribution.name == 'setuptools':
+                # To install setuptools, we need the same version.
+                setuptools_version = str(distribution.version)
+            else:
+                setuptools_version = self.setuptools_version
+            if setuptools_version is not None:
+
+                def execute(*command, **options):
+                    setuptools_options = {
+                        'setuptools_version': setuptools_version}
+                    setuptools_options.update(options)
+                    return interpretor.execute_setuptools(
+                        *command, **setuptools_options)
+
+            # Get fresh egg_info
+            output, errors, code = execute(
+                'egg_info', path=path, setuptools_version=setuptools_version)
             if not code:
                 egg_info_parent, egg_info = find_egg_info(distribution, path)
                 if egg_info is not None and os.path.isdir(egg_info):
@@ -82,8 +111,13 @@ class NativeSetuptoolsLoaderFactory(object):
                 else:
                     logger.debug(
                         u"Could not find egg-info in  %s, " % (path))
+            elif self.report_errors:
+                raise InstallationError(
+                    u"Setuptools retuned status code %s in  %s, " % (
+                        code, path),
+                    detail='\n'.join((output, errors)))
             else:
-                logger.debug(
+                logger.info(
                     u"Setuptools retuned status code %s in  %s, " % (
                         code, path))
         return None

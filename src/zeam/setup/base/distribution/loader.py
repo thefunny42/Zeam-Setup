@@ -10,7 +10,6 @@ from zeam.setup.base.error import PackageError
 from zeam.setup.base.python import PythonInterpreter
 from zeam.setup.base.setuptools.autotools import AutomakeBuilder
 from zeam.setup.base.version import Version, Requirements
-from zeam.setup.base.egginfo.write import write_egg_info
 
 logger = logging.getLogger('zeam.setup')
 
@@ -132,6 +131,9 @@ class SetupLoader(object):
 class SetupLoaderFactory(object):
     """Load a zeam.setup package.
     """
+
+    def __init__(self, options):
+        self.options = options
 
     def __call__(self, distribution, path, interpretor, trust=-99):
         setup_cfg = os.path.join(path, 'setup.cfg')

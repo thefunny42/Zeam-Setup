@@ -3,13 +3,9 @@ import logging
 import sys
 from distutils.util import get_platform
 
-from zeam.setup.base.egginfo.loader import EggLoaderFactory
-from zeam.setup.base.setuptools.interpreted_loader import \
-    InterpretedSetuptoolsLoaderFactory
-from zeam.setup.base.setuptools.native_loader import \
-    NativeSetuptoolsLoaderFactory
-from zeam.setup.base.distribution.loader import SetupLoaderFactory, SetupLoader
+from zeam.setup.base.distribution.loader import SetupLoader
 from zeam.setup.base.error import PackageError, InstallationError
+from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.version import Version
 
 logger = logging.getLogger('zeam.setup')
@@ -103,11 +99,12 @@ class Release(object):
         try:
             python_module = __import__(
                 python_path, globals(), globals(), [attribute])
-        except ImportError:
+        except ImportError, error:
             raise PackageError(
                 self.name,
                 u'Invalid module %s for entry point %s %s:%s' % (
-                    python_path, group, self.name, name))
+                    python_path, group, self.name, name),
+                detail=str(error))
         try:
             python_value = getattr(python_module, attribute)
         except AttributeError:
@@ -152,46 +149,34 @@ class Release(object):
             self.__class__.__name__, self.name, self.version)
 
 
-POSSIBLE_LOADERS = {
-    'egg': EggLoaderFactory(),
-    'interpreted_setuptools': InterpretedSetuptoolsLoaderFactory(),
-    'native_setuptools': NativeSetuptoolsLoaderFactory(),
-    'zeam_setup': SetupLoaderFactory(),
-    }
-LOADERS = []
-
-
-def set_loaders(names):
-    global LOADERS
-    LOADERS = []
-    for name in names:
-        if name in POSSIBLE_LOADERS:
-            LOADERS.append(POSSIBLE_LOADERS[name])
-
-set_loaders(['egg', 'native_setuptools', 'zeam_setup'])
-
-
-def load_metadata(distribution, path, interpretor, trust=-99):
-    for factory in LOADERS:
-        loader = factory(distribution, path, interpretor, trust=trust)
-        if loader is not None:
-            assert loader.load() is distribution
-            return loader
-    else:
-        raise PackageError(u"Unknow package type at %s" % (path))
-
-
-def load_package(path, interpretor):
-    release = Release()
-    try:
-        load_metadata(release, path, interpretor)
-    except PackageError:
-        return None
-    return release
-
-
 def current_package(configuration):
     loader = SetupLoader(configuration, Release())
     return loader.load()
 
 
+class Loaders(object):
+    CONFIG_KEY = 'setup_loaders'
+
+    def __init__(self, configuration):
+        from zeam.setup.base.distribution.workingset import working_set
+
+        self.loaders = []
+        names = configuration['setup'].get(
+            self.CONFIG_KEY, 'egg,zeam').as_list()
+        defined_loaders = working_set.list_entry_points('setup_loaders')
+        for name in names:
+            if name not in defined_loaders:
+                raise ConfigurationError(u'Undefined setup loader', name)
+            factory = working_set.get_entry_point(
+                'setup_loaders', defined_loaders[name]['name'])
+            if factory is not None:
+                self.loaders.append(factory(configuration.get(
+                            ':'.join((self.CONFIG_KEY, name)), None)))
+
+    def load(self, distribution, path, interpretor, trust=-99):
+        for factory in self.loaders:
+            loader = factory(distribution, path, interpretor, trust=trust)
+            if loader is not None:
+                assert loader.load() is distribution
+                return loader
+        raise PackageError(u"Unknow package type at", path)

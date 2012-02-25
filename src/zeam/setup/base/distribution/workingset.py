@@ -6,9 +6,10 @@ import stat
 import sys
 import pprint
 
-from zeam.setup.base.distribution.release import Release, load_package
+from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.error import InstallationError
 from zeam.setup.base.error import PackageError, PackageNotFound
+from zeam.setup.base.egginfo.loader import EggLoader
 from zeam.setup.base.python import PythonInterpreter
 from zeam.setup.base.version import Requirement, IncompatibleRequirement
 
@@ -21,6 +22,15 @@ sys.path[0:0] = %(modules_path)s
 
 %(script)s
 """
+
+
+def load_package(path, interpretor):
+    release = Release()
+    egg_info = os.path.join(path, 'EGG-INFO')
+    if os.path.isdir(egg_info):
+        return EggLoader(path, egg_info, release).load()
+    return None
+
 
 class WorkingSet(object):
     """Represent the set of release used together.

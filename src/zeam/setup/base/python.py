@@ -31,7 +31,7 @@ class PythonInterpreter(object):
         self._platform = get_cmd_output(
             path, "-c",
             "print __import__('distutils.util').util.get_platform()")[0].strip()
-        self._setuptools = False
+        self._setuptools = {}
         self._lock = threading.RLock()
 
     @classmethod
@@ -77,17 +77,19 @@ class PythonInterpreter(object):
     def execute_setuptools(self, *cmd, **options):
         """Execute a setuptools command with this interpreter.
         """
-        if self._setuptools is False:
+        version = options.get('setuptools_version')
+        if version not in self._setuptools:
             self._lock.acquire()
             try:
-                if self._setuptools is False:
-                    self._setuptools = find_setuptools(self)
+                if version not in self._setuptools:
+                    self._setuptools[version] = find_setuptools(
+                        self, setuptools_version=version)
             finally:
                 self._lock.release()
 
-        if self._setuptools is not None:
+        if self._setuptools[version] is not None:
             options.setdefault('environ', {})
-            options['environ']['PYTHONPATH'] = self._setuptools
+            options['environ']['PYTHONPATH'] = self._setuptools[version]
             options['python_options'] = ['-S']
         return self.execute_module(setuptoolize, *cmd, **options)
 
@@ -98,11 +100,12 @@ class PythonInterpreter(object):
         return self._platform
 
 
-def find_setuptools(interpreter):
+def find_setuptools(interpreter, setuptools_version=None):
     install_path = tempfile.mkdtemp('zeam.setup.setuptools')
     atexit.register(shutil.rmtree, install_path)
     stdout, stderr, code = interpreter.execute_module(
-        install_setuptools, install_path, python_options=['-S'])
+        install_setuptools, install_path, setuptools_version or 'default',
+        python_options=['-S'])
     installed = os.listdir(install_path)
     if code or len(installed) != 1:
         stdout, stderr, code = interpreter.execute_external(

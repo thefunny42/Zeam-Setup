@@ -1,22 +1,14 @@
 
 import logging
-import re
 import os
-import urllib2
-import urlparse
+import re
 import subprocess
+import urllib2
 
 from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 
 VERSION = re.compile(
     r'version ([0-9.]+)')
-HTML_LINK = re.compile(
-    r'<a.*?href\s*=\s*["\'](?P<url>[^"\']+)["\'].*?'
-    r'(?:rel\s*=\s*["\'](?P<rel>[^"\']+)["\'].*?)?'
-    r'>(?P<name>.+?)?</a>',
-    re.IGNORECASE)
-STRING_TAGS = re.compile(
-    r'<(?P<tag>\S+)(\s.*?)?>.*?</(?P=tag)>|<\S+.*?/>')
 logger = logging.getLogger('zeam.setup')
 
 
@@ -110,52 +102,6 @@ def compare_uri(uri1, uri2):
     """Compare two URIs together, discarding the last '/'.
     """
     return uri1.rstrip('/') == uri2.rstrip('/')
-
-def rewrite_links(base_uri, links, lower=False):
-    """This rewrite a list of links as full uri, using base_uri as
-    source.
-    """
-    uri_parts = urlparse.urlparse(base_uri)
-    absolute_uri = uri_parts[0:2]
-    relative_path = uri_parts[2]
-    if not relative_path.endswith('/'):
-        relative_path = os.path.dirname(relative_path)
-    elif not relative_path:
-        relative_path = '/'
-
-    for url, rel, name in links:
-        if url:
-            if url[0] == '/':
-                # Convert absolute URL to absolute URI
-                url = urlparse.urlunparse(absolute_uri + (url, '', '', '',))
-            elif not is_remote_uri(url):
-                url = urlparse.urlunparse(absolute_uri + (
-                        os.path.join(relative_path, url), '','', ''))
-        if not name:
-            # If we have no name, we use the last part of the URL.
-            link_parts = urlparse.urlparse(url)
-            name = os.path.basename(link_parts[2])
-        else:
-            name = STRING_TAGS.sub('', name)
-        key = name.strip()
-        if lower:
-            key = key.lower()
-        logger.info('%s: %s, %s', url, name, rel)
-        yield (key, url)
-
-
-def get_links(uri, lower=False):
-    """Read all available links from a page.
-    """
-    http_stream = open_uri(uri)
-    try:
-        content_type = http_stream.headers.get('content-type', '').split(';')[0]
-        if content_type not in ['text/html']:
-            return {}
-        html = http_stream.read()
-        return dict(rewrite_links(uri, HTML_LINK.findall(html), lower=lower))
-    finally:
-        http_stream.close()
 
 def create_directory(directory):
     """Create a directory called directory if it doesn't exits
