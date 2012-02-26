@@ -4,7 +4,7 @@ import os.path
 import threading
 
 from zeam.setup.base.distribution.kgs import get_kgs_requirements
-from zeam.setup.base.error import PackageError, logs
+from zeam.setup.base.error import PackageError, PackageDistributionError, logs
 from zeam.setup.base.version import Requirements
 
 logger = logging.getLogger('zeam.setup')
@@ -189,10 +189,10 @@ class PackageInstallerWorker(threading.Thread):
                         extra, distribution))
             install(distribution.extras[extra])
 
-    def install(self, requirement):
-        """Install the given package name in the directory.
+    def install_requirement(self, requirement, retry=0):
+        """Install the requirement.
         """
-        __status__ = u"Installing %s." % requirement
+        __status__ = u"Installing %s, retry %d." % (requirement, retry)
         candidate_packages = self.sources.search(
             requirement, self.interpretor)
         package = candidate_packages.get_most_recent()
@@ -204,6 +204,19 @@ class PackageInstallerWorker(threading.Thread):
             lambda distribution: self.install_dependencies(
                 requirement, distribution))
         return release
+
+    def install(self, requirement):
+        """Install a release for the given requirement, retrying in
+        case of faulty distribution.
+        """
+        retry = 0
+        while retry < 3:
+            try:
+                return self.install_requirement(requirement, retry)
+            except PackageDistributionError:
+                retry += 1
+        raise PackageError(
+            u"Could not find a working distribution for", requirement)
 
     def run(self):
         """Install packages as long as you can.

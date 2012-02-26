@@ -67,7 +67,7 @@ class DownloadManager(object):
             return self.download(uri)
         return uri
 
-    def download(self, url):
+    def download(self, url, ignore_content_types=[]):
         """Download if not already there the file at the given URL
         into the directory. If the link includes an md5 checksum, it
         is compaired with the one obtained on the downloaded file.
@@ -89,20 +89,37 @@ class DownloadManager(object):
         try:
             logger.info("Downloading %s into %s..." % (url, base_filename))
             request = urllib2.Request(url=url)
-            input = urllib2.urlopen(request)
-            output = open(target_path, 'wb')
-            buffer = input.read(CHUNK_SIZE)
-            while buffer:
-                output.write(buffer)
-                buffer = input.read(CHUNK_SIZE)
-            input.close()
-            output.close()
-            logger.info("Download of %s complete." % base_filename)
+            response = urllib2.urlopen(request)
         except urllib2.URLError, e:
             raise DownloadError(
                 u"Error while downloading the file", base_filename, str(e))
             return None
+
+        if ignore_content_types:
+            content_type = response.headers.get(
+                'content-type', '').split(';')[0]
+            if content_type in ignore_content_types:
+                response.close()
+                raise DownloadError(
+                    u"Content-type mismatch, got %s:" % content_type,
+                    base_filename)
+
+        try:
+            output = open(target_path, 'wb')
+            buffer = response.read(CHUNK_SIZE)
+            while buffer:
+                output.write(buffer)
+                buffer = response.read(CHUNK_SIZE)
+            logger.info("Download of %s complete." % base_filename)
+        except IOError, e:
+            raise DownloadError(
+                u"Error while saving the file", base_filename, str(e))
+        finally:
+            response.close()
+            output.close()
+
         if not verify_checksum(target_path, checksum):
-            raise DownloadError, u"File %s is downloaded but " \
-                u" the checksum is different." % ( base_filename)
+            raise DownloadError(
+                u"File %s is downloaded but the checksum is different",
+                base_filename)
         return target_path

@@ -11,8 +11,8 @@ from zeam.setup.base.sources.utils import (
     get_installer_from_name,
     UninstalledPackageInstaller)
 from zeam.setup.base.download import DownloadManager
-from zeam.setup.base.error import PackageNotFound
-from zeam.setup.base.error import NetworkError
+from zeam.setup.base.error import PackageNotFound, PackageDistributionError
+from zeam.setup.base.error import NetworkError, DownloadError
 from zeam.setup.base.utils import open_uri, is_remote_uri, create_directory
 
 logger = logging.getLogger('zeam.setup')
@@ -89,7 +89,15 @@ class UndownloadedPackageInstaller(UninstalledPackageInstaller):
     """
 
     def install(self, path, interpretor, install_dependencies):
-        archive = self.source.downloader.download(self.url)
+        try:
+            archive = self.source.downloader.download(
+                self.url, ignore_content_types=['text/html'])
+        except DownloadError, e:
+            logger.warn(
+                u"%s doesn't seem to be a valid package, ignoring it.",
+                self.url)
+            self.source.mark_installer_as_broken(self)
+            raise PackageDistributionError(*e.args)
         return super(UndownloadedPackageInstaller, self).install(
             path, interpretor, install_dependencies, archive)
 
@@ -98,9 +106,9 @@ class RemoteURL(object):
     """A remote url.
     """
 
-    def __init__(self, source, uri, filename=None, name=None, rel=None):
+    def __init__(self, source, url, filename=None, name=None, rel=None):
         self.source = source
-        self.uri = uri
+        self.url = url
         self.name = name or ''
         self.key = self.name.lower()
         self.filename = filename or ''
@@ -109,16 +117,16 @@ class RemoteURL(object):
         self.rel = rel
 
     def __hash__(self):
-        return hash(self.uri)
+        return hash(self.url)
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and other.uri == other.uri
+        return str(self) == str(other)
 
     def __str__(self):
-        return str(self.uri)
+        return str(self.url)
 
     def __repr__(self):
-        return "<RemoteURL '%s'>" % (self.uri)
+        return "<RemoteURL '%s'>" % (self.url)
 
     @property
     def is_followable(self):
@@ -129,16 +137,21 @@ class RemoteURL(object):
         """
         urls = []
         installers = []
-        stream = open_uri(self.uri)
+        stream = open_uri(self.url)
         try:
             content_type = stream.headers.get('content-type', '').split(';')[0]
             if content_type not in ['text/html']:
-                raise NetworkError(self.uri, 'Not HTML')
-            parser = LinkParser(self.uri)
+                raise NetworkError('Not HTML', self.url)
+            parser = LinkParser(self.url)
             parser.feed(stream.read())
+        except HTMLParser.HTMLParseError:
+            logger.warn("Discarding unreadable HTML page '%s'", self.url)
+            return urls, installers
         finally:
             stream.close()
         for url, filename, name, rel in parser.links:
+            if self.source.is_disabled_link(url, True):
+                continue
             installer = get_installer_from_name(self.source, filename, url=url)
             if installer is not None:
                 installers.append(installer)
@@ -171,7 +184,7 @@ class RemoteSearchQuery(object):
             return None
 
         __status__ = u"Locating remote source for %s on %s" % (self.name, link)
-        if not self.source.follow_links(link):
+        if not self.source.follow_link(link):
             # The given link is not accessible.
             return None
 
@@ -200,7 +213,9 @@ class RemoteSource(object):
     def __init__(self, options):
         self.options = options
         self.find_links = map(
-            lambda uri: RemoteURL(self, uri), options['urls'].as_list())
+            lambda url: RemoteURL(self, url), options['urls'].as_list())
+        self.disallow_urls = options.get('disallow_urls', '').as_list()
+        self.allow_urls = options.get('allow_urls', '').as_list()
         self.broken_links = set([])  # List of links that doesn't works.
         self.max_depth = options.get('max_depth', '4').as_int()
         self.links = {}
@@ -209,17 +224,21 @@ class RemoteSource(object):
         self.cache = Installers()
         self.downloader = DownloadManager(self.get_download_directory())
 
-    def download_link(self, url):
-        """Effectively download a URL in the link cache.
+    def follow_link(self, url):
+        """Load links from the given URL if needed. Return True upon
+        success.
         """
+        if self.is_disabled_link(url):
+            return False
+        if url in self.links:
+            return True
         self.lock.acquire()
         if url in self.downloading_links:
             self.lock.release()
             # We are looking at this page, just wait.
             self.downloading_links[url].wait()
             return url in self.links
-
-        # Add a Event and wait.
+        # Add a Event and download
         self.downloading_links[url] = threading.Event()
         self.lock.release()
 
@@ -237,15 +256,32 @@ class RemoteSource(object):
             self.downloading_links[url].set()
         return url in self.links
 
-    def follow_links(self, url):
-        """Load links from the given URL if needed. Return True upon success.
+    def mark_installer_as_broken(self, installer):
+        """Mark an installer as broken so it won't be found again.
+        """
+        self.broken_links.add(installer.url)
+        self.cache.remove(installer)
+
+    def is_disabled_link(self, url, verify_allow=False):
+        """Return true if the given URL should not be followed,
+        testing for broken links, allowed and disallowed URLs.
         """
         if url in self.broken_links:
-            logger.debug("Ignoring broken url '%s'.", url)
-            return False
-        if url not in self.links:
-            return self.download_link(url)
-        return True
+            logger.warn("Ignoring broken URL '%s'.", url)
+            return True
+        if verify_allow:
+            test_url = str(url).startswith
+            if self.disallow_urls:
+                for disallowed_url in self.disallow_urls:
+                    if test_url(disallowed_url):
+                        logger.warn("Ignoring disallowed URL '%s'.", url)
+                        return True
+            if self.allow_urls:
+                for allowed_url in self.allow_urls:
+                    if not test_url(allowed_url):
+                        logger.warn("Ignoring not allowed URL '%s'.", url)
+                        return True
+        return False
 
     def get_download_directory(self):
         """Return the created download directory.

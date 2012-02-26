@@ -38,7 +38,9 @@ def get_installer_from_name(source, link, url=None, path=None):
                 name=name, version=version, format=format, url=url, path=path,
                 pyversion=pyversion, platform=platform)
         except InvalidVersion:
-            logger.debug("Can't process '%s', ignoring it." % link)
+            logger.debug(
+                u"Link to '%s' seems to be a package, "
+                u"but can't make sense out of it, ignoring it." % link)
             return None
     return None
 

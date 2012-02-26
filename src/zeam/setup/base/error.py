@@ -169,6 +169,13 @@ class PackageNotFound(PackageError):
     name = u'Package not found'
 
 
+class PackageDistributionError(PackageError):
+    """A distribution of a package cannot be installed. An another
+    distribution should work.
+    """
+    name = u'Distribution error'
+
+
 class ConfigurationError(InstallationError):
     """Configuration error.
     """

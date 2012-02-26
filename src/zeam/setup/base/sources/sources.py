@@ -28,6 +28,11 @@ class PackageInstallers(object):
             raise InstallationError(u'Invalid installer added to collection')
         bisect.insort(self.installers, installer)
 
+    def remove(self, installer):
+        if installer.name == self.name:
+            if installer in self.installers:
+                self.installers.remove(installer)
+
     def get_most_recent(self):
         """Return the most recent installer.
         """
@@ -76,6 +81,12 @@ class Installers(object):
         """
         for installer in installers:
             self.add(installer)
+
+    def remove(self, installer):
+        """Remove an installer from the collection.
+        """
+        if installer.key in self.installers:
+            self.installers[installer.key].remove(installer)
 
     def __len__(self):
         return len(self.installers)
