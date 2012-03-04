@@ -6,6 +6,7 @@ import shutil
 import socket
 import sys
 
+from zeam.setup.base.distribution.kgs import KGS
 from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.distribution.release import current_package, Loaders
 from zeam.setup.base.configuration import Configuration
@@ -119,8 +120,18 @@ def bootstrap_cfg(config, options):
 
     config.utilities.register('releases', Loaders)
     config.utilities.register('sources', Sources)
+    config.utilities.register('kgs', KGS)
     config.utilities.register('package', current_package)
     config.utilities.register('installed', get_previous_cfg)
+
+    def save_configuration():
+        save_path = get_previous_cfg_path(config)
+        logger.info(u'Saving installed configuration in %s', save_path)
+        save_file = open(save_path, 'w')
+        config.write(save_file)
+        save_file.close()
+
+    config.utilities.atexit.register(save_configuration)
 
 
 class BootstrapCommand(object):
@@ -173,9 +184,7 @@ class BootstrapCommand(object):
 
             self.command(configuration, options, args)
 
-            zsetup_fd = open(get_previous_cfg_path(configuration), 'w')
-            configuration.write(zsetup_fd)
-            zsetup_fd.close()
+            configuration.utilities.atexit.execute()
         except Exception:
             logs.report(fatal=True, configuration=configuration)
 

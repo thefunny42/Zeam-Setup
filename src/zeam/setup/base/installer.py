@@ -3,7 +3,6 @@ import logging
 import os.path
 import threading
 
-from zeam.setup.base.distribution.kgs import get_kgs_requirements
 from zeam.setup.base.error import PackageError, PackageDistributionError, logs
 from zeam.setup.base.version import Requirements
 
@@ -20,7 +19,7 @@ class PackageInstaller(object):
         __status__ = u"Configuring package installer."
         self.interpretor = working_set.interpretor
         self.working_set = working_set
-        self.kgs = get_kgs_requirements(options)
+        self.kgs = options.utilities.kgs.get(options)
         self.sources = options.utilities.sources
         self._to_install = Requirements()
         self._verify_being_installed = Requirements()
@@ -160,9 +159,6 @@ class PackageInstaller(object):
                 worker.join()
             if self._error is not None:
                 raise self._error
-            else:
-                if self.kgs is not None:
-                    self.kgs.log_usage()
         return self.working_set
 
 
