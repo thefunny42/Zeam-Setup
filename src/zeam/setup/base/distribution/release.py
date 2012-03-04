@@ -102,7 +102,7 @@ class Release(object):
         except ImportError, error:
             raise PackageError(
                 self.name,
-                u'Invalid module %s for entry point %s %s:%s' % (
+                u'Invalid module %s for entry point %s %s:%s.' % (
                     python_path, group, self.name, name),
                 detail=str(error))
         try:
@@ -111,7 +111,7 @@ class Release(object):
             raise PackageError(
                 self.name,
                 u'Invalid attribute %s in module %s ' \
-                    'for entry point %s %s:%s' % (
+                    'for entry point %s %s:%s.' % (
                     attribute, python_path, group, self.name, name))
         return python_value
 

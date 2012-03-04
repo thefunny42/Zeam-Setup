@@ -1,15 +1,14 @@
 
-import os
 import logging
 import operator
+import os
 import threading
-
 
 from zeam.setup.base.error import logs
 
-
 logger = logging.getLogger('zeam.setup')
 _marker = object()
+
 
 class Paths(object):
 

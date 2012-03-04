@@ -107,7 +107,7 @@ class Package(Recipe):
         if self.wanted_scripts is not None:
             wanted_scripts = self.wanted_scripts
         scripts = self.working_set.list_entry_points(
-            'console_scripts', requirement.name)
+            'console_scripts', requirement.key)
         args = ', '.join(self.extra_args)
 
         for script_name, entry_point in scripts.items():

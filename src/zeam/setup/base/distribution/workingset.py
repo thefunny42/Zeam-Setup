@@ -54,7 +54,7 @@ class WorkingSet(object):
 
     def __contains__(self, other):
         if isinstance(other, Requirement):
-            release = self.installed.get(other.name)
+            release = self.installed.get(other.key)
             if release is not None:
                 if not other.match(release):
                     raise IncompatibleRequirement(other, release)
@@ -66,7 +66,7 @@ class WorkingSet(object):
 
     def get(self, other, default=None):
         if isinstance(other, Requirement):
-            return self.installed[other.name]
+            return self.installed[other.key]
         if isinstance(other, basestring):
             return self.installed[other]
         raise default
@@ -84,12 +84,12 @@ class WorkingSet(object):
         """
         if not isinstance(release, Release):
             raise TypeError(u'Can only add release to a working set')
-        if release.name not in self.installed:
-            self.installed[release.name] = release
+        if release.key not in self.installed:
+            self.installed[release.key] = release
         else:
-            installed = self.installed[release.name]
+            installed = self.installed[release.key]
             if installed.path == release.path:
-                self.installed[release.name] = release
+                self.installed[release.key] = release
             else:
                 raise InstallationError(
                     u'Two release %s (installed in %s) and '
@@ -115,44 +115,44 @@ class WorkingSet(object):
         elif len(name_parts) == 2:
             entry_name = name_parts[1]
         else:
-            raise InstallationError(u"Invalid entry point designation", name)
+            raise InstallationError(u"Invalid entry point designation.", name)
         if package not in self.installed:
             raise PackageNotFound(package)
         release = self.installed[package]
         return release.get_entry_point(group, entry_name)
 
-    def iter_all_entry_points(self, group, *package_names):
+    def iter_all_entry_points(self, group, *package_keys):
         """Return all entry points for a given group in a list of packages.
         """
-        if not package_names:
-            package_names = self.installed.keys()
-        for package_name in package_names:
-            if package_name not in self.installed:
+        if not package_keys:
+            package_keys = self.installed.keys()
+        for package_key in package_keys:
+            if package_key not in self.installed:
                 raise PackageError(
-                    u"No package called %s in the environment" % package_name)
-            package = self.installed[package_name]
+                    u"No package called %s in the environment." % package_key)
+            package = self.installed[package_key]
             for entry_point in package.iter_all_entry_points(group):
                 yield entry_point
 
-    def list_entry_points(self, group, *package_names):
-        """List package package_name entry point in the given group.
+    def list_entry_points(self, group, *package_keys):
+        """List package package_key entry point in the given group.
         """
-        if not package_names:
-            package_names = self.installed.keys()
+        if not package_keys:
+            package_keys = self.installed.keys()
         entry_points = {}
-        for package_name in package_names:
-            if package_name not in self.installed:
+        for package_key in package_keys:
+            if package_key not in self.installed:
                 raise PackageError(
-                    u"No package called %s in the environment" % package_name)
-            package = self.installed[package_name]
+                    u"No package called %s in the environment." % package_key)
+            package = self.installed[package_key]
             package_entry_points = package.entry_points.get(group, None)
             if package_entry_points is not None:
                 for name, destination in package_entry_points.items():
                     if name in entry_points:
                         raise PackageError(
-                            u"Conflict between entry points called %s" % name)
+                            u"Conflict between entry points called %s." % name)
                     entry_points[name] = {'destination': destination,
-                                          'name': package_name + ':' + name}
+                                          'name': package_key + ':' + name}
         return entry_points
 
     def create_script(self, script_path, script_body, extra_paths=[]):
