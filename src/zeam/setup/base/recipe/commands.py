@@ -58,8 +58,9 @@ class PartStatus(object):
                     self._installed_section.get('paths', '').as_list())
             self._enabled = True
 
-    def enable(self):
-        self._enabled = True
+    def enable(self, flag=True):
+        if flag:
+            self._enabled = True
 
     def is_enabled(self):
         return self._enabled

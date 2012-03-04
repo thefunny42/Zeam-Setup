@@ -4,7 +4,7 @@ import os
 
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.error import ConfigurationError, InstallationError
-from zeam.setup.base.installer import PackageInstaller
+from zeam.setup.base.installer import PackageInstaller, is_installer_changed
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name
 from zeam.setup.base.version import Requirements
@@ -68,6 +68,9 @@ class Package(Recipe):
         self.requirements = Requirements.parse(requirements)
         if self.extra_sets:
             status.depends.update(self.extra_sets)
+        if self.requirements:
+            # Run the recipe is installer settings changed.
+            status.enable(is_installer_changed(options))
 
         self.wanted_scripts = None
         if 'scripts' in options:

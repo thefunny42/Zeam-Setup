@@ -10,6 +10,10 @@ logger = logging.getLogger('zeam.setup')
 INSTALLATION_DONE = object()
 
 
+def is_installer_changed(section):
+    return not section.utilities.kgs.is_uptodate(section)
+
+
 class PackageInstaller(object):
     """Package installer: install new package in a working set from
     sources.
