@@ -39,7 +39,6 @@ class VCSSource(Source):
         __status__ = u"Verifying changes in development sources."
         uptodate = super(VCSSource, self).is_uptodate()
         if uptodate:
-            import pdb; pdb.set_trace()
             configuration = self.options.configuration
             installed_configuration = self.installed_options.configuration
             for name in self.options['sources'].as_list():
