@@ -17,6 +17,7 @@ class KnownGoodVersionSet(object):
         self.name = versions.name.split(':', 1)[1]
         self.used = set()
         self.missing = Requirements()
+        self.picked = {}
         self.installed_versions = installed_versions
         self._uptodate = None
         self._activated = False
@@ -48,19 +49,28 @@ class KnownGoodVersionSet(object):
     def report_missing(self, requirement):
         self.missing.append(requirement)
 
+    def report_picked(self, requirement, version):
+        picked = self.picked.setdefault(requirement, [])
+        picked.append(version)
+
     def log_usage(self):
         if self.missing:
             for requirement in self.missing:
-                logger.warn(
-                    u"Missing requirement for %s in version set '%s'." % (
-                        requirement, self.name))
+                msg = u"Missing requirement for '%s' in '%s'"
+                args = (requirement, self.name)
+                picked = self.picked.get(requirement)
+                if picked:
+                    msg += u", picked '%s'"
+                    args += (','.join(map(str, picked)),)
+                msg += u"."
+                logger.warn(msg, *args)
 
         unused = sorted(set(self.versions.keys()) - self.used)
         if unused:
             for name in unused:
                 logger.info(
-                    u"Unused requirement %s in version set '%s'." % (
-                        name, self.name))
+                    u"Unused requirement '%s' in '%s'.",
+                    name, self.name)
 
 
 class KnownGoodVersionSetChain(object):
@@ -70,7 +80,9 @@ class KnownGoodVersionSetChain(object):
     def __init__(self, kgs):
         assert len(kgs) > 0
         self.kgs = kgs
-        self.main = kgs[0]
+        main = kgs[0]
+        self.report_missing = main.report_missing
+        self.report_picked = main.report_picked
 
     def activate(self):
         for kgs in self.kgs:
@@ -92,7 +104,7 @@ class KnownGoodVersionSetChain(object):
         name = requirement.name
         wanted = self.get(name)
         if wanted is None:
-            self.main.report_missing(requirement)
+            self.report_missing(requirement)
             return requirement
         requirement += Requirement(name, [(operator.eq, wanted)])
         return requirement

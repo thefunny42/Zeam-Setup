@@ -124,6 +124,8 @@ class PackageInstaller(object):
         self._lock.acquire()
         try:
             self.working_set.add(package)
+            if self.kgs is not None:
+                self.kgs.report_picked(requirement, package.version)
             if requirement in self._verify_being_installed:
                 extra_requirement = self._verify_being_installed[requirement]
                 logger.debug(
