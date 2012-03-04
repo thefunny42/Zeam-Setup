@@ -2,7 +2,7 @@
 import sys
 
 from zeam.setup.base.distribution.workingset import working_set
-from zeam.setup.base.sources import Installers
+from zeam.setup.base.sources import Installers, Source
 from zeam.setup.base.error import PackageNotFound
 
 marker = object()
@@ -33,23 +33,23 @@ class NullInstaller(object):
         return self.distribution, self
 
 
-class InstalledSource(object):
+class InstalledSource(Source):
     """This source report already installed packages in the Python
     path. It only works if the target interpretor is the same used to
     run the setup.
     """
 
-    def __init__(self, options):
-        self.options = options
+    def __init__(self, *args):
+        super(InstalledSource, self).__init__(*args)
         self.working_set = None
-        self.packages = options.get('packages', '').as_list()
+        self.packages = self.options.get('packages', '').as_list()
 
     def initialize(self, first_time):
         if self.working_set is None:
             self.working_set = working_set
 
     def available(self, configuration):
-        return True
+        return len(self.packages) != 0
 
     def search(self, requirement, interpretor):
         if interpretor == sys.executable:
@@ -61,6 +61,3 @@ class InstalledSource(object):
                     if packages:
                         return packages
         raise PackageNotFound(requirement)
-
-    def __repr__(self):
-        return '<FakeSource>'

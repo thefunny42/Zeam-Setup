@@ -11,7 +11,9 @@ INSTALLATION_DONE = object()
 
 
 def is_installer_changed(section):
-    return not section.utilities.kgs.is_uptodate(section)
+    if section.utilities.sources.is_uptodate():
+        return not section.utilities.kgs.is_uptodate(section)
+    return True
 
 
 class PackageInstaller(object):

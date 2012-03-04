@@ -1,7 +1,7 @@
 
 import os
 
-from zeam.setup.base.sources import Installers
+from zeam.setup.base.sources import Installers, Source
 from zeam.setup.base.sources.utils import (
     get_installer_from_name,
     UninstalledPackageInstaller,
@@ -33,7 +33,7 @@ def get_eggs_from_directory(source, path):
             yield installer
 
 
-class LocalSource(object):
+class LocalSource(Source):
     """This represent a directory with a list of archives, that can be
     used to install software.
     """
@@ -41,10 +41,10 @@ class LocalSource(object):
     type = 'Archive Source'
     finder = get_installers_from_directory
 
-    def __init__(self, options):
-        __status__ = u"Initializing local software sourcs."
-        self.options = options
-        self.paths = options['directory'].as_list()
+    def __init__(self, *args):
+        __status__ = u"Initializing local software source."
+        super(LocalSource, self).__init__(*args)
+        self.paths = self.options['directory'].as_list()
         self.installers = Installers()
 
     def initialize(self, first_time):
@@ -54,9 +54,6 @@ class LocalSource(object):
             if first_time:
                 create_directory(path)
             self.installers.extend(self.finder(path))
-
-    def available(self, configuration):
-        return True
 
     def search(self, requirement, interpretor):
         __status__ = u"Locating local source for %s in %s." % (

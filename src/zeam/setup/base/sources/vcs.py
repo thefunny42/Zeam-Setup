@@ -1,5 +1,5 @@
 
-from zeam.setup.base.sources import Installers
+from zeam.setup.base.sources import Installers, Source
 from zeam.setup.base.sources.utils import (
     ExtractedPackageInstaller,
     PackageInstaller)
@@ -9,30 +9,44 @@ from zeam.setup.base.vcs import VCS, VCSCheckout
 
 
 
-class VCSSource(object):
+class VCSSource(Source):
     """This sources fetch the code from various popular version
     control system.
     """
 
-    def __init__(self, options):
+    def __init__(self, *args):
         __status__ = u"Initializing remote development sources."
-        self.options = options
-        self.directory = options['directory'].as_text()
+        super(VCSSource, self).__init__(*args)
+        self.directory = self.options['directory'].as_text()
         self.sources = {}
         self.enabled = None
-        self.develop = options.get('develop', 'on').as_bool()
-        if 'available' in options:
-            self.enabled = options['available'].as_list()
+        self.develop = self.options.get('develop', 'on').as_bool()
+        if 'available' in self.options:
+            self.enabled = self.options['available'].as_list()
         self.factory = ExtractedPackageInstaller
         if self.develop:
             self.factory = PackageInstaller
 
     def _sources(self):
+        configuration = self.options.configuration
         for name in self.options['sources'].as_list():
-            section = self.options.configuration['vcs:' + name]
+            section = configuration['vcs:' + name]
             for package, info in section.items():
                 yield VCSCheckout(
                     package, info, info.as_words(), self.directory)
+
+    def is_uptodate(self):
+        __status__ = u"Verifying changes in development sources."
+        uptodate = super(VCSSource, self).is_uptodate()
+        if uptodate:
+            import pdb; pdb.set_trace()
+            configuration = self.options.configuration
+            installed_configuration = self.installed_options.configuration
+            for name in self.options['sources'].as_list():
+                key = 'vcs:' + name
+                if configuration[key] != installed_configuration.get(key, None):
+                    return False
+        return True
 
     def initialize(self, first_time):
         __status__ = u"Preparing remote development sources."
@@ -44,10 +58,6 @@ class VCSSource(object):
             create_directory(self.directory)
             for source in sources:
                 self.sources[source.name] = VCS(source)
-
-    def available(self, configuration):
-        # This source provider is always available
-        return True
 
     def search(self, requirement, interpretor):
         name = requirement.name

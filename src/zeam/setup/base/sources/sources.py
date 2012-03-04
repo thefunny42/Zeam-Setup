@@ -1,7 +1,7 @@
 
-
 import bisect
 import logging
+import operator
 
 from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
@@ -103,6 +103,32 @@ class Installers(object):
             requirement, pyversion=pyversion, platform=platform)
 
 
+class Source(object):
+    """Base class for source.
+    """
+
+    def __init__(self, options, installed_options=None):
+        self.options = options
+        self.installed_options = installed_options
+
+    def is_uptodate(self):
+        if self.installed_options is None:
+            return True
+        return (self.options == self.installed_options)
+
+    def initialize(self, first_time):
+        pass
+
+    def available(self, configuration):
+        return True
+
+    def search(self, requirement, interpretor):
+        raise NotImplementedError
+
+    def __repr__(self):
+        return '<%s>' % (self.__class__.__name__)
+
+
 class Sources(object):
     """This manage software sources.
     """
@@ -112,11 +138,12 @@ class Sources(object):
         self.sources = []
         self.available_sources = []
         self.configuration = configuration
+        self.installed = configuration.utilities.installed
 
         defined_sources = working_set.list_entry_points('setup_sources')
         for name in configuration[section_name]['sources'].as_list():
-            config = configuration['source:' + name]
-            source_type = config['type'].as_text()
+            options = configuration['source:' + name]
+            source_type = options['type'].as_text()
             if source_type not in defined_sources:
                 raise ConfigurationError(
                     u'Unknow source type %s for %s' % (
@@ -124,8 +151,19 @@ class Sources(object):
             factory = working_set.get_entry_point(
                 'setup_sources',
                 defined_sources[source_type]['name'])
-            self.sources.append(factory(config))
+            self.sources.append(factory(
+                    options,
+                    self.installed.get('source:' + name, None)))
         self._initialized = False
+        self._uptodate = None
+
+    def is_uptodate(self):
+        if self._uptodate is None:
+            self._uptodate = reduce(
+                operator.and_,
+                map(lambda s: s.is_uptodate(),
+                    self.sources))
+        return self._uptodate
 
     def initialize(self):
         if self._initialized:

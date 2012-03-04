@@ -5,7 +5,7 @@ import os
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.egginfo.write import write_egg_info
 from zeam.setup.base.error import PackageNotFound
-from zeam.setup.base.sources import Installers
+from zeam.setup.base.sources import Installers, Source
 from zeam.setup.base.version import Version, Requirements
 
 
@@ -50,20 +50,17 @@ class FakeInstaller(object):
         return distribution, self
 
 
-class FakeSource(object):
+class FakeSource(Source):
     """This source fake packages without installing them.
     """
 
-    def __init__(self, options):
+    def __init__(self, *args):
         __status__ = u"Initializing fake source."
-        self.options = options
+        super(FakeSource, self).__init__(*args)
         self.installers = Installers()
         for requirement in Requirements.parse(
-            options.get('packages', '').as_list()):
+            self.options.get('packages', '').as_list()):
             self.installers.add(FakeInstaller(requirement))
-
-    def initialize(self, first_time):
-        pass
 
     def available(self, configuration):
         # This source provider is available if there are packages
@@ -74,6 +71,3 @@ class FakeSource(object):
         if packages:
             return packages
         raise PackageNotFound(requirement)
-
-    def __repr__(self):
-        return '<FakeSource>'

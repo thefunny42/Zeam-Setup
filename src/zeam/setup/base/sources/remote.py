@@ -6,7 +6,7 @@ import threading
 import urlparse
 import HTMLParser
 
-from zeam.setup.base.sources import Installers
+from zeam.setup.base.sources import Installers, Source
 from zeam.setup.base.sources.utils import (
     get_installer_from_name,
     UninstalledPackageInstaller)
@@ -205,19 +205,20 @@ class RemoteSearchQuery(object):
         return None
 
 
-class RemoteSource(object):
+class RemoteSource(Source):
     """Download software from da internet, in order to install it.
     """
     factory = UndownloadedPackageInstaller
 
-    def __init__(self, options):
-        self.options = options
+    def __init__(self, *args):
+        __status__ = u"Initializing remote software source."
+        super(RemoteSource, self).__init__(*args)
         self.find_links = map(
-            lambda url: RemoteURL(self, url), options['urls'].as_list())
-        self.disallow_urls = options.get('disallow_urls', '').as_list()
-        self.allow_urls = options.get('allow_urls', '').as_list()
+            lambda url: RemoteURL(self, url), self.options['urls'].as_list())
+        self.disallow_urls = self.options.get('disallow_urls', '').as_list()
+        self.allow_urls = self.options.get('allow_urls', '').as_list()
         self.broken_links = set([])  # List of links that doesn't works.
-        self.max_depth = options.get('max_depth', '4').as_int()
+        self.max_depth = self.options.get('max_depth', '4').as_int()
         self.links = {}
         self.downloading_links = {}
         self.lock = threading.Lock()
@@ -290,9 +291,6 @@ class RemoteSource(object):
         create_directory(directory)
         return directory
 
-    def initialize(self, first_time):
-        pass
-
     def available(self, configuration):
         setup_config = configuration['setup']
         offline = 'offline' in setup_config and \
@@ -309,4 +307,4 @@ class RemoteSource(object):
         raise PackageNotFound(requirement)
 
     def __repr__(self):
-        return '<Downloader Source for %s>' % str(list(self.find_links))
+        return '<RemoteSource for %s>' % str(list(self.find_links))
