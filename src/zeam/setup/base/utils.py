@@ -125,3 +125,11 @@ def get_package_name(section):
         return configuration['egginfo']['name']
     raise ConfigurationError('Cannot determine package name')
 
+
+def format_line(start_line, end_line=None):
+    """Format location information to report it.
+    """
+    location = u'line %d' % (start_line)
+    if end_line is not None and end_line != start_line:
+        location += u' to %d' % end_line
+    return location
