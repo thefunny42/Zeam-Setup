@@ -6,7 +6,7 @@
 *~
 *.pyc
 *.egg-info
-.installed.cfg
+EGG-INFO
+.zsetup
 bin/
-parts/
-develop-eggs/
+error.log
