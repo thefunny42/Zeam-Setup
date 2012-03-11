@@ -2,73 +2,30 @@
 from optparse import OptionParser
 import logging
 import os
-import shutil
 import socket
 import sys
 
+from zeam.setup.base.session import Session
 from zeam.setup.base.distribution.kgs import KGS
 from zeam.setup.base.distribution.workingset import working_set
 from zeam.setup.base.distribution.release import current_package, Loaders
-from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.error import InstallationError, logs
 from zeam.setup.base.recipe.commands import Installer
 from zeam.setup.base.utils import create_directory
 from zeam.setup.base.sources.sources import Sources
 from zeam.setup.base.egginfo.commands import EggInfo
 
-DEFAULT_CONFIG_DIR = '.zsetup'
-DEFAULT_CONFIG_FILE = 'default.cfg'
-
 logger = logging.getLogger('zeam.setup')
 
 
-def get_default_cfg_path():
-    """Return a path to the default configuration stored in user
-    directory.
-    """
-    user_dir = os.path.expanduser('~')
-    setup_dir = os.path.join(user_dir, DEFAULT_CONFIG_DIR)
-    if not os.path.isdir(setup_dir):
-        os.mkdir(setup_dir)
-    default_cfg = os.path.join(setup_dir, DEFAULT_CONFIG_FILE)
-    if not os.path.isfile(default_cfg):
-        try:
-            shutil.copy(
-                os.path.join(os.path.dirname(__file__), 'default.cfg'),
-                default_cfg)
-        except IOError:
-            sys.stderr.write('Cannot setup default configuration')
-            sys.exit(-1)
-    return default_cfg
-
-
-def get_previous_cfg_path(configuration):
-    """Return a path to the previous configuration used to setup this
-    environment.
-    """
-    destination = configuration['setup']['prefix_directory'].as_text()
-    zsetup_path = os.path.join(destination, DEFAULT_CONFIG_DIR)
-    if not os.path.isdir(zsetup_path):
-        os.makedirs(zsetup_path)
-    return os.path.join(zsetup_path, 'installed.cfg')
-
-
-def get_previous_cfg(configuration):
-    """Return a previous configuration used to setup this environment.
-    """
-    cfg_path = get_previous_cfg_path(configuration)
-    if os.path.isfile(cfg_path):
-        logger.info(u'Loading previous configuration')
-        return Configuration.read(cfg_path)
-    return Configuration()
-
-
-def bootstrap_cfg(config, options):
+def bootstrap(session):
     """Bootstrap the configuration settings. Mainly set things like
     network_timeout, prefix_directory, python_executable.
     """
     __status__ = u"Initializing environment."
-    setup = config['setup']
+    configuration = session.configuration
+    setup = configuration['setup']
+    options = session.options
 
     # Export command line settings
     setup['verbosity'] = options.verbosity
@@ -118,20 +75,13 @@ def bootstrap_cfg(config, options):
     if 'python_executable' not in setup:
         setup['python_executable'] = sys.executable
 
-    config.utilities.register('releases', Loaders)
-    config.utilities.register('sources', Sources)
-    config.utilities.register('kgs', KGS)
-    config.utilities.register('package', current_package)
-    config.utilities.register('installed', get_previous_cfg)
-
-    def save_configuration():
-        save_path = get_previous_cfg_path(config)
-        logger.info(u'Saving installed configuration in %s', save_path)
-        save_file = open(save_path, 'w')
-        config.write(save_file)
-        save_file.close()
-
-    config.utilities.atexit.register(save_configuration)
+    utilities = configuration.utilities
+    utilities.register('releases', Loaders)
+    utilities.register('sources', Sources)
+    utilities.register('kgs', KGS)
+    utilities.register('package', current_package)
+    utilities.register('installed', configuration.get_previous_cfg)
+    utilities.events.subscribe('savepoint', configuration.save)
 
 
 class BootstrapCommand(object):
@@ -160,56 +110,47 @@ class BootstrapCommand(object):
             help="debug installation system on unexpected errors")
         return parser
 
-    def command(self, configuration, options, args):
-        """Pick a command and run it.
+    def get_commands(self, session):
+        """Pick a command to run it.
         """
-        EggInfo(configuration).run()
-        Installer(configuration).run()
+        return [EggInfo, Installer]
 
-    def run(self):
+    def __call__(self):
         """Main entry point of the setup script.
         """
         parser = self.options()
         (options, args) = parser.parse_args()
         logs.configure(options.verbosity, options.debug)
 
-        configuration = None
+        session = Session(options, args)
+        session.events.subscribe('bootstrap', bootstrap)
         try:
-            logger.info(u'Reading configuration %s' % options.config)
-            configuration = Configuration.read(options.config)
-            logger.info(u'Reading default configuration')
-            configuration += Configuration.read(get_default_cfg_path())
-
-            bootstrap_cfg(configuration, options)
-
-            self.command(configuration, options, args)
-
-            configuration.utilities.atexit.execute()
+            session(*self.get_commands(session))
         except Exception:
-            logs.report(fatal=True, configuration=configuration)
+            logs.report(fatal=True, configuration=session.configuration)
 
 
 class SetupCommand(BootstrapCommand):
     """Setup command.
     """
 
-    def command(self, configuration, options, args):
+    def get_commands(self, session):
         """Pick a command and run it.
         """
         commands = working_set.list_entry_points('setup_commands')
-        if len(args):
-            command = commands.get(args[0], None)
+        if len(session.args):
+            name = session.args[0]
+            command = commands.get(name, None)
             if command is None:
-                raise InstallationError(u'Unknow command %s' % args[0])
+                raise InstallationError(u'Unknow command %s' % name)
         else:
             command = commands.get('default', None)
             if command is None:
                 raise InstallationError(u'No command available')
-        command_class = working_set.get_entry_point(
-            'setup_commands', command['name'])
-        processor = command_class(configuration)
-        processor.run()
+        return [working_set.get_entry_point(
+            'setup_commands', command['name'])]
 
 
 def setup():
-    SetupCommand().run()
+    command = SetupCommand()
+    command()

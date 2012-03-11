@@ -4,7 +4,7 @@ import warnings
 import unittest
 import logging
 
-from zeam.setup.base.error import InstallationError
+from zeam.setup.base.error import PackageError
 
 logger = logging.getLogger('zeam.setup')
 
@@ -18,7 +18,6 @@ def path_to_module_name(
     module = module.replace(os.path.sep, '.')
     module_name, _ = os.path.splitext(module_name)
     return '.'.join((base_name, module, module_name))
-
 
 def find_test_files(module_directory, module_name):
     """Locate files which migth contain tests in the module directory.
@@ -35,47 +34,44 @@ def find_test_files(module_directory, module_name):
                         module_directory, module_name, path, filename)
 
 
-def load_test_suite(test_module_names):
+def load_test_suite(module_names):
     """Load the test_suite from the test_files.
     """
-    for test_module_name in test_module_names:
+    for module_name in module_names:
         try:
-            test_module = __import__(
-                test_module_name, globals(), globals(), 'test_suite')
-        except ImportError:
-            warnings.warn(
-                "Cannot load Python module %s" % test_module_name,
-                UserWarning)
-            continue
-        test_suite = getattr(test_module, 'test_suite', None)
-        if test_suite is None:
-            test_suite = unittest.defaultTestLoader.loadTestsFromModule(
-                test_module)
+            module = __import__(
+                module_name, globals(), globals(), 'test_suite')
+        except ImportError, error:
+            raise PackageError(
+                u"Cannot import Python module", module_name, detail=str(error))
+        suite = getattr(module, 'test_suite', None)
+        if suite is None:
+            suite = unittest.defaultTestLoader.loadTestsFromModule(module)
         else:
-            test_suite = test_suite()
-        yield test_suite
-
+            suite = suite()
+        yield suite
 
 def find_tests(package_name):
     """Load test suites from the given package name.
     """
     try:
         python_module = __import__(package_name, globals(), globals(), 'test')
-    except ImportError:
-        raise InstallationError('Cannot import tested module %s' % package_name)
-    test_module_names = find_test_files(
+    except ImportError, error:
+        raise PackageError(
+            u'Cannot import Package module', package_name, detail=str(error))
+    module_names = find_test_files(
         os.path.dirname(python_module.__file__),
         python_module.__name__)
-    return load_test_suite(test_module_names)
+    return load_test_suite(module_names)
 
 
 class Test(object):
     """Command used to run tests.
     """
 
-    def __init__(self, configuration):
-        self.configuration = configuration
-        self.package_name = configuration['egginfo']['name'].as_text()
+    def __init__(self, session):
+        self.configuration = session.configuration
+        self.package_name = self.configuration['egginfo']['name'].as_text()
 
     def run(self):
         __status__ = u"Running tests for %s" % self.package_name
@@ -88,4 +84,4 @@ class Test(object):
         logger.setLevel(logging.FATAL)
         unittest.TextTestRunner(verbosity=verbosity).run(suite)
         logger.setLevel(log_level)
-
+        return False

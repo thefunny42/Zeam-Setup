@@ -38,7 +38,7 @@ class VCSSource(Source):
     def is_uptodate(self):
         __status__ = u"Verifying changes in development sources."
         uptodate = super(VCSSource, self).is_uptodate()
-        if uptodate:
+        if uptodate and self.installed_options is not None:
             configuration = self.options.configuration
             installed_configuration = self.installed_options.configuration
             for name in self.options['sources'].as_list():

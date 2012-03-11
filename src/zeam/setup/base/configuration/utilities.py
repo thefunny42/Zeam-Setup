@@ -3,28 +3,6 @@ import threading
 
 marker = object()
 
-
-class CallbackUtility(object):
-    """Simple utility registering callbacks.
-    """
-
-    def __init__(self, configuration):
-        self._callbacks = []
-        self._executed = False
-
-    def register(self, callback):
-        if self._executed:
-            callback()
-        else:
-            self._callbacks.append(callback)
-
-    def execute(self):
-        if not self._executed:
-            for callback in self._callbacks:
-                callback()
-        self._executed = True
-
-
 class Utilities(object):
     """Utility registry.
     """
@@ -34,7 +12,6 @@ class Utilities(object):
         self._lock = threading.Lock()
         self._utilities = {}
         self._factories = {}
-        self.register('atexit', CallbackUtility)
 
     def register(self, name, factory):
         self._factories[name] = factory

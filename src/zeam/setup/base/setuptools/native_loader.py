@@ -111,7 +111,7 @@ class NativeSetuptoolsLoaderFactory(object):
                 else:
                     logger.debug(
                         u"Could not find egg-info in  %s, " % (path))
-            elif self.report_errors:
+            elif self.setuptools_errors:
                 raise InstallationError(
                     u"Setuptools retuned status code %s in  %s, " % (
                         code, path),

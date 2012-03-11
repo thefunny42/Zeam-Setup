@@ -3,7 +3,6 @@ import logging
 import sys
 
 from zeam.setup.base.distribution.workingset import working_set
-from zeam.setup.base.egginfo.write import write_egg_info
 
 logger = logging.getLogger('zeam.setup')
 
@@ -12,19 +11,22 @@ class EggInfo(object):
     """Command used to create egg information for a package.
     """
 
-    def __init__(self, configuration):
-        self.configuration = configuration
+    def __init__(self, session):
+        self.session = session
 
     def run(self):
-        write_egg_info(self.configuration.utilities.package)
+        # This line load the package to return it (and write its EGG-INFO).
+        self.session.configuration.utilities.package
+        self.session.events.one('transaction', self.session.reconfigure)
+        return False
 
 
 class Installed(object):
     """Command used to list installed software.
     """
 
-    def __init__(self, configuration):
-        self.configuration = configuration
+    def __init__(self, session):
+        pass
 
     def run(self):
         # It's not errors, but the moment we use the log facily to
@@ -43,4 +45,4 @@ class Installed(object):
                 logger.info("  Requires:")
                 for dependency in requires:
                     logger.info("  + %s" % dependency)
-
+        return False

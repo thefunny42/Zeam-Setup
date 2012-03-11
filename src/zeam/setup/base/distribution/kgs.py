@@ -119,7 +119,7 @@ class KGS(object):
         self.installed = self.configuration.utilities.installed
         self.existing = {}
         # When we are done, we want to log KGS usage.
-        configuration.utilities.atexit.register(self.log_usage)
+        configuration.utilities.events.subscribe('finish', self.log_usage)
 
     def lookup_kgs(self, name):
         """Lookup a unique KGS entry in the configuration.
@@ -158,7 +158,7 @@ class KGS(object):
             return kgs.is_uptodate()
         return True
 
-    def log_usage(self):
+    def log_usage(self, *ignore):
         """Log used and unused requirements.
         """
         names = self.existing.keys()

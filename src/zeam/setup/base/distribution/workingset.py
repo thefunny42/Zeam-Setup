@@ -38,6 +38,9 @@ class WorkingSet(object):
 
     def __init__(self, interpretor=None, no_defaults=False):
         self.interpretor = PythonInterpreter.detect(interpretor)
+        self.clear(no_defaults)
+
+    def clear(self, no_defaults=False):
         self.installed = {}
         self.installed['python'] = Release(
             name='python', version=self.interpretor.get_pyversion())

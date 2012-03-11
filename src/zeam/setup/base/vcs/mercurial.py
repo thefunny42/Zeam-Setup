@@ -29,7 +29,8 @@ class Mercurial(VCS):
         command = ['hg']
         command.extend(arguments)
         command.extend(['--quiet', '--noninteractive'])
-        stdout, stderr, code = get_cmd_output(*command, path=path)
+        options = dict(path=path)
+        stdout, stderr, code = get_cmd_output(*command, **options)
         if code:
             if error is None:
                 error = u"Error while running mercurial command for"

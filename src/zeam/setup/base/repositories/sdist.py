@@ -2,12 +2,9 @@
 import fnmatch
 import logging
 import os
-import tarfile
-import zipfile
 
 from zeam.setup.base.archives import ARCHIVE_MANAGER
 from zeam.setup.base.error import PackageError, ConfigurationError
-from zeam.setup.base.distribution import DevelopmentRelease
 from zeam.setup.base.utils import open_uri
 
 logger = logging.getLogger('zeam.setup')
@@ -102,15 +99,14 @@ class SourceDistribution(object):
     """Create a source distribution of the package
     """
 
-    def __init__(self, config, environment):
-        self.config = config
-        self.environment = environment
-        self.package = DevelopmentRelease(config=config)
-        self.prefix = self.config['setup']['prefix_directory'].as_text()
+    def __init__(self, session):
+        self.configuration = session.configuration
+        self.package = self.configuration.utilities.package
+        self.prefix = self.configuration['setup']['prefix_directory'].as_text()
 
     def manifest(self):
         manifest_name = DEFAULT_MANIFEST
-        egginfo = self.config['egginfo']
+        egginfo = self.configuration['egginfo']
         if 'manifest' in egginfo:
             manifest_name = os.path.join(
                 self.prefix, egginfo['manifest'].as_text())
@@ -123,11 +119,12 @@ class SourceDistribution(object):
 
     def run(self):
         basename = '%s-%s' % (self.package.name, self.package.version)
-        archive = get_archive_manager(self.config, basename, 'w')
-        logger.info(u'Creating %s' % archive.filename)
+        archive = get_archive_manager(self.configuration, basename, 'w')
+        logger.info(u'Creating %s.', archive.filename)
         for filename in self.manifest():
+            logger.debug(u'Adding file %s.', filename)
             archive.add(
                 os.path.join(self.prefix, filename),
                 os.path.join(basename, filename))
         archive.close()
-
+        return False

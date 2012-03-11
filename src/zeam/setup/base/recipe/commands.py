@@ -264,12 +264,12 @@ class Installer(object):
     """Install an environment.
     """
 
-    def __init__(self, configuration):
+    def __init__(self, session):
         __status__ = u"Loading installation recipes."
-        self.configuration = configuration
+        self.configuration = session.configuration
 
         # Lookup parts
-        self.status = InstallerStatus(configuration)
+        self.status = InstallerStatus(session.configuration)
         self.parts_to_uninstall = []
         for name, section in self.status.to_uninstall:
             part = Part(section, self.status)
@@ -314,3 +314,4 @@ class Installer(object):
             part.finalize(self.configuration)
 
         self.status.finalize()
+        return True

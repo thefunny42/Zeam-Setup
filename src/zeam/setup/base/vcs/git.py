@@ -21,7 +21,8 @@ class Git(VCS):
     def _run_git(self, arguments, error=None, path=None):
         command = ['git']
         command.extend(arguments)
-        stdout, stderr, code = get_cmd_output(*command, path=path)
+        options = dict(path=path)
+        stdout, stderr, code = get_cmd_output(*command, **options)
         if code:
             if error is None:
                 error = u"Error while running git command for"

@@ -56,8 +56,8 @@ class Subversion(VCS):
         command = ['svn']
         command.extend(self.options)
         command.extend(arguments)
-        stdout, stderr, code = get_cmd_output(
-            *command, environ={'LC_ALL': 'C'}, path=path)
+        options = dict(environ={'LC_ALL': 'C'}, path=path)
+        stdout, stderr, code = get_cmd_output(*command, **options)
         if code:
             reason = stderr.strip().split('\n')[-1]
             if INVALID_CERTIFICATE in reason:
