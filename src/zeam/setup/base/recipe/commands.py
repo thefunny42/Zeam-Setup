@@ -209,11 +209,12 @@ class InstallerStatus(object):
 
     def add_recipe_packages(self, names):
         # This must be used only to install recipe and recipe dependency.
+        requirements = Requirements.parse(names)
         install_set = self._installer(
-            Requirements.parse(names),
+            requirements,
             directory=self._install_directory)
-        for name in names:
-            install_set.get(name).activate()
+        for requirement in requirements:
+            install_set.get(requirement.key).activate()
 
     def verify_dependencies(self):
         cache = dict()
