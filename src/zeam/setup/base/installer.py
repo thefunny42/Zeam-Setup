@@ -155,6 +155,8 @@ class PackageInstaller(object):
         if directory is None:
             directory = self._options.get_with_default(
                 'lib_directory', 'setup').as_text()
+        self._error = None
+        self._first_done = False
         self._register_install(requirements)
         if self._to_install:
             self.sources.initialize()

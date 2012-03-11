@@ -88,12 +88,12 @@ def open_uri(uri):
     if is_remote_uri(uri):
         # XXX Todo add a caching subsystem
         try:
-            logger.info("Accessing remote url: %s" % uri)
+            logger.info("Accessing remote url: %s", uri)
             return urllib2.urlopen(uri)
         except urllib2.URLError, e:
             raise NetworkError(uri)
     try:
-        logger.info(u"Reading local file: %s" % uri)
+        logger.info(u"Reading local file: %s", uri)
         return open(uri, 'r')
     except IOError, e:
         raise FileError(uri, e.args[1])
@@ -109,8 +109,9 @@ def create_directory(directory):
     """
     directory = directory.strip()
     if not os.path.isdir(directory):
-        logger.info('Creating directory %s' % directory)
+        logger.info('Creating directory %s', directory)
         os.makedirs(directory)
+    return directory
 
 # Configuration related helpers
 

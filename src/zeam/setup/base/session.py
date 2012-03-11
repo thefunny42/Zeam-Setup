@@ -6,12 +6,13 @@ import shutil
 
 from zeam.setup.base.configuration import Configuration
 from zeam.setup.base.distribution.workingset import working_set
-
+from zeam.setup.base.utils import create_directory
 
 logger = logging.getLogger('zeam.setup')
 
 DEFAULT_CONFIG_DIR = '.zsetup'
 DEFAULT_CONFIG_FILE = 'default.cfg'
+PREVIOUS_CONFIG_FILE = 'installed.cfg'
 
 
 class Events(object):
@@ -52,23 +53,20 @@ class Events(object):
             callback(*call_args)
 
 
-class SetupConfiguration(Configuration):
+class SessionConfiguration(Configuration):
 
     def get_previous_cfg_directory(self, *ignore):
         """Return the previous configuration directory.
         """
         destination = self['setup']['prefix_directory'].as_text()
-        directory = os.path.join(destination, DEFAULT_CONFIG_DIR)
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-        return directory
+        return create_directory(os.path.join(destination, DEFAULT_CONFIG_DIR))
 
     def get_previous_cfg(self, *ignore):
         """Return a previous configuration used to setup this environment.
         """
         directory = self.get_previous_cfg_directory()
         if directory is not None:
-            filename = os.path.join(directory, 'installed.cfg')
+            filename = os.path.join(directory, PREVIOUS_CONFIG_FILE)
             if os.path.isfile(filename):
                 logger.info(u'Loading previous configuration')
                 return Configuration.read(filename)
@@ -78,7 +76,7 @@ class SetupConfiguration(Configuration):
         """Save current configuration into the previous one.
         """
         directory = self.get_previous_cfg_directory()
-        filename = os.path.join(directory, 'installed.cfg')
+        filename = os.path.join(directory, PREVIOUS_CONFIG_FILE)
         logger.info(u'Saving installed configuration in %s', filename)
         stream = open(filename, 'w')
         try:
@@ -99,10 +97,8 @@ class Session(object):
         """Return the default configuration directory.
         """
         user_directory = os.path.expanduser('~')
-        directory = os.path.join(user_directory, DEFAULT_CONFIG_DIR)
-        if not os.path.isdir(directory):
-            os.mkdir(directory)
-        return directory
+        return create_directory(
+            os.path.join(user_directory, DEFAULT_CONFIG_DIR))
 
     def get_default_cfg(self):
         """Return the default configuration.
@@ -117,13 +113,13 @@ class Session(object):
             except IOError:
                 sys.stderr.write('Cannot install default configuration.')
                 sys.exit(-1)
-        logger.info(u'Reading default configuration')
+        logger.info(u'Reading default configuration.')
         return Configuration.read(filename)
 
     def configure(self):
         assert self.configuration is None, u'Configuration already active.'
-        logger.info(u'Reading configuration %s' % self.options.config)
-        self.configuration = SetupConfiguration.read(self.options.config)
+        logger.info(u'Reading configuration %s.', self.options.config)
+        self.configuration = SessionConfiguration.read(self.options.config)
         self.configuration += self.get_default_cfg()
         self.configuration.utilities.register('events', Events)
         self.events.bind(self.configuration.utilities.events)

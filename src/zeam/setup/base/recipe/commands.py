@@ -94,7 +94,7 @@ class PartStatus(object):
 class Part(object):
 
     def __init__(self, section, installer):
-        logger.warn('Load installation for %s' % section.name)
+        logger.warn('Load installation for %s.' % section.name)
         self.name = section.name
         self.recipes = []
         self.status = PartStatus(section, installer)
@@ -129,16 +129,18 @@ class Part(object):
                 self.installer.add_recipe_packages(self.status.requirements)
             for recipe in self.recipes:
                 recipe.preinstall()
-        else:
-            logger.warn(u'Nothing to prepare for %s.', self.name)
+            return True
+        logger.warn(u'Nothing to prepare for %s.', self.name)
+        return False
 
     def install(self):
         if self.status.is_enabled():
             logger.warn(u'Install %s.', self.name)
             for recipe in self.recipes:
                 recipe.install()
-        else:
-            logger.warn(u'Nothing to install for %s.', self.name)
+            return True
+        logger.warn(u'Nothing to install for %s.', self.name)
+        return False
 
     def preuninstall(self):
         if self.status.is_enabled():
@@ -146,8 +148,9 @@ class Part(object):
             for recipe in reversed(self.recipes):
                 # We execute the recipes in reverse order here.
                 recipe.preuninstall()
-        else:
-            logger.warn(u'Nothing to pre-uninstall for %s.', self.name)
+            return True
+        logger.warn(u'Nothing to pre-uninstall for %s.', self.name)
+        return False
 
     def uninstall(self):
         if self.status.is_enabled():
@@ -155,8 +158,9 @@ class Part(object):
             for recipe in reversed(self.recipes):
                 # We execute the recipes in reverse order here.
                 recipe.uninstall()
-        else:
-            logger.warn(u'Nothing to uninstall for %s.', self.name)
+            return True
+        logger.warn(u'Nothing to uninstall for %s.', self.name)
+        return False
 
     def finalize(self, configuration):
         self.status.save(configuration)
@@ -288,25 +292,27 @@ class Installer(object):
         self.parts_to_install.sort()
 
     def run(self):
+        changed = False
+
         # Prepare parts to install
         __status__ = u"Preparing installation."
         for part in self.parts_to_install:
-            part.preinstall()
+            changed = part.preinstall() or changed
 
         # Prepare parts to install
         __status__ = u"Preparing un-installation."
         for part in self.parts_to_uninstall:
-            part.preuninstall()
+            changed = part.preuninstall() or changed
 
         # Uninstall what you need to uninstall first.
         __status__ = u"Running un-installation."
         for part in self.parts_to_uninstall:
-            part.uninstall()
+            changed = part.uninstall() or changed
 
         # Install
         __status__ = u"Running installation."
         for part in self.parts_to_install:
-            part.install()
+            changed = part.install() or changed
 
         # Save status
         __status__ = u"Finalize installation."
@@ -314,4 +320,4 @@ class Installer(object):
             part.finalize(self.configuration)
 
         self.status.finalize()
-        return True
+        return changed
