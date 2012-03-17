@@ -5,7 +5,7 @@ from zeam.setup.base.sources.utils import (
     PackageInstaller)
 from zeam.setup.base.error import PackageNotFound
 from zeam.setup.base.utils import create_directory
-from zeam.setup.base.vcs import VCS, VCSCheckout
+from zeam.setup.base.vcs import VCS, VCSPackage
 
 
 
@@ -32,8 +32,8 @@ class VCSSource(Source):
         for name in self.options['sources'].as_list():
             section = configuration['vcs:' + name]
             for package, info in section.items():
-                yield VCSCheckout(
-                    package, info, info.as_words(), self.directory)
+                yield VCSPackage(
+                    package, info, info.as_words(), base=self.directory)
 
     def is_uptodate(self):
         __status__ = u"Verifying changes in development sources."

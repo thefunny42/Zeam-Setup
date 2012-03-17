@@ -1,10 +1,10 @@
 
 import os
-import warnings
 import unittest
 import logging
 
 from zeam.setup.base.error import PackageError
+from zeam.setup.base.session import Command
 
 logger = logging.getLogger('zeam.setup')
 
@@ -65,7 +65,7 @@ def find_tests(package_name):
     return load_test_suite(module_names)
 
 
-class Test(object):
+class TestCommand(Command):
     """Command used to run tests.
     """
 

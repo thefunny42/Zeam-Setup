@@ -34,8 +34,9 @@ class Mercurial(VCS):
         if code:
             if error is None:
                 error = u"Error while running mercurial command for"
-            raise MercurialError(
-                error,  self.package.uri, command=command, detail=stderr)
+            if code != 1 and (not stderr or stderr.startswith('warning:')):
+                raise MercurialError(
+                    error,  self.package.uri, command=command, detail=stderr)
         return stdout.strip()
 
     def checkout(self):

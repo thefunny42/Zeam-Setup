@@ -3,7 +3,7 @@ import shutil
 import shlex
 
 from zeam.setup.base.recipe.recipe import Recipe
-from zeam.setup.base.vcs import VCSCheckout, VCS
+from zeam.setup.base.vcs import VCSPackage, VCS
 from zeam.setup.base.vcs.error import VCSError
 from zeam.setup.base.error import ConfigurationError
 from zeam.setup.base.utils import create_directory
@@ -28,7 +28,8 @@ class VersionSystemCheckout(Recipe):
                     uris.location,
                     u"Malformed URIs for option %s on line %d." % (
                         uris.name, index))
-            package = VCSCheckout(values[0], uris, values[1:], self.directory)
+            package = VCSPackage(
+                values[0], uris, values[1:], base=self.directory)
             if package.directory in self.packages:
                 raise ConfigurationError(
                     uris.location,

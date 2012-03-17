@@ -3,30 +3,25 @@ import logging
 import sys
 
 from zeam.setup.base.distribution.workingset import working_set
+from zeam.setup.base.session import Command
 
 logger = logging.getLogger('zeam.setup')
 
 
-class EggInfo(object):
+class EggInfoCommand(Command):
     """Command used to create egg information for a package.
     """
-
-    def __init__(self, session):
-        self.session = session
 
     def run(self):
         # This line load the package to return it (and write its EGG-INFO).
         self.session.configuration.utilities.package
-        self.session.events.one('transaction', self.session.reconfigure)
+        self.session.need_reconfigure()
         return False
 
 
-class Installed(object):
+class InstalledCommand(Command):
     """Command used to list installed software.
     """
-
-    def __init__(self, session):
-        pass
 
     def run(self):
         # It's not errors, but the moment we use the log facily to

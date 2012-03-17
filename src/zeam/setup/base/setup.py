@@ -13,7 +13,7 @@ from zeam.setup.base.error import InstallationError, logs
 from zeam.setup.base.recipe.commands import Installer
 from zeam.setup.base.utils import create_directory
 from zeam.setup.base.sources.sources import Sources
-from zeam.setup.base.egginfo.commands import EggInfo
+from zeam.setup.base.egginfo.commands import EggInfoCommand
 
 logger = logging.getLogger('zeam.setup')
 
@@ -113,7 +113,7 @@ class BootstrapCommand(object):
     def get_commands(self, session):
         """Pick a command to run it.
         """
-        return [EggInfo, Installer]
+        return [EggInfoCommand, Installer]
 
     def __call__(self):
         """Main entry point of the setup script.

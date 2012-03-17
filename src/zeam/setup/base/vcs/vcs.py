@@ -6,9 +6,9 @@ from zeam.setup.base.vcs.error import VCSConfigurationError, VCSError
 from zeam.setup.base.error import ConfigurationError
 
 
-class VCSCheckout(object):
+class VCSPackage(object):
 
-    def __init__(self, name, origin, options, directory):
+    def __init__(self, name, origin, options, base=None, directory=None):
         self.name = name
         defined_at = origin.location
         if len(options) < 2:
@@ -19,7 +19,12 @@ class VCSCheckout(object):
         self.vcs = options[0]
         self.uri = options[1]
         self.branch = None
-        self.directory = os.path.join(directory, name)
+        self.directory = None
+        if base:
+            assert directory is None, u"Cannot specify base and directory"
+            self.directory = os.path.join(base, name)
+        elif directory:
+            self.directory = directory
 
         for extra in options[2:]:
             if not '=' in extra:
@@ -41,6 +46,7 @@ class VCS(object):
     """
 
     def __init__(self, package, options=[]):
+        assert package.directory is not None, u"Package not properly configured"
         self.package = package
         self.options = options
         self.install = None     # Method called to do the work
@@ -49,8 +55,8 @@ class VCS(object):
     def directory(self):
         return self.package.directory
 
-    def prepare(self):
-        """Determine what must be done.
+    def inspect(self, checkout=True, update=True):
+        """Determine what must be done (checkout, update, switch).
         """
         if self.install is None:
             if not os.path.isdir(self.package.directory):
@@ -58,11 +64,12 @@ class VCS(object):
                     raise VCSError(
                         u"Checkout directory exists but is not a directory",
                         self.package.directory)
-                self.install = self.checkout
+                if checkout:
+                    self.install = self.checkout
             else:
-                # XXX Should do this only in newest mode ?
                 if self.verify():
-                    self.install = self.update
+                    if update:
+                        self.install = self.update
                 else:
                     if not self.status():
                         raise VCSError(
@@ -70,11 +77,11 @@ class VCS(object):
                             u"and is locally modified",
                             self.package.directory)
                     self.install = self.switch
+        return self.install is not None
 
-    def __call__(self):
-        self.prepare()
-        assert self.install is not None
-        self.install()
+    def __call__(self, checkout=True, update=True):
+        if self.inspect(checkout=checkout, update=update):
+            self.install()
         return self
 
     def status(self):

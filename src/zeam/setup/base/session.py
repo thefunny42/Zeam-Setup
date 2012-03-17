@@ -85,6 +85,61 @@ class SessionConfiguration(Configuration):
             stream.close()
 
 
+class Command(object):
+    """Base class for commands.
+    """
+
+    def __init__(self, session):
+        self.session = session
+
+    def run(self):
+        raise NotImplementedError
+
+
+class MultiCommand(Command):
+    """Base class for commands that support subcommands.
+    """
+
+    def do_help(self, args):
+        """Display help about existing sub-commands.
+        """
+
+        def do_documentation(name):
+            if name is not None:
+                documentation = self.COMMANDS[name].__doc__
+                if documentation:
+                    documentation = documentation.strip()
+                else:
+                    documentation = u"No documentation available."
+                logger.error(u"%s: %s", name, documentation)
+
+        if args and args[0] in self.COMMANDS:
+            do_documentation(args[0])
+        else:
+            logger.error("Available sub-commands:")
+            for name in self.COMMANDS:
+                do_documentation(name)
+        return False
+
+    COMMANDS = {
+        "help": do_help,
+        None: do_help}
+
+    def initialize(self):
+        pass
+
+    def run(self):
+        args = self.session.args
+        if len(args) < 2:
+            command = self.COMMANDS[None]
+            args = []
+        else:
+            command = self.COMMANDS[args[1]]
+            args = args[2:]
+        self.initialize()
+        return command(self, args)
+
+
 class Session(object):
 
     def __init__(self, options, args):
@@ -125,12 +180,15 @@ class Session(object):
         self.events.bind(self.configuration.utilities.events)
         self.events('bootstrap')
 
-    def reconfigure(self, *ignore):
+    def reconfigure(self):
         self.events.unbind(self.configuration.utilities.events)
         self.configuration.utilities.events('finish')
         self.configuration = None
         working_set.clear()
         self.configure()
+
+    def need_reconfigure(self):
+        self.events.one('transaction', lambda *args: self.reconfigure())
 
     def __call__(self, *commands):
         self.configure()
