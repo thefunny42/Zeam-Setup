@@ -25,13 +25,15 @@ class LinkParser(HTMLParser.HTMLParser):
     """Collect links in an HTML file.
     """
 
-    def __init__(self, base):
+    def __init__(self, url):
         HTMLParser.HTMLParser.__init__(self)
         self.links = []
         self._buffer = None
         self._link_attrs = None
+        self._link_counter = 0
 
-        base_parts = urlparse.urlparse(base)
+        self._url = url
+        base_parts = urlparse.urlparse(url)
         self._base_uri = base_parts[0:2]
         self._relative_path = base_parts[2]
         if not self._relative_path.endswith('/'):
@@ -50,38 +52,49 @@ class LinkParser(HTMLParser.HTMLParser):
         if tag == 'a':
             self._buffer = []
             self._link_attrs = attrs
+            self._link_counter = 0
+        elif self._link_counter is not None:
+            self._link_counter += 1
 
     def handle_data(self, data):
         if self._buffer is not None:
             self._buffer.append(data)
 
     def handle_endtag(self, tag):
-        if tag == 'a':
-            href = self._get_link_attr('href')
-            #  We discard anchors and empty href.
-            if href and href[0] != '#':
-                href_parts = urlparse.urlparse(href)
-                # Convert absolute URL to absolute URI
-                if href[0] == '/':
-                    href = urlparse.urlunparse(self._base_uri +  href_parts[2:])
-                elif not is_remote_uri(href):
-                    # Handle relative URL
-                    href = urlparse.urlunparse(
-                        self._base_uri +
-                        ('/'.join((self._relative_path, href_parts[2])),) +
-                        href_parts[3:])
+        if self._link_counter is not None:
+            if self._link_counter < 1:
+                if tag != 'a':
+                    logger.warn(
+                        u'Invalid HTML tags in %s', self._url)
+                href = self._get_link_attr('href')
+                #  We discard anchors and empty href.
+                if href and href[0] != '#':
+                    href_parts = urlparse.urlparse(href)
+                    # Convert absolute URL to absolute URI
+                    if href[0] == '/':
+                        href = urlparse.urlunparse(
+                            self._base_uri +  href_parts[2:])
+                    elif not is_remote_uri(href):
+                        # Handle relative URL
+                        href = urlparse.urlunparse(
+                            self._base_uri +
+                            ('/'.join((self._relative_path, href_parts[2])),) +
+                            href_parts[3:])
 
-                filename = os.path.basename(href_parts[2])
-                # If the content of the link is empty, we use the last
-                # part of path.
-                if self._buffer:
-                    name = ' '.join(self._buffer)
-                else:
-                    name = filename
-                rel = self._get_link_attr('rel')
-                self.links.append((href, filename, name, rel),)
-            self._link_attrs = None
-            self._buffer = None
+                    filename = os.path.basename(href_parts[2])
+                    # If the content of the link is empty, we use the last
+                    # part of path.
+                    if self._buffer:
+                        name = ' '.join(self._buffer)
+                    else:
+                        name = filename
+                    rel = self._get_link_attr('rel')
+                    self.links.append((href, filename, name, rel),)
+                self._link_counter = None
+                self._link_attrs = None
+                self._buffer = None
+            else:
+                self._link_counter -= 1
 
 
 class UndownloadedPackageInstaller(UninstalledPackageInstaller):
@@ -149,6 +162,7 @@ class RemoteURL(object):
             return urls, installers
         finally:
             stream.close()
+        print self.url, len(parser.links)
         for url, filename, name, rel in parser.links:
             if self.source.is_disabled_link(url, True):
                 continue
