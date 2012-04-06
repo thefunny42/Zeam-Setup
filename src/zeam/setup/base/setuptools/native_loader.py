@@ -4,7 +4,7 @@ import os
 import shutil
 
 from zeam.setup.base.egginfo.loader import EggLoader
-from zeam.setup.base.error import InstallationError
+from zeam.setup.base.error import PackageError
 
 
 logger = logging.getLogger('zeam.setup')
@@ -40,14 +40,14 @@ class NativeSetuptoolsLoader(EggLoader):
         # Remove egg_info to prevent strange things to happen
         shutil.rmtree(self.egg_info)
 
-        result, error, code = self.execute(
+        output, errors, code = self.execute(
             'bdist_egg', '-k', '--bdist-dir', install_path,
             path=self.distribution.package_path)
         if code:
-            logger.debug(
+            raise PackageError(
                 u"Setuptools retuned status code %s, "
-                u"while installing in %s: %s %s" % (
-                    code, install_path, result, error))
+                u"while installing in %s." % (code, install_path),
+                detail='\n'.join((output, errors)))
 
 
 class NativeSetuptoolsLoaderFactory(object):
@@ -112,7 +112,7 @@ class NativeSetuptoolsLoaderFactory(object):
                     logger.debug(
                         u"Could not find egg-info in  %s, " % (path))
             elif self.setuptools_errors:
-                raise InstallationError(
+                raise PackageError(
                     u"Setuptools retuned status code %s in  %s, " % (
                         code, path),
                     detail='\n'.join((output, errors)))

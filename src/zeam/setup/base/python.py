@@ -7,6 +7,7 @@ import logging
 import shutil
 import threading
 
+from zeam.setup.base.archives import ZipArchive
 from zeam.setup.base.utils import get_cmd_output
 from zeam.setup.base.setuptools import setuptoolize, install_setuptools
 from zeam.setup.base.error import InstallationError
@@ -122,5 +123,12 @@ def find_setuptools(interpreter, setuptools_version=None):
         setuptools_path = None
     else:
         setuptools_path = os.path.join(install_path, installed[0])
+        if os.path.isfile(setuptools_path):
+            # We got a zip. Unzip it.
+            temp_path = os.path.join(install_path, 'archive.zip')
+            os.rename(setuptools_path, temp_path)
+            os.mkdir(setuptools_path)
+            archive = ZipArchive(temp_path, 'r')
+            archive.extract(setuptools_path)
     return setuptools_path
 
