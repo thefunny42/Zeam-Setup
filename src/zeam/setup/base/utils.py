@@ -37,16 +37,18 @@ def get_cmd_output(*cmd, **opts):
     path = opts.get('path', None)
     environ = opts.get('environ', None)
     cmd_environ = None
-    debug_msg = 'Running command: %s' % ' '.join(cmd)
-    debug_extra = []
+    debug_cmd = []
+    debug_postfix = []
     if path:
-        debug_extra.append('in %s' % (path))
+        debug_postfix.append('in %s' % (path))
     if environ:
-        debug_extra.append(' '.join(map('='.join, environ.items())))
+        debug_cmd.append(' '.join(map('='.join, environ.items())))
         cmd_environ = os.environ.copy()
         cmd_environ.update(environ)
-    if debug_extra:
-        debug_msg += ' [' + ' '.join(debug_extra) + ']'
+    debug_cmd.extend(cmd)
+    debug_msg = 'Running command: %s' % ' '.join(debug_cmd)
+    if debug_postfix:
+        debug_msg += ' [' + ' '.join(debug_postfix) + ']'
     logger.debug(debug_msg)
     stdout = subprocess.PIPE
     stderr = subprocess.PIPE
