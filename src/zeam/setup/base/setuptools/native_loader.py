@@ -56,13 +56,19 @@ class NativeSetuptoolsLoaderFactory(object):
 
     def __init__(self, options):
         self.options = options
-        self.setuptools_version = None
-        self.setuptools_errors = False
+        self.version = None
+        self.errors = False
+        self.environ = {}
         if options is not None:
-            if 'setuptools_errors' in options:
-                self.setuptools_errors = options['setuptools_errors'].as_bool()
-            if 'setuptools_version' in options:
-                self.setuptools_version = options['setuptools_version'].as_str()
+            if 'errors' in options:
+                self.errors = options['errors'].as_bool()
+            if 'version' in options:
+                self.version = options['version'].as_str()
+            if 'environ' in options:
+                configuration = options.configuration
+                for package in options['environ'].as_list():
+                    self.environ[package] = configuration[
+                        'setuptools_environ:' + package].as_dict()
 
     def __call__(self, distribution, path, interpretor, trust=-99):
         setup_py = os.path.join(path, 'setup.py')
@@ -83,25 +89,22 @@ class NativeSetuptoolsLoaderFactory(object):
                 shutil.rmtree(egg_info)
 
             # Determine which version of setuptools to use
-            execute = interpretor.execute_setuptools
-            setuptools_version = None
+            version = None
+            environ = self.environ.get(distribution.name, {})
             if distribution.name == 'setuptools':
                 # To install setuptools, we need the same version.
-                setuptools_version = str(distribution.version)
+                version = str(distribution.version)
             else:
-                setuptools_version = self.setuptools_version
-            if setuptools_version is not None:
+                version = self.version
 
-                def execute(*command, **options):
-                    setuptools_options = {
-                        'setuptools_version': setuptools_version}
-                    setuptools_options.update(options)
-                    return interpretor.execute_setuptools(
-                        *command, **setuptools_options)
+            def execute(*command, **options):
+                kwargs = {'environ': environ, 'version': version}
+                kwargs.update(options)
+                return interpretor.execute_setuptools(
+                    *command, **kwargs)
 
             # Get fresh egg_info
-            output, errors, code = execute(
-                'egg_info', path=path, setuptools_version=setuptools_version)
+            output, errors, code = execute('egg_info', path=path)
             if not code:
                 egg_info_parent, egg_info = find_egg_info(distribution, path)
                 if egg_info is not None and os.path.isdir(egg_info):
@@ -111,7 +114,7 @@ class NativeSetuptoolsLoaderFactory(object):
                 else:
                     logger.debug(
                         u"Could not find egg-info in  %s, " % (path))
-            elif self.setuptools_errors:
+            elif self.errors:
                 raise PackageError(
                     u"Setuptools retuned status code %s in  %s, " % (
                         code, path),

@@ -78,13 +78,13 @@ class PythonInterpreter(object):
     def execute_setuptools(self, *cmd, **options):
         """Execute a setuptools command with this interpreter.
         """
-        version = options.get('setuptools_version')
+        version = options.get('version')
         if version not in self._setuptools:
             self._lock.acquire()
             try:
                 if version not in self._setuptools:
                     self._setuptools[version] = find_setuptools(
-                        self, setuptools_version=version)
+                        self, version=version)
             finally:
                 self._lock.release()
 
@@ -101,11 +101,11 @@ class PythonInterpreter(object):
         return self._platform
 
 
-def find_setuptools(interpreter, setuptools_version=None):
+def find_setuptools(interpreter, version=None):
     install_path = tempfile.mkdtemp('zeam.setup.setuptools')
     atexit.register(shutil.rmtree, install_path)
     stdout, stderr, code = interpreter.execute_module(
-        install_setuptools, install_path, setuptools_version or 'default',
+        install_setuptools, install_path, version or 'default',
         python_options=['-S'])
     installed = os.listdir(install_path)
     if code or len(installed) != 1:
