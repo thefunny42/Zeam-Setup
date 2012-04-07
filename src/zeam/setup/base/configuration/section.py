@@ -110,6 +110,9 @@ class Section(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __iter__(self):
+        return self.options.itervalues()
+
     def items(self):
         """Iter on options.
         """
@@ -119,6 +122,11 @@ class Section(object):
         """All options keys.
         """
         return self.options.keys()
+
+    def values(self):
+        """Return all options.
+        """
+        return self.options.values()
 
     def _write(self, stream):
         stream.write('[' + self.name + ']\n')

@@ -71,6 +71,13 @@ def is_remote_uri(uri):
             return True
     return False
 
+def absolute_uri(uri):
+    """Return an absolute URI for the given path.
+    """
+    if not is_remote_uri(uri) and not os.path.isabs(uri):
+        return os.path.abspath(uri)
+    return uri
+
 def relative_uri(origin, target, is_container=False):
     """Return an URI for target, paying attention that if it was
     relative, it was from origin.

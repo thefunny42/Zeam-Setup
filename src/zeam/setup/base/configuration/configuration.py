@@ -5,7 +5,7 @@ import logging
 from zeam.setup.base.configuration.section import SectionParser, Section
 from zeam.setup.base.configuration.utilities import Utilities
 from zeam.setup.base.error import ConfigurationError
-from zeam.setup.base.utils import open_uri, relative_uri
+from zeam.setup.base.utils import open_uri, relative_uri, absolute_uri
 
 logger = logging.getLogger('zeam.setup')
 marker = object()
@@ -32,9 +32,10 @@ class Configuration(object):
     def read(cls, uri):
         """Read a configuration file located at the given uri.
         """
-        input = open_uri(uri)
+        abs_uri = absolute_uri(uri)
+        input = open_uri(abs_uri)
         try:
-            return cls.read_lines(input.readlines, uri)
+            return cls.read_lines(input.readlines, abs_uri)
         finally:
             input.close()
 
@@ -142,6 +143,9 @@ class Configuration(object):
     def __contains__(self, key):
         return self.sections.__contains__(key)
 
+    def __iter__(self):
+        return self.sections.itervalues()
+
     def items(self):
         """Iter on sections.
         """
@@ -152,4 +156,7 @@ class Configuration(object):
         """
         return self.sections.keys()
 
-
+    def values(self):
+        """All sections values.
+        """
+        return self.sections.values()

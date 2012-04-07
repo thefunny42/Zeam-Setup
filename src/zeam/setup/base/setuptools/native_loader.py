@@ -80,8 +80,10 @@ class NativeSetuptoolsLoaderFactory(object):
                         u'Using patches in setuptools, '
                         u'but no patch command is available.')
                 for package in options['patch'].as_list():
-                    self.patches[package] = configuration[
-                        'setuptools_patch:' + package].as_dict().values()
+                    files = []
+                    for option in configuration['setuptools_patch:' + package]:
+                        files.extend(option.as_files())
+                    self.patches[package] = files
 
     def __call__(self, distribution, path, interpretor, trust=-99):
         setup_py = os.path.join(path, 'setup.py')

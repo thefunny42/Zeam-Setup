@@ -4,7 +4,7 @@ import shlex
 import re
 
 from zeam.setup.base.error import ConfigurationError
-from zeam.setup.base.utils import format_line
+from zeam.setup.base.utils import format_line, relative_uri
 
 OPTION_HEADER = re.compile(
     r'(?P<option>[^=\s]+)\s*(?P<operator>[\+\-]?=)\s*(?P<value>.*)$')
@@ -161,6 +161,12 @@ class Option(object):
         """Return the value's lines as a list.
         """
         return as_list(self.get_value())
+
+    def as_files(self):
+        """Return the value as a list of files, relative to the current one.
+        """
+        origin = self.get_cfg_directory()
+        return map(lambda uri: relative_uri(origin, uri, True), self.as_list())
 
     def as_words(self):
         """Return value as a list of word. You can wrap a word with a
