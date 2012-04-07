@@ -39,12 +39,13 @@ class LocalSource(Source):
     """
     factory = UninstalledPackageInstaller
     type = 'Archive Source'
+    directory = 'download_directory'
     finder = get_installers_from_directory
 
     def __init__(self, *args):
         __status__ = u"Initializing local software source."
         super(LocalSource, self).__init__(*args)
-        self.paths = self.options['directory'].as_list()
+        self.paths = self.options[self.directory].as_list()
         self.installers = Installers()
 
     def initialize(self, first_time):
@@ -75,4 +76,5 @@ class EggsSource(LocalSource):
     """
     factory = PackageInstaller
     type = 'Eggs'
+    directory = 'lib_directory'
     finder = get_eggs_from_directory

@@ -34,7 +34,8 @@ class Template(Recipe):
                 output_file.write(
                     template.generate(
                         section=self.options,
-                        configuration=self.options.configuration
+                        configuration=self.options.configuration,
+                        status=self.status
                         ).render())
                 success = True
             finally:

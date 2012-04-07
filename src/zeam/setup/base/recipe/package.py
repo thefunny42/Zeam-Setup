@@ -48,7 +48,7 @@ class Package(Recipe):
         super(Package, self).__init__(options, status)
 
         self.directory = options.get(
-            'directory',
+            'lib_directory',
             '${setup:lib_directory}').as_text()
         self.bin_directory = options.get(
             'bin_directory',

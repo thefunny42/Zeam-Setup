@@ -80,6 +80,9 @@ class WorkingSet(object):
             raise KeyError(requirement)
         return release
 
+    def __iter__(self):
+        return self.installed.itervalues()
+
     def add(self, release):
         """Try to add a new release in the environment. This doesn't
         add any dependencies by magic, you need to add them yourself
