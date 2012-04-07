@@ -47,7 +47,7 @@ class VersionSystemCheckout(Recipe):
 
             def prepare(package):
                 repository = VCS(package)
-                repository.prepare()
+                repository.inspect()
                 return repository
 
             self.repositories.extend(self._do(prepare, self.packages.values()))
@@ -56,7 +56,8 @@ class VersionSystemCheckout(Recipe):
         __status__ = u"Checkout VCS directories."
 
         def install(repository):
-            repository.install()
+            if repository.install is not None:
+                repository.install()
             return repository.directory
 
         self.status.paths.extend(self._do(install, self.repositories))
