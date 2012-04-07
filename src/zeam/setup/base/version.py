@@ -2,6 +2,8 @@
 import re
 import operator
 
+from zeam.setup.base.error import PackageError
+
 VERSION_PARTS = re.compile(r'(\d+|[a-z]+|\.|-)')
 VERSION_REPLACE = {
     'alpha': 'a', 'beta': 'b', 'pre':'c', 'preview':'c', '-':'final-',
@@ -17,17 +19,29 @@ REQUIREMENT_TO_OPERATORS = {'==': operator.eq, '>=': operator.ge,
 OPERATORS_TO_REQUIREMENT = {operator.eq: '==', operator.ge: '>=',
                             operator.ne: '!=', operator.le: '<='}.get
 
-class InvalidVersion(ValueError):
+
+class InvalidVersion(PackageError):
     """This version is invalid.
     """
+    name = u'Invalid version'
+
 
 class InvalidRequirement(ValueError):
     """Those requirement are invalids.
     """
 
-class IncompatibleRequirement(InvalidRequirement):
+
+class IncompatibleRequirement(PackageError):
     """Those reauirement are not compatible together.
     """
+    name = u'Incompatible requirement'
+
+    def msg(self):
+        requirements = []
+        for operator, version in self.args[1:]:
+            requirements.append(
+                ' '.join((OPERATORS_TO_REQUIREMENT(operator), str(version))))
+        return ': '.join((self.name, self.args[0], ', '.join(requirements)))
 
 
 class Version(object):
@@ -113,7 +127,7 @@ class Version(object):
         return '<%s %s>' % (self.__class__.__name__, self.__str__())
 
 
-def reduce_requirements(*reqs):
+def reduce_requirements(name, *reqs):
     """Reduce a list of version requirements to a shorter one if possible.
     """
     # XXX there is probably a way to do it better.
@@ -135,23 +149,23 @@ def reduce_requirements(*reqs):
                         if other_version == version:
                             del other_reqs[index]
                         else:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                     elif other_op is operator.ne:
                         # check if != version == error else remove
                         if other_version == version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                         else:
                             del other_reqs[index]
                     elif other_op is operator.le:
                         # check if version is in range
                         if other_version < version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                         else:
                             del other_reqs[index]
                     elif other_op is operator.ge:
                         # check if version is in range
                         if other_version > version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                         else:
                             del other_reqs[index]
 
@@ -165,11 +179,11 @@ def reduce_requirements(*reqs):
                     # check for other le, version <= error
                     elif other_op is operator.le:
                         if other_version < version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                     # check for eq not in range
                     elif other_op is operator.eq:
                         if other_version < version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                     # check for neq in range or remove it
                     elif other_op is operator.ne:
                         if other_version < version:
@@ -185,11 +199,11 @@ def reduce_requirements(*reqs):
                     # check for other ge, version <= error
                     elif other_op is operator.ge:
                         if other_version > version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                     # check for eq not in range
                     elif other_op is operator.eq:
                         if other_version > version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                     # check for neq in range or remove it
                     elif other_op is operator.ne:
                         if other_version > version:
@@ -203,7 +217,7 @@ def reduce_requirements(*reqs):
                     # check for other eq, version == other, error
                     elif other_op is operator.eq:
                         if other_version == version:
-                            raise IncompatibleRequirement(current, other)
+                            raise IncompatibleRequirement(name, current, other)
                     # check for le, not in range remove
                     elif other_op is operator.le:
                         if other_version < version:
@@ -291,7 +305,7 @@ class Requirement(object):
             raise InvalidRequirement(other)
         return self.__class__(
             self.name,
-            reduce_requirements(self.versions, other.versions),
+            reduce_requirements(self.name, self.versions, other.versions),
             self.extras | other.extras)
 
     def __repr__(self):
@@ -359,7 +373,10 @@ class Requirements(object):
     def __contains__(self, requirement):
         contained = self.__data.get(requirement.name)
         if contained is not None:
-            reduce_requirements(requirement.versions, contained.versions)
+            reduce_requirements(
+                requirement.name,
+                requirement.versions,
+                contained.versions)
             return True
         return False
 
