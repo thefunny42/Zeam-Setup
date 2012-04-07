@@ -4,7 +4,9 @@ import os
 import shutil
 
 from zeam.setup.base.egginfo.loader import EggLoader
-from zeam.setup.base.error import PackageError
+from zeam.setup.base.error import InstallationError, PackageError
+from zeam.setup.base.utils import have_cmd, get_cmd_output
+from zeam.setup.base.utils import open_uri, create_directory
 
 
 logger = logging.getLogger('zeam.setup')
@@ -40,6 +42,7 @@ class NativeSetuptoolsLoader(EggLoader):
         # Remove egg_info to prevent strange things to happen
         shutil.rmtree(self.egg_info)
 
+        create_directory(install_path)
         output, errors, code = self.execute(
             'bdist_egg', '-k', '--bdist-dir', install_path,
             path=self.distribution.package_path)
@@ -59,6 +62,7 @@ class NativeSetuptoolsLoaderFactory(object):
         self.version = None
         self.errors = False
         self.environ = {}
+        self.patches = {}
         if options is not None:
             if 'errors' in options:
                 self.errors = options['errors'].as_bool()
@@ -69,6 +73,15 @@ class NativeSetuptoolsLoaderFactory(object):
                 for package in options['environ'].as_list():
                     self.environ[package] = configuration[
                         'setuptools_environ:' + package].as_dict()
+            if 'patch' in options:
+                available, version = have_cmd('patch', '--version')
+                if not available:
+                    raise InstallationError(
+                        u'Using patches in setuptools, '
+                        u'but no patch command is available.')
+                for package in options['patch'].as_list():
+                    self.patches[package] = configuration[
+                        'setuptools_patch:' + package].as_dict().values()
 
     def __call__(self, distribution, path, interpretor, trust=-99):
         setup_py = os.path.join(path, 'setup.py')
@@ -102,6 +115,21 @@ class NativeSetuptoolsLoaderFactory(object):
                 kwargs.update(options)
                 return interpretor.execute_setuptools(
                     *command, **kwargs)
+
+            # Apply patches
+            if distribution.name in self.patches:
+                for patch in self.patches[distribution.name]:
+                    stream = open_uri(patch)
+                    try:
+                        output, errors, code = get_cmd_output(
+                            'patch', '-p0', path=path, input=stream.read())
+                    finally:
+                        stream.close()
+                    if code:
+                        raise InstallationError(
+                            u'Error while patching setuptools egg %s' % (
+                                distribution.name),
+                            detail='\n'.join((output, errors)))
 
             # Get fresh egg_info
             output, errors, code = execute('egg_info', path=path)

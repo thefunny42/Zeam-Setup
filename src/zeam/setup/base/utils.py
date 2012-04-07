@@ -8,7 +8,7 @@ import urllib2
 from zeam.setup.base.error import FileError, NetworkError, ConfigurationError
 
 VERSION = re.compile(
-    r'version ([0-9.]+)')
+    r'(version)? ([0-9\.]+)')
 logger = logging.getLogger('zeam.setup')
 
 
@@ -23,7 +23,7 @@ def have_cmd(*cmd):
         for line in stdout.splitlines():
             version = VERSION.search(line)
             if version:
-                return (True, version.groups()[0])
+                return (True, version.groups()[-1])
     except OSError, error:
         if error.args[0] == 2:
             return (False, None)
@@ -59,7 +59,7 @@ def get_cmd_output(*cmd, **opts):
         cmd,
         stdin=subprocess.PIPE, stdout=stdout, stderr=stderr,
         cwd=path, env=cmd_environ)
-    stdout, stderr = process.communicate()
+    stdout, stderr = process.communicate(input=opts.get('input', None))
     return stdout, stderr, process.returncode
 
 def is_remote_uri(uri):
