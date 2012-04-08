@@ -26,4 +26,7 @@ class PythonCompileFile(Recipe):
             self.interpreter.execute_module(compile, path)
             return path
 
-        self._do(compile_files, self.status.paths.get_added(directory=True))
+        self._do(
+            compile_files,
+            self.status.paths.query(
+                added=True, directory=True))

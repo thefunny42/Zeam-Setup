@@ -3,6 +3,8 @@ import os
 import tarfile
 import zipfile
 
+from zeam.setup.base.recipe.utils import Paths
+
 
 class ZipArchive(object):
     """Manage an zip archive.
@@ -17,6 +19,7 @@ class ZipArchive(object):
         self._zip.write(filename, dest_filename)
 
     def extract(self, destination):
+        filenames = Paths(verify=False)
         if self.format == '.egg':
             # Eggs are not in a directory for themselves...
             # Add a directory
@@ -26,17 +29,27 @@ class ZipArchive(object):
 
         for filename in self._zip.namelist():
             target_filename = os.path.join(destination, filename)
+            target_info = self._zip.getinfo(filename)
 
-            # Create directory for target_filename
-            target_path = os.path.dirname(target_filename)
-            if not os.path.exists(target_path):
-                os.makedirs(target_path)
-
-            if filename[-1] != '/': # ZIP specs uses / as path separator
+            # ZIP specs uses / as path separator
+            is_dir = (filename[-1] == '/' or
+                      target_info.external_attr & 0x10 == 0x10)
+            if not is_dir:
                 # Extract the file if it is not a folder
+                target_path = os.path.dirname(target_filename)
+                if not os.path.exists(target_path):
+                    os.makedirs(target_path)
+
                 output = open(target_filename, 'wb')
                 output.write(self._zip.read(filename))
                 output.close()
+            else:
+                filename = filename.rstrip('/')
+                if not os.path.exists(target_filename):
+                    os.makedirs(target_filename)
+
+            filenames.add(filename, directory=is_dir)
+        return filenames
 
     def close(self):
         self._zip.close()
@@ -55,8 +68,11 @@ class TarArchive(object):
         self._tar.add(filename, dest_filename, False)
 
     def extract(self, destination):
+        filenames = Paths(verify=False)
         for entry in self._tar:
             self._tar.extract(entry, destination)
+            filenames.add(entry.name, directory=entry.isdir())
+        return filenames
 
     def close(self):
         self._tar.close()

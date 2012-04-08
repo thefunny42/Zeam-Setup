@@ -112,13 +112,14 @@ def compare_uri(uri1, uri2):
     """
     return uri1.rstrip('/') == uri2.rstrip('/')
 
-def create_directory(directory):
+def create_directory(directory, quiet=False):
     """Create a directory called directory if it doesn't exits
     already.
     """
     directory = directory.strip()
     if not os.path.isdir(directory):
-        logger.info('Creating directory %s', directory)
+        if not quiet:
+            logger.info('Creating directory %s', directory)
         os.makedirs(directory)
     return directory
 

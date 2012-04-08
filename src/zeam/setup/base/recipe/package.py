@@ -123,7 +123,8 @@ class Package(Recipe):
                 'args': args, 'package': package, 'callable': main}
             self.status.paths.add(
                 self.working_set.create_script(
-                    script_path, script_body, self.extra_paths))
+                    script_path, script_body, self.extra_paths),
+                added=True)
 
     def install(self):
         __status__ = u"Install required scripts."
@@ -153,6 +154,7 @@ class Interpreter(Package):
 
         self.status.paths.add(
             self.working_set.create_script(
-                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths))
+                script_path, INTERPRETER_BODY, extra_paths=self.extra_paths),
+            added=True)
 
 

@@ -15,10 +15,13 @@ class Paths(object):
     def __init__(self, paths=None, verify=True):
         self._data = {}
         self._len = 0
+        self._verify = verify
         if paths:
-            self.extend(paths, verify=verify)
+            self.extend(paths)
 
-    def add(self, path, verify=True, added=True):
+    def add(self, path, verify=None, directory=None, **extra):
+        if verify is None:
+            verify = self._verify
         if verify:
             if not os.path.exists(path):
                 logger.error(
@@ -28,15 +31,34 @@ class Paths(object):
         data = self._data
         for piece in path.split(os.path.sep):
             data = data.setdefault(piece, {})
-        data[None] = {'added': added, 'directory': os.path.isdir(path)}
+        if directory is None:
+            directory = os.path.isdir(path)
+        info = {'directory': directory, 'original': path}
+        info.update(extra)
+        data[None] = info
         self._len += 1
         return True
 
-    def extend(self, paths, verify=True, added=True):
-        all_added = True
+    def listdir(self, path):
+        """Populate the path object from the filesystem.
+        """
+
+        def populate(path, prefix):
+            for item in os.listdir(path):
+                item_prefix = os.path.join(prefix, item)
+                item_path = os.path.join(path, item)
+                item_directory = os.path.isdir(item_path)
+                self.add(item_prefix, verify=False, directory=item_directory)
+                if item_directory:
+                    populate(item_prefix, item_path)
+
+        populate(path, '')
+
+    def extend(self, paths, verify=None):
+        added = True
         for path in paths:
-            all_added = self.add(path, verify=verify, added=added) and all_added
-        return all_added
+            added = self.add(path, verify=verify) and added
+        return added
 
     def rename(self, old, new):
 
@@ -81,13 +103,22 @@ class Paths(object):
         except ValueError:
             return False
 
-    def get_added(self, directory=None):
-        matches = {'added': True}
-        if directory is not None:
-            matches['directory'] = directory
-        return self.as_list(True, matches=matches)
+    def query(self, **matches):
+        return self._search(
+            lambda key, value: os.path.sep.join(key),
+            True, matches=matches)
 
     def as_list(self, simplify=False, matches={}, prefixes={}):
+        return self._search(
+            lambda key, value: os.path.sep.join(key),
+            simplify=simplify, matches=matches, prefixes=prefixes)
+
+    def as_dict(self, simplify=False, matches={}, prefixes={}):
+        return dict(self._search(
+            lambda key, value: (os.path.sep.join(key), value),
+            simplify=simplify, matches=matches, prefixes=prefixes))
+
+    def _search(self, visitor, simplify=False, matches={}, prefixes={}):
         result = []
 
         def build(prefix, data):
@@ -97,7 +128,7 @@ class Paths(object):
                         if value.get(match_key, None) != match_value:
                             break
                     else:
-                        result.append(os.path.sep.join(prefix))
+                        result.append(visitor(prefix, value))
                         if simplify:
                             # None is always the smallest.
                             break
@@ -112,23 +143,35 @@ class Paths(object):
                     if data is None:
                         break
                 else:
-                    build([replace], data)
+                    if replace:
+                        build([replace], data)
+                    else:
+                        build([], data)
         else:
             build([], self._data)
         return result
 
-    def __len__(self):
-        return self._len
-
-    def __contains__(self, path):
+    def get(self, path, default=None):
         data = self._data
         for piece in path.split(os.path.sep):
             data = data.get(piece, _marker)
             if data is _marker:
-                return False
+                return default
         if None in data:
-            return True
-        return False
+            return data[None]
+        return default
+
+    def __len__(self):
+        return self._len
+
+    def __getitem__(self, path):
+        value = self.get(path, default=_marker)
+        if value is _marker:
+            raise KeyError(path)
+        return value
+
+    def __contains__(self, path):
+        return self.get(path, default=_marker) is not _marker
 
 
 WORK_DONE = object()

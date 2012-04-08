@@ -20,7 +20,7 @@ class PythonCommand(Recipe):
                 'python_executable', 'setup').as_text())
 
     def install(self):
-        for path in self.status.paths.get_added(directory=True):
+        for path in self.status.paths.query(added=True, directory=True):
             logger.info('Run Python command in %s.' % path)
             for command in self.commands:
                 options = dict(path=path)

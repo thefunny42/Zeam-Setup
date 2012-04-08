@@ -129,7 +129,7 @@ class NativeSetuptoolsLoaderFactory(object):
                         stream.close()
                     if code:
                         raise InstallationError(
-                            u'Error while patching setuptools egg %s' % (
+                            u'Error while patching setuptools egg %s.' % (
                                 distribution.name),
                             detail='\n'.join((output, errors)))
 
@@ -146,7 +146,7 @@ class NativeSetuptoolsLoaderFactory(object):
                         u"Could not find egg-info in  %s, " % (path))
             elif self.errors:
                 raise PackageError(
-                    u"Setuptools retuned status code %s in  %s, " % (
+                    u"Setuptools retuned status code %s in  %s." % (
                         code, path),
                     detail='\n'.join((output, errors)))
             else:

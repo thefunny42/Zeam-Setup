@@ -162,7 +162,6 @@ class RemoteURL(object):
             return urls, installers
         finally:
             stream.close()
-        print self.url, len(parser.links)
         for url, filename, name, rel in parser.links:
             if self.source.is_disabled_link(url, True):
                 continue

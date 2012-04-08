@@ -1,6 +1,7 @@
 
 import logging
 import os
+import shutil
 
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import open_uri
@@ -43,6 +44,8 @@ class Template(Recipe):
         finally:
             source_file.close()
         if success:
+            shutil.copystat(source_path, output_path)
+            assert self.status.paths.rename(source_path, output_path)
             os.remove(source_path)
         return output_path
 
@@ -63,8 +66,8 @@ class Template(Recipe):
 
     def install(self):
         __status__ = u"Installing templates."
-        for path in self.status.paths.get_added():
+        for path in self.status.paths.query(added=True):
             if os.path.isdir(path):
                 self.render_directory(path)
             else:
-                assert self.status.paths.rename(path, self.render_file(path))
+                self.render_file(path)

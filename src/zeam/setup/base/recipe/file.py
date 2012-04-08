@@ -10,66 +10,11 @@ from zeam.setup.base.download import DownloadManager
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.error import ConfigurationError, InstallationError
 from zeam.setup.base.utils import create_directory, relative_uri
-from zeam.setup.base.recipe.utils import MultiTask
+from zeam.setup.base.recipe.utils import MultiTask, Paths
 
 
 logger = logging.getLogger('zeam.setup')
 
-
-def install_data(source_path, destination_path, status, move=True):
-    """Install a folder or a file to a installation one.
-    """
-    if destination_path in status.installed_paths:
-        logger.debug(
-            u"Skipping already installed directory or file %s.",
-            destination_path)
-        status.paths.add(destination_path, added=False)
-    else:
-        if os.path.exists(destination_path):
-            raise InstallationError(
-                u"Error target directory or file already exists",
-                destination_path)
-        if not os.path.exists(source_path):
-            raise InstallationError(
-                u"Error missing directory or file in source",
-                source_path)
-        parent_path = os.path.dirname(destination_path)
-        if not os.path.exists(parent_path):
-            create_directory(parent_path)
-        logger.debug(
-            u"Installing directory or file %s.",
-            destination_path)
-        if move:
-            shutil.move(source_path, destination_path)
-        else:
-            shutil.copy2(source_path, destination_path)
-        status.paths.add(destination_path, added=True)
-
-def install_specified_data(origin_path, target_path, infos, status, move=True):
-    """Install specified folders or files from an origin path into the
-    installation path.
-    """
-    for info in infos:
-        parts = info.split(':')
-        if len(parts) != 2:
-            raise ConfigurationError(u"Invalid directory definition", info)
-        destination_path = target_path
-        source_part, destination_part = parts
-        source_path = os.path.join(origin_path, source_part)
-        if destination_part:
-            destination_path = os.path.join(destination_path, destination_part)
-        install_data(source_path, destination_path, status, move=move)
-
-def install_folder_data(origin_path, target_path, status, move=True):
-    """Install all folder entries from an origin path into the
-    installation path.
-    """
-    for entry in os.listdir(origin_path):
-        install_data(
-            os.path.join(origin_path, entry),
-            os.path.join(target_path, entry),
-            status,
-            move=move)
 
 def parse_files(options, name):
     """Help to read filenames and put them back where they where
@@ -81,8 +26,15 @@ def parse_files(options, name):
     origin = value.get_cfg_directory()
 
     def parse_line(line):
-        parts = shlex.split(line)
-        return relative_uri(origin, parts[0], True), parts[1:]
+        options = shlex.split(line)
+        mapping = []
+        for info in options[1:]:
+            directories = info.split(':')
+            if len(directories) != 2:
+                raise ConfigurationError(
+                    value.location, u"Invalid directory definition", info)
+            mapping.append(directories)
+        return relative_uri(origin, options[0], True), mapping
 
     return map(parse_line, value.as_list())
 
@@ -103,6 +55,46 @@ class File(Recipe):
         self.downloader = DownloadManager(download_path)
         self._do = MultiTask(options, 'download')
 
+    def install_file(self, source_path, destination_path, directory):
+        """Install a folder or a file to a installation one.
+        """
+        if destination_path in self.status.installed_paths:
+            self.status.paths.add(destination_path, directory=directory)
+            return
+
+        if directory:
+            if os.path.exists(destination_path):
+                if not os.path.isdir(destination_path):
+                    raise InstallationError(
+                        u"Error target directory already exists",
+                        destination_path)
+            else:
+                create_directory(destination_path, quiet=True)
+        else:
+            if os.path.exists(destination_path):
+                raise InstallationError(
+                    u"Error target file already exists",
+                    destination_path)
+            if not os.path.exists(source_path):
+                raise InstallationError(
+                    u"Error missing directory or file in source",
+                    source_path)
+            parent_path = os.path.dirname(destination_path)
+            if not os.path.exists(parent_path):
+                create_directory(parent_path, quiet=True)
+            shutil.copy2(source_path, destination_path)
+        self.status.paths.add(destination_path, directory=directory, added=True)
+
+    def install_files(self, origin_path, target_path, files):
+        """Install a set of files.
+        """
+        for path, data in files.items():
+            source_path = os.path.join(origin_path, data['original'])
+            destination_path = target_path
+            if path:
+                destination_path = os.path.join(destination_path, path)
+            self.install_file(source_path, destination_path, data['directory'])
+
     def preinstall(self):
         __status__ = u"Download files."
         download = lambda (uri, parts): (self.downloader(uri), parts)
@@ -115,40 +107,51 @@ class File(Recipe):
             archive = open_archive(filename, 'r')
             if archive is not None:
                 extract_path = tempfile.mkdtemp('zeam.setup.archive')
-                archive.extract(extract_path)
+                extracted = archive.extract(extract_path)
                 try:
                     if parts:
-                        install_specified_data(
-                            extract_path,
-                            target_directory,
-                            parts,
-                            self.status,
-                            move=True)
+                        for source_part, destination_part in parts:
+                            files = extracted.as_dict(
+                                prefixes={source_part: destination_part})
+                            if not files:
+                                raise ConfigurationError(
+                                    u'Missing wanted path in archive')
+                            self.install_files(
+                                extract_path,
+                                target_directory,
+                                files)
                     else:
-                        install_folder_data(
+                        self.install_files(
                             extract_path,
                             target_directory,
-                            self.status,
-                            move=True)
+                            extracted.as_dict())
                 finally:
                     shutil.rmtree(extract_path)
             else:
+                if not os.path.isdir(filename):
+                    raise ConfigurationError(
+                        u"Cannot not directly install files, only directories",
+                        filename)
+                files = Paths(verify=False)
+                files.listdir(filename)
                 if parts:
-                    if os.path.isdir(filename):
-                        install_specified_data(
+                    for source_part, destination_part in parts:
+                        part_files = files.as_dict(
+                            prefixes={source_part: destination_part})
+                        if not part_files:
+                            raise ConfigurationError(
+                                u'Missing wanted path in archive')
+                        self.install_files(
                             filename,
                             target_directory,
-                            parts,
-                            self.status,
-                            move=False)
-                    else:
-                        raise ConfigurationError(
-                            u"Parts are defined, but is not a directory",
-                            filename)
+                            part_files)
                 else:
                     target_path = os.path.join(
                         target_directory, os.path.basename(filename))
-                    install_data(filename, target_path, self.status, move=False)
+                    self.install_files(
+                        target_path,
+                        target_directory,
+                        files)
 
     def uninstall(self):
         __status__ = u"Uninstalling files."
