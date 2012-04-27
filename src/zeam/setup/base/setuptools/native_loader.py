@@ -19,8 +19,8 @@ def find_egg_info(distribution, base_path):
     wanted_directory = (distribution.name.replace('-', '_') +
                         '.egg-info').lower()
     for path, directories, filenames in os.walk(base_path):
-        for directory in map(lambda s: s.lower(), directories):
-            if wanted_directory == directory:
+        for directory in directories:
+            if wanted_directory == directory.lower():
                 return path, os.path.join(path, directory)
     return None, None
 
