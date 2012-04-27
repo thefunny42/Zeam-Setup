@@ -101,12 +101,11 @@ class KnownGoodVersionSetChain(object):
     def upgrade(self, requirement):
         __status__ = u"Restraining version of %s to the known good set." % (
             requirement.name)
-        name = requirement.name
-        wanted = self.get(name)
+        wanted = self.get(requirement.name)
         if wanted is None:
             self.report_missing(requirement)
             return requirement
-        requirement += Requirement(name, [(operator.eq, wanted)])
+        requirement += Requirement(requirement.name, [(operator.eq, wanted)])
         return requirement
 
 
