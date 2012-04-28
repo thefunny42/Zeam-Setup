@@ -169,6 +169,9 @@ class PackageInstaller(object):
                 worker.join()
             if self._error is not None:
                 raise self._error
+        logger.info(
+            u'Installed %d packages (including Python) in working set.',
+            len(self.working_set))
         return self.working_set
 
 
