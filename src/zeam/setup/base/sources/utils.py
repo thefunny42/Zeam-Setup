@@ -28,7 +28,7 @@ def get_installer_from_name(source, link, url=None, path=None):
     info = RELEASE_TARBALL.match(link)
     if info:
         try:
-            name = info.group('name').lower()
+            name = info.group('name')
             version = Version.parse(info.group('version'))
             format = info.group('format')
             pyversion = info.group('pyversion')

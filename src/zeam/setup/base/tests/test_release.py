@@ -2,7 +2,7 @@
 import unittest
 
 from zeam.setup.base.version import Requirement
-from zeam.setup.base.distribution.release import Release, Software
+from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.error import InstallationError
 
 

@@ -3,7 +3,7 @@ import logging
 import os.path
 import threading
 
-from zeam.setup.base.sources import STRATEGY_UPDATE, STRATEGY_QUICK
+from zeam.setup.base.sources import STRATEGY_UPDATE
 from zeam.setup.base.error import PackageError, PackageDistributionError, logs
 from zeam.setup.base.version import Requirements
 

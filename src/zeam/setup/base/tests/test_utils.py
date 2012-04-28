@@ -2,7 +2,7 @@
 import unittest
 
 from zeam.setup.base.recipe.commands import Paths
-from zeam.setup.base.utils import rewrite_links, relative_uri
+from zeam.setup.base.utils import relative_uri
 
 
 class PathContainerTestCase(unittest.TestCase):

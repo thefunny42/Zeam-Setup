@@ -1,7 +1,7 @@
 
 import unittest
 
-from zeam.setup.base.sources.sources import get_installer_from_name
+from zeam.setup.base.sources.utils import get_installer_from_name
 from zeam.setup.base.version import Version
 
 
