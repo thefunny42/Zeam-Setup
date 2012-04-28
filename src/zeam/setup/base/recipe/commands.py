@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import logging
 
+from zeam.setup.base.sources import STRATEGY_UPDATE, STRATEGY_QUICK
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.configuration import Section
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
@@ -15,7 +16,7 @@ logger = logging.getLogger('zeam.setup')
 
 class PartStatus(object):
 
-    def __init__(self, section, installer):
+    def __init__(self, section, installer, strategy=STRATEGY_UPDATE):
         setup = section.configuration['setup']
         self._name = section.name
         self._installed_name = 'installed:' + self._name
@@ -27,6 +28,7 @@ class PartStatus(object):
         self.depends = set(section.get('depends', '').as_list())
         self.depends_paths = Paths()
         self.parts = installer.parts_status
+        self.strategy = strategy
 
         installed_cfg = section.utilities.get('installed')
         if installed_cfg is not None:
@@ -93,11 +95,11 @@ class PartStatus(object):
 
 class Part(object):
 
-    def __init__(self, section, installer):
+    def __init__(self, section, installer, strategy=STRATEGY_UPDATE):
         logger.warn('Load installation for %s.' % section.name)
         self.name = section.name
         self.recipes = []
-        self.status = PartStatus(section, installer)
+        self.status = PartStatus(section, installer, strategy)
         self.installer = installer
 
         for recipe in section['recipe'].as_list():
@@ -173,9 +175,10 @@ class InstallerStatus(object):
     """Keep and update status for an installer.
     """
 
-    def __init__(self, configuration):
+    def __init__(self, configuration, strategy):
         # Store all parts status for mutual access
         self.parts_status = {}
+        self.strategy = strategy
 
         # Look which parts must installed
         self._setup = configuration['setup']
@@ -216,7 +219,8 @@ class InstallerStatus(object):
         requirements = Requirements.parse(names)
         install_set = self._installer(
             requirements,
-            directory=self._install_directory)
+            directory=self._install_directory,
+            strategy=self.strategy)
         for requirement in requirements:
             install_set.get(requirement.key).activate()
 
@@ -277,19 +281,24 @@ class Installer(object):
         __status__ = u"Loading installation recipes."
         self.configuration = session.configuration
 
+        refresh = 'refresh' in session.args
+        strategy = STRATEGY_QUICK
+        if STRATEGY_UPDATE in session.args:
+            strategy = STRATEGY_UPDATE
+
         # Lookup parts
-        self.status = InstallerStatus(session.configuration)
+        self.status = InstallerStatus(session.configuration, strategy)
         self.parts_to_uninstall = []
         for name, section in self.status.to_uninstall:
-            part = Part(section, self.status)
+            part = Part(section, self.status, strategy)
             self.parts_to_uninstall.append(part)
         self.parts_to_install = []
         for name, section in self.status.to_install:
-            part = Part(section, self.status)
+            part = Part(section, self.status, strategy)
             self.parts_to_install.append(part)
 
         # Organize recipe
-        self.status.verify_dependencies(refresh='refresh' in session.args)
+        self.status.verify_dependencies(refresh)
 
         # Uninstall are in reverse order of dependency informatiom
         self.parts_to_uninstall.sort(reverse=True)

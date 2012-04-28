@@ -2,6 +2,7 @@
 import shutil
 import shlex
 
+from zeam.setup.base.sources import STRATEGY_QUICK
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.vcs import VCSPackage, VCS
 from zeam.setup.base.vcs.error import VCSError
@@ -44,10 +45,11 @@ class VersionSystemCheckout(Recipe):
         if self.packages:
             VCS.initialize()
             create_directory(self.directory)
+            update = self.status.strategy != STRATEGY_QUICK
 
             def prepare(package):
                 repository = VCS(package)
-                repository.inspect()
+                repository.inspect(update=update)
                 return repository
 
             self.repositories.extend(self._do(prepare, self.packages.values()))

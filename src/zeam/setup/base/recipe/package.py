@@ -100,7 +100,10 @@ class Package(Recipe):
         if self.requirements:
             installer = PackageInstaller(self.options, self.working_set)
             self.status.packages.extend(
-                installer(self.requirements, self.directory))
+                installer(
+                    self.requirements,
+                    self.directory,
+                    self.status.strategy))
 
     def create_scripts(self, requirement):
         wanted_scripts = []
