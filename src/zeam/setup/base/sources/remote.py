@@ -6,7 +6,10 @@ import threading
 import urlparse
 import HTMLParser
 
-from zeam.setup.base.sources import Installers, Source
+from zeam.setup.base.sources import (
+    Installers, PackageInstallers, Source)
+from zeam.setup.base.sources import (
+    STRATEGY_QUICK, STRATEGY_UPDATE)
 from zeam.setup.base.sources.utils import (
     get_installer_from_name,
     UninstalledPackageInstaller)
@@ -310,7 +313,8 @@ class RemoteSource(Source):
             setup_config['offline'].as_bool()
         return not offline
 
-    def search(self, requirement, interpretor):
+    def search_quick(self, requirement, interpretor, strategy):
+        # Implement strategy
         query = RemoteSearchQuery(self, requirement, interpretor)
 
         for find_link in self.find_links:
@@ -318,6 +322,29 @@ class RemoteSource(Source):
             if packages is not None:
                 return packages
         raise PackageNotFound(requirement)
+
+    def search_update(self, requirement, interpretor, strategy):
+        # Implement strategy
+        installers = PackageInstallers(requirement.key)
+        query = RemoteSearchQuery(self, requirement, interpretor)
+
+        for find_link in self.find_links:
+            found = query.search(find_link)
+            if found is not None:
+                installers.extend(found)
+        if installers:
+            return installers
+        raise PackageNotFound(requirement)
+
+    search_strategies = {
+        STRATEGY_UPDATE: search_update,
+        STRATEGY_QUICK: search_quick}
+
+    def search(self, requirement, interpretor, strategy):
+        search_method = self.search_strategies.get(strategy)
+        if search_method is None:
+            raise InstallationError('Unknow strategy %s' % STRATEGY_UPDATE)
+        return search_method(self, requirement, interpretor, strategy)
 
     def __repr__(self):
         return '<RemoteSource for %s>' % str(list(self.find_links))

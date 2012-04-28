@@ -66,7 +66,7 @@ class FakeSource(Source):
         # This source provider is available if there are packages
         return bool(len(self.installers))
 
-    def search(self, requirement, interpretor):
+    def search(self, requirement, interpretor, strategy):
         packages = self.installers.get_installers_for(requirement)
         if packages:
             return packages

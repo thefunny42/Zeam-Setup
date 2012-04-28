@@ -1,12 +1,11 @@
 
-from zeam.setup.base.sources import Installers, Source
+from zeam.setup.base.sources import Installers, Source, STRATEGY_QUICK
 from zeam.setup.base.sources.utils import (
     ExtractedPackageInstaller,
     PackageInstaller)
 from zeam.setup.base.error import PackageNotFound
 from zeam.setup.base.utils import create_directory
 from zeam.setup.base.vcs import VCS, VCSPackage
-
 
 
 class VCSSource(Source):
@@ -47,9 +46,10 @@ class VCSSource(Source):
                     return False
         return True
 
-    def initialize(self, first_time):
+    def initialize(self, priority):
         __status__ = u"Preparing remote development sources."
-        if not first_time:
+        super(VCSSource, self).initialize(priority)
+        if priority is None:
             return
         sources = list(self._sources())
         if sources:
@@ -58,12 +58,12 @@ class VCSSource(Source):
             for source in sources:
                 self.sources[source.name] = VCS(source)
 
-    def search(self, requirement, interpretor):
+    def search(self, requirement, interpretor, strategy):
         name = requirement.name
         if name in self.sources:
             if self.enabled and name not in self.enabled:
                 raise PackageNotFound(requirement)
-            source = self.sources[name]()
+            source = self.sources[name](update=(strategy!= STRATEGY_QUICK))
             installer = self.factory(
                 self, name=name, path=source.directory, trust=0)
             packages = Installers([installer]).get_installers_for(requirement)

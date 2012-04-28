@@ -3,6 +3,7 @@ import logging
 import os.path
 import threading
 
+from zeam.setup.base.sources import STRATEGY_UPDATE, STRATEGY_QUICK
 from zeam.setup.base.error import PackageError, PackageDistributionError, logs
 from zeam.setup.base.version import Requirements
 
@@ -150,7 +151,7 @@ class PackageInstaller(object):
         finally:
             self._lock.release()
 
-    def __call__(self, requirements, directory=None):
+    def __call__(self, requirements, directory=None, strategy=STRATEGY_UPDATE):
         __status__ = u"Installing %r." % (requirements)
         if directory is None:
             directory = self._options.get_with_default(
@@ -162,7 +163,8 @@ class PackageInstaller(object):
             self.sources.initialize()
             workers = []
             for count in range(self._worker_count):
-                worker = PackageInstallerWorker(self, directory, count)
+                worker = PackageInstallerWorker(
+                    self, directory, count, strategy)
                 worker.start()
                 workers.append(worker)
             for worker in workers:
@@ -180,13 +182,14 @@ class PackageInstallerWorker(threading.Thread):
     requirements and its dependencies.
     """
 
-    def __init__(self, manager, target_directory, count):
+    def __init__(self, manager, directory, count, strategy=STRATEGY_UPDATE):
         super(PackageInstallerWorker, self).__init__(
             name='installer %d' % count)
         self.manager = manager
         self.interpretor = manager.interpretor
         self.sources = manager.sources
-        self.target_directory = os.path.abspath(target_directory)
+        self.directory = os.path.abspath(directory)
+        self.strategy = strategy
 
     def install_dependencies(self, requirement, distribution):
         install = self.manager.install_dependencies
@@ -203,12 +206,15 @@ class PackageInstallerWorker(threading.Thread):
         """
         __status__ = u"Installing %s, retry %d." % (requirement, retry)
         candidate_packages = self.sources.search(
-            requirement, self.interpretor)
+            requirement,
+            self.interpretor,
+            strategy=self.strategy)
         package = candidate_packages.get_most_recent()
         logger.info(
-            u"Choosing version %s for %s.", str(package.version), requirement)
+            u"Choosing version %s for %s.",
+            str(package.version), requirement)
         release, loader = package.install(
-            self.target_directory,
+            self.directory,
             self.interpretor,
             lambda distribution: self.install_dependencies(
                 requirement, distribution))

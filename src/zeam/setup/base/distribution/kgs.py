@@ -8,27 +8,39 @@ from zeam.setup.base.error import ConfigurationError
 logger = logging.getLogger('zeam.setup')
 
 
+class KnownVersion(object):
+    """Represent a known version.
+    """
+
+    def __init__(self, option):
+        self.key = option.name.lower().replace('-', '_')
+        self.name = option.name
+        self.version = option.as_text()
+
+
 class KnownGoodVersionSet(object):
     """Represent a Known Good Version set.
     """
 
-    def __init__(self, versions, installed_versions=None):
-        self.versions = versions
-        self.name = versions.name.split(':', 1)[1]
+    def __init__(self, options, installed_options=None):
+        self.versions = dict(map(lambda v: (v.key, v),
+                                 map(KnownVersion, options.values())))
+        self.name = options.name.split(':', 1)[1]
         self.used = set()
         self.missing = Requirements()
         self.picked = {}
-        self.installed_versions = installed_versions
+        self.options = options
+        self.installed_options = installed_options
         self._uptodate = None
         self._activated = False
 
-    def get(self, name):
+    def get(self, requirement):
         if self._activated:
             __status__ = u"Looking version for %s in Known Good Set %s." % (
-                name, self.name)
-            if name in self.versions:
-                self.used.add(name)
-                return Version.parse(self.versions[name].as_text())
+                str(requirement), self.name)
+            if requirement.key in self.versions:
+                self.used.add(requirement.key)
+                return Version.parse(self.versions[requirement.key].version)
         return None
 
     def is_activated(self):
@@ -36,10 +48,10 @@ class KnownGoodVersionSet(object):
 
     def is_uptodate(self):
         if self._uptodate is None:
-            if self.installed_versions is None:
+            if self.installed_options is None:
                 self._uptodate = True
             else:
-                self._uptodate = (self.versions == self.installed_versions)
+                self._uptodate = (self.options == self.installed_options)
         return self._uptodate
 
     def activate(self):
@@ -70,7 +82,7 @@ class KnownGoodVersionSet(object):
             for name in unused:
                 logger.info(
                     u"Unused requirement '%s' in '%s'.",
-                    name, self.name)
+                    self.versions[name].name, self.name)
 
 
 class KnownGoodVersionSetChain(object):
@@ -91,9 +103,9 @@ class KnownGoodVersionSetChain(object):
     def is_uptodate(self):
         return reduce(operator.and_, map(lambda k: k.is_uptodate(), self.kgs))
 
-    def get(self, name):
+    def get(self, requirement):
         for kgs in self.kgs:
-            version = kgs.get(name)
+            version = kgs.get(requirement)
             if version is not None:
                 return version
         return None
@@ -101,7 +113,7 @@ class KnownGoodVersionSetChain(object):
     def upgrade(self, requirement):
         __status__ = u"Restraining version of %s to the known good set." % (
             requirement.name)
-        wanted = self.get(requirement.name)
+        wanted = self.get(requirement)
         if wanted is None:
             self.report_missing(requirement)
             return requirement

@@ -44,14 +44,15 @@ class InstalledSource(Source):
         self.working_set = None
         self.packages = self.options.get('packages', '').as_list()
 
-    def initialize(self, first_time):
+    def initialize(self, priority):
+        super(InstalledSource, self).initialize(priority)
         if self.working_set is None:
             self.working_set = working_set
 
     def available(self, configuration):
         return len(self.packages) != 0
 
-    def search(self, requirement, interpretor):
+    def search(self, requirement, interpretor, strategy):
         if interpretor == sys.executable:
             if not self.packages or requirement.name in self.packages:
                 if requirement.name in self.working_set:

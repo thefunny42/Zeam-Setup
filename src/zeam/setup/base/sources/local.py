@@ -48,15 +48,16 @@ class LocalSource(Source):
         self.paths = self.options[self.directory].as_list()
         self.installers = Installers()
 
-    def initialize(self, first_time):
+    def initialize(self, priority):
         __status__ = u"Analysing local software source %s." % (
             ', '.join(self.paths))
+        super(LocalSource, self).initialize(priority)
         for path in self.paths:
-            if first_time:
+            if priority is not None:
                 create_directory(path)
             self.installers.extend(self.finder(path))
 
-    def search(self, requirement, interpretor):
+    def search(self, requirement, interpretor, strategy):
         __status__ = u"Locating local source for %s in %s." % (
             requirement, ', '.join(self.paths))
         pyversion = interpretor.get_pyversion()

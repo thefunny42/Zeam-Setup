@@ -77,15 +77,14 @@ class PackageInstaller(object):
         raise AttributeError(key)
 
     def __lt__(self, other):
-        # XXX Not sure about platform here
-        return (self.version, self.platform) < (other.version, other.platform)
+        return ((self.version, -self.source.priority) <
+                (other.version, -other.source.priority))
 
     def __gt__(self, other):
-        # XXX Not sure about platform here
-        return (self.version, self.platform) > (other.version, other.platform)
+        return ((self.version, self.source.priority) >
+                (other.version, other.source.priority))
 
     def __eq__(self, other):
-        # XXX Not sure about platform here
         return (self.version, self.platform) == (other.version, other.platform)
 
     def install(self, path, interpretor, install_dependencies):
