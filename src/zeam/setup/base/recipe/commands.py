@@ -220,7 +220,7 @@ class InstallerStatus(object):
         for requirement in requirements:
             install_set.get(requirement.key).activate()
 
-    def verify_dependencies(self):
+    def verify_dependencies(self, refresh=False):
         cache = dict()
         markers = set()
         partitions = dict()
@@ -249,15 +249,20 @@ class InstallerStatus(object):
 
         map(lambda name: explore(name, True), self.parts_status.keys())
 
-        # Enable partitions that at leat a part enabled.
-        for partition in partitions.values():
-            for name in partition:
-                if self.parts_status[name].is_enabled():
-                    break
-            else:
-                continue
-            for name in partition:
-                self.parts_status[name].enable()
+        if not refresh:
+            # Enable partitions that at least a part enabled.
+            for partition in partitions.values():
+                for name in partition:
+                    if self.parts_status[name].is_enabled():
+                        break
+                else:
+                    continue
+                for name in partition:
+                    self.parts_status[name].enable()
+        else:
+            # Refresh enables all parts.
+            for parts in self.parts_status.values():
+                parts.enable()
 
     def finalize(self):
         # Remove unused software.
@@ -284,7 +289,7 @@ class Installer(object):
             self.parts_to_install.append(part)
 
         # Organize recipe
-        self.status.verify_dependencies()
+        self.status.verify_dependencies(refresh='refresh' in session.args)
 
         # Uninstall are in reverse order of dependency informatiom
         self.parts_to_uninstall.sort(reverse=True)
