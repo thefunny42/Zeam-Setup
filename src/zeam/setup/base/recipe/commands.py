@@ -281,10 +281,9 @@ class Installer(object):
         __status__ = u"Loading installation recipes."
         self.configuration = session.configuration
 
-        refresh = 'refresh' in session.args
-        strategy = STRATEGY_QUICK
-        if STRATEGY_UPDATE in session.args:
-            strategy = STRATEGY_UPDATE
+        refresh = 'refresh' in session.args or 'update' in session.args
+        strategy = (STRATEGY_UPDATE in session.args and
+                    STRATEGY_UPDATE or STRATEGY_QUICK)
 
         # Lookup parts
         self.status = InstallerStatus(session.configuration, strategy)

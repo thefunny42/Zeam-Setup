@@ -5,8 +5,24 @@ import shutil
 
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import open_uri
+from zeam.setup.base.error import InstallationError
 
 logger = logging.getLogger('zeam.setup')
+
+
+class TemplateRenderingError(InstallationError):
+    """Error while rendering the template.
+    """
+    name = u'Error while rendering the template'
+
+    def __init__(self, error):
+        message = ''
+        if error.lineno >= 1:
+            message = 'line %d: ' % (error.lineno)
+        if error.offset >= 0:
+            message += 'column %d: ' % (error.offset)
+        message += error.msg
+        super(TemplateRenderingError, self).__init__(message)
 
 
 class Template(Recipe):
@@ -24,12 +40,17 @@ class Template(Recipe):
                         '.template_text': NewTextTemplate}
 
     def render_template(self, source_path, output_path, factory):
-        __status__ = u"Rendering template %s." % output_path
+        __status__ = u"Rendering template for %s." % output_path
+        from genshi.template import TemplateError
+
         logger.info('Creating file %s from template.' % output_path)
         success = False
         source_file = open_uri(source_path)
         try:
-            template = factory(source_file.read())
+            try:
+                template = factory(source_file.read())
+            except TemplateError, error:
+                raise TemplateRenderingError(error)
             output_file = open(output_path, 'wb')
             try:
                 output_file.write(
@@ -39,6 +60,8 @@ class Template(Recipe):
                         status=self.status
                         ).render())
                 success = True
+            except TemplateError, error:
+                raise TemplateRenderingError(error)
             finally:
                 output_file.close()
         finally:
