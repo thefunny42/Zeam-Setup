@@ -65,7 +65,9 @@ def bootstrap(session):
     if new_prefix:
         setup['prefix_directory'] = new_prefix
 
+    setup['configuration_directory'] = configuration.get_cfg_directory()
     setup['bin_directory'].register(create_directory)
+    setup['etc_directory'].register(create_directory)
     setup['lib_directory'].register(create_directory)
     setup['log_directory'].register(create_directory)
     setup['var_directory'].register(create_directory)
