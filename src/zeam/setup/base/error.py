@@ -145,7 +145,7 @@ class InstallationError(Exception):
     def msg(self):
         # Remove None values from args
         args = filter(lambda a: a, self.args)
-        return u': '.join((self.name, ) + map(str, args))
+        return u': '.join((self.name, ) + tuple(map(str, args)))
 
     def extra(self):
         if self.command:
