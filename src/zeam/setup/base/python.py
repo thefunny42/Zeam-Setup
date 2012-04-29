@@ -8,7 +8,7 @@ import shutil
 import threading
 
 from zeam.setup.base.archives import ZipArchive
-from zeam.setup.base.utils import get_cmd_output
+from zeam.setup.base.utils import get_cmd_output, have_cmd
 from zeam.setup.base.setuptools import setuptoolize, install_setuptools
 from zeam.setup.base.error import InstallationError
 
@@ -22,13 +22,19 @@ class PythonInterpreter(object):
 
     def __init__(self, path):
         assert path is not None
+        have_python, version = have_cmd(
+            path, '-c',
+            'print "version", '
+            '".".join(map(str, __import__("sys").version_info[:2]))')
+        if not have_python:
+            raise InstallationError(
+                "This configuration requires a specific Python "
+                "you don't have:",
+                path)
+        self._version = version
         self._path = get_cmd_output(
             path, "-c",
             "print __import__('sys').executable")[0].strip()
-        self._version = get_cmd_output(
-            path, "-c",
-            "print '.'.join(map(str, __import__('sys').version_info[:2]))"
-            )[0].strip()
         self._platform = get_cmd_output(
             path, "-c",
             "print __import__('distutils.util').util.get_platform()")[0].strip()
@@ -120,15 +126,14 @@ def find_setuptools(interpreter, version=None):
             u"We will try to continue with the version "
             u"installed on the system, but that might "
             u"trigger random unincomphrensible errors.")
-        setuptools_path = None
-    else:
-        setuptools_path = os.path.join(install_path, installed[0])
-        if os.path.isfile(setuptools_path):
-            # We got a zip. Unzip it.
-            temp_path = os.path.join(install_path, 'archive.zip')
-            os.rename(setuptools_path, temp_path)
-            os.mkdir(setuptools_path)
-            archive = ZipArchive(temp_path, 'r')
-            archive.extract(setuptools_path)
+        return None
+    setuptools_path = os.path.join(install_path, installed[0])
+    if os.path.isfile(setuptools_path):
+        # We got a zip. Unzip it.
+        temp_path = os.path.join(install_path, 'archive.zip')
+        os.rename(setuptools_path, temp_path)
+        os.mkdir(setuptools_path)
+        archive = ZipArchive(temp_path, 'r')
+        archive.extract(setuptools_path)
     return setuptools_path
 
