@@ -60,7 +60,7 @@ class LocalSource(Source):
     def search(self, requirement, interpretor, strategy):
         __status__ = u"Locating local source for %s in %s." % (
             requirement, ', '.join(self.paths))
-        pyversion = interpretor.get_pyversion()
+        pyversion = interpretor.get_version()
         platform = interpretor.get_platform()
         packages = self.installers.get_installers_for(
             requirement, pyversion, platform)

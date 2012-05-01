@@ -76,7 +76,7 @@ class Release(object):
         """Return a directory name suitable to store the egg,
         compatible with setuptools format.
         """
-        interpretor_pyversion = interpretor.get_pyversion()
+        interpretor_pyversion = interpretor.get_version()
         if self.pyversion is not None:
             if self.pyversion != interpretor_pyversion:
                 raise PackageError(

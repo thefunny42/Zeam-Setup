@@ -1,4 +1,5 @@
 
+import fnmatch
 import logging
 import operator
 import os
@@ -35,8 +36,9 @@ class Paths(object):
             directory = os.path.isdir(path)
         info = {'directory': directory, 'original': path}
         info.update(extra)
-        data[None] = info
-        self._len += 1
+        if None not in data:
+            data[None] = info
+            self._len += 1
         return True
 
     def listdir(self, path):
@@ -48,9 +50,13 @@ class Paths(object):
                 item_prefix = os.path.join(prefix, item)
                 item_path = os.path.join(path, item)
                 item_directory = os.path.isdir(item_path)
-                self.add(item_prefix, verify=False, directory=item_directory)
+                self.add(
+                    item_prefix,
+                    verify=False,
+                    directory=item_directory,
+                    full=item_path)
                 if item_directory:
-                    populate(item_prefix, item_path)
+                    populate(item_path, item_prefix)
 
         populate(path, '')
 
@@ -117,6 +123,50 @@ class Paths(object):
         return dict(self._search(
             lambda key, value: (os.path.sep.join(key), value),
             simplify=simplify, matches=matches, prefixes=prefixes))
+
+    def as_manifest(self, local_rules, recursive_rules, prefixes=[]):
+        result = []
+
+        def build(search_prefix, path, filename, data, recurse_rules):
+            if search_prefix in recursive_rules:
+                recurse_rules = recurse_rules + recursive_rules[search_prefix]
+            prefix_rules = local_rules.get(search_prefix, []) + recurse_rules
+            for key, value in sorted(data.items(), key=operator.itemgetter(0)):
+                if key is None:
+                    if filename is not None:
+                        for rule in prefix_rules:
+                            if rule and fnmatch.fnmatch(filename, rule):
+                                result.append((path, value))
+                                break
+                else:
+                    if search_prefix == './':
+                        if filename:
+                            local_search = filename + '/'
+                        else:
+                            local_search = search_prefix
+                    else:
+                        if filename:
+                            local_search = search_prefix + filename + '/'
+                        else:
+                            local_search = search_prefix
+                    if path:
+                        local_path = path + '/' + key
+                    else:
+                        local_path = key
+                    build(local_search, local_path, key, value, recurse_rules)
+
+        if prefixes:
+            for path in prefixes:
+                data = self._data
+                for piece in path.split(os.path.sep):
+                    data = data.get(piece)
+                    if data is None:
+                        break
+                else:
+                    build(path + '/', '', None, data, [])
+        else:
+            build('./', '', None, self._data, [])
+        return result
 
     def _search(self, visitor, simplify=False, matches={}, prefixes={}):
         result = []

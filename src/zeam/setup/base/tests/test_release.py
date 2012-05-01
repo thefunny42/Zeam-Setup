@@ -1,46 +1,21 @@
 
 import unittest
 
-from zeam.setup.base.version import Requirement
 from zeam.setup.base.distribution.release import Release
-from zeam.setup.base.error import InstallationError
+from zeam.setup.base.distribution.workingset import ReleaseSet
 
 
-class SoftwareTestCase(unittest.TestCase):
-    """Test a software, that contains releases.
+class ReleaseTestCase(unittest.TestCase):
+    """Test a release
     """
 
-    def test_software(self):
-        """Test adding releases to a software
+    def test_releaseset(self):
+        """Test a release set, container for release
         """
-        soft = Software('MySoft')
-
-        self.assertEqual(len(soft), 0)
-        self.assertRaises(
-            InstallationError, soft.add, Release('YourSoft', '2.0'))
-        self.assertEqual(len(soft), 0)
-
-        soft.add(Release('MySoft', '1.0'))
-        soft.add(Release('MySoft', '1.2'))
-        soft.add(Release('MySoft', '2.0'))
-        soft.add(Release('MySoft', '2.1'))
-        self.assertEqual(len(soft), 4)
-
-    def test_matching_requirements(self):
-        """Test matching a requirement to a software
-        """
-        soft = Software('MySoft')
-        soft.add(Release('MySoft', '1.0'))
-        soft.add(Release('MySoft', '1.2'))
-        soft.add(Release('MySoft', '2.0'))
-        soft.add(Release('MySoft', '2.1'))
-
-        req = Requirement.parse('MySoft>=2.0')
-        match = soft[req]
-        self.failUnless(isinstance(match, Software))
-        self.assertEqual(soft.name, match.name)
-        self.assertEqual(len(match), 2)
-        self.assertEqual(
-            map(str, match.releases),
-            ['<Release for MySoft version 2.0>',
-             '<Release for MySoft version 2.1>'])
+        packages = ReleaseSet()
+        self.assertEqual(len(packages), 0)
+        self.assertFalse('zeam.software' in packages)
+        packages.add(Release(name='zeam.software'))
+        self.assertEqual(len(packages), 1)
+        packages.add(Release(name='zeam.software'))
+        self.assertEqual(len(packages), 1)

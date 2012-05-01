@@ -2,12 +2,13 @@
 import logging
 import os
 import shutil
-import py_compile
 
 from zeam.setup.base.configuration import Configuration
+from zeam.setup.base.distribution.manifest import parse_manifest
 from zeam.setup.base.egginfo.write import write_egg_info
 from zeam.setup.base.error import PackageError
 from zeam.setup.base.python import PythonInterpreter
+from zeam.setup.base.recipe.utils import Paths
 from zeam.setup.base.setuptools.autotools import AutomakeBuilder
 from zeam.setup.base.version import Version, Requirements
 
@@ -16,48 +17,11 @@ logger = logging.getLogger('zeam.setup')
 builder = AutomakeBuilder()
 
 
-def find_packages(source_dir):
-    """Return a list of package contained in the given directory.
-    """
-    for possible_package in os.listdir(source_dir):
-        possible_path = os.path.join(source_dir, possible_package)
-        if (os.path.isfile(os.path.join(possible_path, '__init__.py')) or
-            os.path.isfile(os.path.join(possible_path, '__init__.pyc'))):
-            yield possible_package
-
-
-def compile_py_files(source_dir):
-    """Compile if possible all Python files.
-    """
-    # XXX Should use os.walk ?
-    # XXX We should use the correct interpreter here
-    for source_file in os.listdir(source_dir):
-        source_path = os.path.join(source_dir, source_file)
-        if source_path.endswith('.py') and os.path.isfile(source_path):
-            try:
-                py_compile.compile(source_path, doraise=True)
-            except:
-                pass
-        elif os.path.isdir(source_path):
-            compile_py_files(source_path)
-
-
-def install_py_packages(target_dir, source_dir, packages):
-    """Install Python packages from source_dir into target_dir.
-    """
-    for package in packages:
-        target_package_dir = os.path.join(target_dir, package)
-        logger.info("Install Python files for %s into %s" % (
-                package, target_package_dir))
-        if os.path.isdir(target_package_dir):
-            logger.debug("Cleaning installation directory %s" % (
-                    target_package_dir))
-            shutil.rmtree(target_package_dir)
-        # XXX We should here copy only manifest files.
-        shutil.copytree(
-            os.path.join(source_dir, package), target_package_dir)
-        compile_py_files(target_package_dir)
-
+def install_file(source_file, destination_file):
+    destination_directory = os.path.dirname(destination_file)
+    if not os.path.isdir(destination_directory):
+        os.makedirs(destination_directory)
+    shutil.copy2(source_file, destination_file)
 
 
 class SetupLoader(object):
@@ -103,29 +67,31 @@ class SetupLoader(object):
                 info = self.configuration['entry_points:' + category_name]
                 self.distribution.entry_points[category_name] = info.as_dict()
 
-        # XXX Experimental, should not be here, should be job of installer
-        write_egg_info(self.distribution)
         return self.distribution
 
     def install(self, install_path):
         if self.distribution.extensions:
             builder.build(self.distribution, install_path, self.interpretor)
 
-        try:
-            install_py_packages(
-                install_path,
-                self.distribution.path,
-                find_packages(self.distribution.path))
+        egg_info = self.configuration['egginfo']
+        manifest_url = egg_info['manifest'].as_file()
+        files = Paths(verify=False)
+        files.listdir(self.distribution.package_path)
+        prefixes = []
+        if 'source' in egg_info:
+            prefixes = [egg_info['source'].as_text()]
+        for filename, info in files.as_manifest(*parse_manifest(manifest_url),
+             prefixes=prefixes):
+            install_file(
+                info['full'],
+                os.path.join(install_path, filename))
 
-            # XXX This needs review
-            if self.distribution.extensions:
-                builder.install(
-                    self.distribution, install_path, self.interpretor)
+        # XXX This needs review
+        # if self.distribution.extensions:
+        #     builder.install(
+        #         self.distribution, install_path, self.interpretor)
 
-            write_egg_info(self.distribution, package_path=install_path)
-        except:
-            shutil.rmtree(install_path)
-            raise
+        write_egg_info(self.distribution, package_path=install_path)
 
 
 class SetupLoaderFactory(object):

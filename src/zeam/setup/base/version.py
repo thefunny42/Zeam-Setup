@@ -32,9 +32,20 @@ class InvalidRequirement(ValueError):
 
 
 class IncompatibleRequirement(PackageError):
-    """Those reauirement are not compatible together.
+    """This requirement is not compatible with a release or installer.
     """
     name = u'Incompatible requirement'
+
+    def msg(self):
+        requirement, release = self.args
+        return u'%s: "%s" is not compatible with picked release "%s"' % (
+            self.name, requirement, release)
+
+
+class IncompatibleVersion(PackageError):
+    """Those reauirement are not compatible together.
+    """
+    name = u'Incompatible requirement version'
 
     def msg(self):
         requirements = []
@@ -57,6 +68,8 @@ class Version(object):
             return None
         if isinstance(version, cls):
             return version
+        if version == 'latest':
+            return cls('~', '*final')
 
         def split_version_in_parts():
             # This comes from setuptools
@@ -110,6 +123,8 @@ class Version(object):
         rendered_version = []
         need_dot = False
         for part in self.version[:-1]:
+            if part == '~':
+                rendered_version.append('latest')
             if part[0] == '*':
                 if part == '*final-':
                     rendered_version.append('-')
@@ -125,6 +140,7 @@ class Version(object):
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.__str__())
+
 
 
 def reduce_requirements(name, *reqs):
@@ -149,23 +165,23 @@ def reduce_requirements(name, *reqs):
                         if other_version == version:
                             del other_reqs[index]
                         else:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                     elif other_op is operator.ne:
                         # check if != version == error else remove
                         if other_version == version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                         else:
                             del other_reqs[index]
                     elif other_op is operator.le:
                         # check if version is in range
                         if other_version < version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                         else:
                             del other_reqs[index]
                     elif other_op is operator.ge:
                         # check if version is in range
                         if other_version > version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                         else:
                             del other_reqs[index]
 
@@ -179,11 +195,11 @@ def reduce_requirements(name, *reqs):
                     # check for other le, version <= error
                     elif other_op is operator.le:
                         if other_version < version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                     # check for eq not in range
                     elif other_op is operator.eq:
                         if other_version < version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                     # check for neq in range or remove it
                     elif other_op is operator.ne:
                         if other_version < version:
@@ -199,11 +215,11 @@ def reduce_requirements(name, *reqs):
                     # check for other ge, version <= error
                     elif other_op is operator.ge:
                         if other_version > version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                     # check for eq not in range
                     elif other_op is operator.eq:
                         if other_version > version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                     # check for neq in range or remove it
                     elif other_op is operator.ne:
                         if other_version > version:
@@ -217,7 +233,7 @@ def reduce_requirements(name, *reqs):
                     # check for other eq, version == other, error
                     elif other_op is operator.eq:
                         if other_version == version:
-                            raise IncompatibleRequirement(name, current, other)
+                            raise IncompatibleVersion(name, current, other)
                     # check for le, not in range remove
                     elif other_op is operator.le:
                         if other_version < version:

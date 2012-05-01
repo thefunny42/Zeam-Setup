@@ -5,7 +5,7 @@ import operator
 from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.version import Version, Requirement, Requirements
 from zeam.setup.base.version import InvalidRequirement, IncompatibleRequirement
-from zeam.setup.base.version import InvalidVersion
+from zeam.setup.base.version import InvalidVersion, IncompatibleVersion
 
 
 class VersionTestCase(unittest.TestCase):
@@ -28,6 +28,7 @@ class VersionTestCase(unittest.TestCase):
         self.assertEqual(str(Version.parse('1.0dev')), '1.0dev')
         self.assertEqual(str(Version.parse('1.0.0dev')), '1.0dev')
         self.assertEqual(str(Version.parse('10')), '10.0')
+        self.assertEqual(str(Version.parse('latest')), 'latest')
 
         self.assertRaises(InvalidVersion, Version.parse, 'lol.best-of-world')
 
@@ -61,6 +62,16 @@ class VersionTestCase(unittest.TestCase):
         self.assertFalse(v1 != v2)
         self.assertTrue(v1 != v3)
         self.assertFalse(v1 == v3)
+
+    def test_comparaison_latest(self):
+        """Test comparaison with latest version
+        """
+        v1 = Version.parse('1.0')
+        v2 = Version.parse('9999999999999.0')
+        latest = Version.parse('latest')
+        self.assertTrue(v1 < v2)
+        self.assertTrue(v1 < latest)
+        self.assertTrue(v2 < latest)
 
     def test_sort(self):
         """Test version sorting
@@ -254,6 +265,7 @@ class RequirementTestCase(unittest.TestCase):
             ['zeam >=2.4', 'zeam ==1.1'],
             ['zeam <=2.4', 'zeam >=5.1'],
             ['zeam <=2.4', 'zeam ==5.1'],
+            ['zeam <=2.4', 'zeam >= latest'],
             ]
 
         for first, second in TESTS:
@@ -262,7 +274,7 @@ class RequirementTestCase(unittest.TestCase):
 
             try:
                 req_first + req_second
-            except IncompatibleRequirement:
+            except IncompatibleVersion:
                 continue
             else:
                 self.fail(u'"%s" + "%s" should not work' % (first, second))
@@ -329,5 +341,4 @@ class RequirementsTestCase(unittest.TestCase):
             ['zeam.form.ztk[test] >=1.0b1',
              'zeam.test <=1.0'])
 
-        self.assertRaises(
-            IncompatibleRequirement, operator.add, reqs, other_reqs)
+        self.assertRaises(IncompatibleVersion, operator.add, reqs, other_reqs)

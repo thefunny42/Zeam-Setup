@@ -162,8 +162,16 @@ class Option(object):
         """
         return as_list(self.get_value())
 
+    def as_file(self):
+        """Return the value as a file, relative to the configuration
+        one where the option is defined.
+        """
+        origin = self.get_cfg_directory()
+        return relative_uri(origin, self.as_text(), True)
+
     def as_files(self):
-        """Return the value as a list of files, relative to the current one.
+        """Return the value as a list of files, relative to the
+        configuration one where the option is defined.
         """
         origin = self.get_cfg_directory()
         return map(lambda uri: relative_uri(origin, uri, True), self.as_list())

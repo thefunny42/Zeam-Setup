@@ -13,7 +13,8 @@ class FakeInstaller(object):
     """Doesn't install anything, fake a distribution for a requirement.
     """
 
-    def __init__(self, requirement, trust=10):
+    def __init__(self, source, requirement, trust=10):
+        self.source = source
         self.name = requirement.name
         self.key = requirement.key
         self.trust = trust      # Level of quality of the packaging.
@@ -21,13 +22,14 @@ class FakeInstaller(object):
             requirement.versions[0][0] == operator.eq):
             self.version = requirement.versions[0][1]
         else:
-            self.version = Version.parse('0.0')
+            self.version = Version.parse('latest')
         self.extras = {}
         for extra in requirement.extras:
             self.extras[extra] = Requirements()
 
     def __lt__(self, other):
-        return True
+        return ((self.version, -self.source.priority) <
+                (other.version, -other.source.priority))
 
     def filter(self, requirement, pyversion=None, platform=None):
         return requirement.match(self)
@@ -60,7 +62,7 @@ class FakeSource(Source):
         self.installers = Installers()
         for requirement in Requirements.parse(
             self.options.get('packages', '').as_list()):
-            self.installers.add(FakeInstaller(requirement))
+            self.installers.add(FakeInstaller(self, requirement))
 
     def available(self, configuration):
         # This source provider is available if there are packages

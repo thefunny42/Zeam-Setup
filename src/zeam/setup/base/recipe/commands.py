@@ -4,7 +4,7 @@ import tempfile
 import logging
 
 from zeam.setup.base.sources import STRATEGY_UPDATE, STRATEGY_QUICK
-from zeam.setup.base.distribution.workingset import WorkingSet
+from zeam.setup.base.distribution.workingset import ReleaseSet, WorkingSet
 from zeam.setup.base.configuration import Section
 from zeam.setup.base.error import ConfigurationError, PackageNotFound
 from zeam.setup.base.installer import PackageInstaller
@@ -22,7 +22,7 @@ class PartStatus(object):
         self._installed_name = 'installed:' + self._name
         self._prefix = setup['prefix_directory'].as_text()
         self.requirements = []
-        self.packages = WorkingSet(no_defaults=True)
+        self.packages = ReleaseSet()
         self.paths = Paths()
         self.installed_paths = Paths()
         self.depends = set(section.get('depends', '').as_list())
@@ -77,7 +77,7 @@ class PartStatus(object):
             if self.packages:
                 #section['packages'] = self.packages.as_requirements()
                 self.depends_paths.extend(
-                    [p.path for p in self.packages.installed.values()
+                    [p.path for p in self.packages
                      if p.path is not None],
                     verify=False)
             if self.depends_paths:
@@ -209,7 +209,7 @@ class InstallerStatus(object):
             (name, configuration[name]) for name in to_install_names]
 
         # Setup working set: used only for recipes
-        self._install_set = WorkingSet()
+        self._install_set = WorkingSet(no_activate=False)
         self._install_directory = tempfile.mkdtemp('zeam.setup.install')
         self._installer = PackageInstaller(self._setup, self._install_set)
         self.get_recipe_entry_point = self._install_set.get_entry_point

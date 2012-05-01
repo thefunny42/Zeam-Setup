@@ -192,7 +192,7 @@ class RemoteSearchQuery(object):
         self.key = requirement.name.lower()
         self.criteria = re.compile(r'.*\b%s\b.*' % re.escape(self.key))
         self.requirement = requirement
-        self.pyversion = interpretor.get_pyversion()
+        self.pyversion = interpretor.get_version()
         self.platform = interpretor.get_platform()
 
     def search(self, link, depth=0):

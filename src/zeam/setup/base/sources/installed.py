@@ -12,15 +12,16 @@ class NullInstaller(object):
     """Don't install anything, return an already installed package.
     """
 
-    def __init__(self, distribution):
+    def __init__(self, source, distribution):
+        self.source = source
         self.distribution = distribution
 
     def filter(self, requirement, pyversion=None, platform=None):
-        # XXX check pyversion and blabla
         return requirement.match(self.distribution)
 
     def __lt__(self, other):
-        return False            # This is the most recent we got.
+        return ((self.version, -self.source.priority) <
+                (other.version, -other.source.priority))
 
     def __getattr__(self, key):
         value = getattr(self.distribution, key, marker)
@@ -56,7 +57,8 @@ class InstalledSource(Source):
         if interpretor == sys.executable:
             if not self.packages or requirement.name in self.packages:
                 if requirement.name in self.working_set:
-                    installer = NullInstaller(self.working_set[requirement])
+                    installer = NullInstaller(
+                        self, self.working_set[requirement])
                     packages = Installers(
                         [installer]).get_installers_for(requirement)
                     if packages:

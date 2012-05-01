@@ -6,6 +6,7 @@ import os
 import logging
 import shutil
 import threading
+import distutils
 
 from zeam.setup.base.archives import ZipArchive
 from zeam.setup.base.utils import get_cmd_output, have_cmd
@@ -20,35 +21,40 @@ class PythonInterpreter(object):
     """
     INTERPRETERS = {}
 
-    def __init__(self, path):
+    def __init__(self, path, readonly=False):
         assert path is not None
-        have_python, version = have_cmd(
-            path, '-c',
-            'print "version", '
-            '".".join(map(str, __import__("sys").version_info[:2]))')
-        if not have_python:
-            raise InstallationError(
-                "This configuration requires a specific Python "
-                "you don't have:",
-                path)
-        self._version = version
-        self._path = get_cmd_output(
-            path, "-c",
-            "print __import__('sys').executable")[0].strip()
-        self._platform = get_cmd_output(
-            path, "-c",
-            "print __import__('distutils.util').util.get_platform()")[0].strip()
+        if readonly and path == sys.executable:
+            self._path = sys.executable
+            self._platform = distutils.util.get_platform()
+            self._python_path = sys.path
+            self._version = ".".join(map(str, sys.version_info[:2]))
+        else:
+            have_python, version = have_cmd(
+                path, '-c',
+                'print "version", '
+                '".".join(map(str, __import__("sys").version_info[:2]))')
+            if not have_python:
+                raise InstallationError(
+                    "This configuration requires a specific Python "
+                    "you don't have:",
+                    path)
+            self._version = version
+            self._path = get_cmd_output(
+                path, "-c",
+                "print __import__('sys').executable")[0].strip()
+            self._platform = None
+            self._python_path = None
         self._setuptools = {}
         self._lock = threading.RLock()
 
     @classmethod
-    def detect(cls, path=None):
+    def detect(cls, path=None, readonly=False):
         if path is None:
             path = sys.executable
-        if path in cls.INTERPRETERS:
-            return cls.INTERPRETERS[path]
-        interpreter = cls(path)
-        cls.INTERPRETERS[path] = interpreter
+        if (path, readonly) in cls.INTERPRETERS:
+            return cls.INTERPRETERS[(path, readonly)]
+        interpreter = cls(path, readonly=readonly)
+        cls.INTERPRETERS[(path, readonly)] = interpreter
         return interpreter
 
     def __eq__(self, string):
@@ -100,11 +106,37 @@ class PythonInterpreter(object):
             options['python_options'] = ['-S']
         return self.execute_module(setuptoolize, *cmd, **options)
 
-    def get_pyversion(self):
+    def get_version(self):
         return self._version
 
     def get_platform(self):
+        if self._platform is not None:
+            return self._platform
+        self._lock.acquire()
+        try:
+            if self._platform is None:
+                result = self.execute_external(
+                    "-c",
+                    "print __import__('distutils.util')"
+                    ".util.get_platform()")
+                self._platform = result[0].strip()
+        finally:
+            self._lock.release()
         return self._platform
+
+    def get_python_path(self):
+        if self._python_path is not None:
+            return self._python_path
+        self._lock.acquire()
+        try:
+            if self._python_path is None:
+                result = self.execute_external(
+                    "-c",
+                    "print '\\n'.join(__import__('sys').path)")
+                self._python_path = result[0].strip().split('\n')
+        finally:
+            self._lock.release()
+        return self._python_path
 
 
 def find_setuptools(interpreter, version=None):

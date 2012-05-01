@@ -19,7 +19,7 @@ class ConfigurationTestCase(unittest.TestCase):
         """Test openning a configuration file
         """
         config = Configuration.read(
-            os.path.join(get_test_file_directory(), "test.cfg"))
+            os.path.join(get_test_file_directory(), "configuration.cfg"))
         self.assertNotEqual(config, None)
         self.failUnless(isinstance(config, Configuration))
 
@@ -32,7 +32,7 @@ class OptionTestCase(unittest.TestCase):
 
     def setUp(self):
         self.config = Configuration.read(
-            os.path.join(get_test_file_directory(), "test.cfg"))
+            os.path.join(get_test_file_directory(), "configuration.cfg"))
         self.section = self.config['section']
 
     def test_as_boolean(self):
