@@ -256,10 +256,10 @@ class Requirement(object):
     """Represent a requirement.
     """
 
-    def __init__(self, name, versions, extras=None):
+    def __init__(self, name, versions=None, extras=None):
         self.name = name
         self.key = name.lower().replace('-', '_')
-        self.versions = versions
+        self.versions = versions or []
         if extras is None:
             extras = frozenset()
         self.extras = extras

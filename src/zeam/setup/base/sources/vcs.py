@@ -9,8 +9,8 @@ from zeam.setup.base.vcs import VCS, VCSPackage
 
 
 class VCSSource(Source):
-    """This sources fetch the code from various popular version
-    control system.
+    """This sources fetch packages from from various popular version
+    control systems.
     """
 
     def __init__(self, *args):

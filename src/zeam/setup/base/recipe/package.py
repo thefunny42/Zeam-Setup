@@ -3,15 +3,12 @@ import logging
 import os
 import re
 
-from zeam.setup.base.configuration import Configuration
-from zeam.setup.base.distribution.loader import SetupLoader
-from zeam.setup.base.distribution.release import Release
 from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.error import ConfigurationError, InstallationError
 from zeam.setup.base.installer import PackageInstaller, is_installer_changed
 from zeam.setup.base.recipe.recipe import Recipe
 from zeam.setup.base.utils import get_package_name
-from zeam.setup.base.version import Requirements
+from zeam.setup.base.version import Requirements, Requirement
 
 logger = logging.getLogger('zeam.setup')
 
@@ -46,22 +43,6 @@ if _interactive:
 INSTALLED_SET = re.compile(r'^\$<installed:(?P<name>[^>]+)>$')
 
 
-def restrict_site(interpretor, directory):
-    path = os.path.join(os.path.dirname(__file__), 'site')
-    release = Release(path=path)
-    loader = SetupLoader(
-        Configuration.read(os.path.join(path, 'setup.cfg')),
-        release,
-        interpretor)
-    loader.load()
-    install_path = os.path.join(
-        directory, release.get_egg_directory(interpretor))
-    loader.install(install_path)
-    release.path = install_path
-    release.package_path = install_path
-    return release
-
-
 class Package(Recipe):
     """Install console_scripts of a package.
     """
@@ -69,7 +50,7 @@ class Package(Recipe):
     def __init__(self, options, status):
         super(Package, self).__init__(options, status)
         self.isolation = options.get(
-            'isolation', 'on').as_text()
+            'isolation', 'on').as_bool()
         self.directory = options.get(
             'lib_directory',
             '${setup:lib_directory}').as_text()
@@ -120,6 +101,8 @@ class Package(Recipe):
                         u"Specified part doesn't exists", name)
                 self.working_set.extend(self.status.parts[name].packages)
                 self.status.packages.extend(self.status.parts[name].packages)
+        if self.isolation:
+            self.requirements += Requirements(Requirement('zeam.site'))
         if self.requirements:
             installer = PackageInstaller(self.options, self.working_set)
             self.status.packages.extend(
@@ -127,13 +110,6 @@ class Package(Recipe):
                     self.requirements,
                     self.directory,
                     self.status.strategy))
-        if self.isolation:
-            if 'zeam.site' not in self.working_set:
-                release = restrict_site(
-                    self.working_set.interpretor, self.directory)
-                self.working_set.add(release)
-                self.status.packages.add(release)
-
         logger.info(
             u'Installed %d packages (including Python) for "%s".',
             len(self.working_set), self.options.name)

@@ -9,4 +9,5 @@
 EGG-INFO
 .zsetup
 bin/
+lib/
 error.log
