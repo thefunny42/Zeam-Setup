@@ -1,7 +1,7 @@
 
 import sys
 
-from zeam.setup.base.distribution.workingset import working_set
+from zeam.setup.base.distribution.workingset import WorkingSet
 from zeam.setup.base.sources import Installers, Source
 from zeam.setup.base.error import PackageNotFound
 
@@ -42,25 +42,25 @@ class InstalledSource(Source):
 
     def __init__(self, *args):
         super(InstalledSource, self).__init__(*args)
-        self.working_set = None
-        self.packages = self.options.get('packages', '').as_list()
-
-    def initialize(self, priority):
-        super(InstalledSource, self).initialize(priority)
-        if self.working_set is None:
-            self.working_set = working_set
+        self.working_sets = []
+        self.availables = None
+        if 'available' in self.options:
+            self.availables = self.options.get('available', '').as_list()
 
     def available(self, configuration):
-        return len(self.packages) != 0
+        return self.availables is not None and len(self.availables) != 0
 
     def search(self, requirement, interpretor, strategy):
-        if interpretor == sys.executable:
-            if not self.packages or requirement.name in self.packages:
-                if requirement.name in self.working_set:
-                    installer = NullInstaller(
-                        self, self.working_set[requirement])
-                    packages = Installers(
-                        [installer]).get_installers_for(requirement)
-                    if packages:
-                        return packages
+        if self.availables is None or requirement.name in self.availables:
+            # XXX This need testing (and a lock).
+            if interpretor not in self.working_sets:
+                self.working_sets[interpretor] = WorkingSet(
+                    interpretor, no_activate=False)
+            working_set = self.working_sets[interpretor]
+            if requirement.name in working_set:
+                installer = NullInstaller(self, working_set[requirement])
+                packages = Installers(
+                    [installer]).get_installers_for(requirement)
+                if packages:
+                    return packages
         raise PackageNotFound(requirement)

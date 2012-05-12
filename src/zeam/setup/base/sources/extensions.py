@@ -18,9 +18,9 @@ class ExtensionsSource(Source):
         __status__ = u"Initializing extensions sources."
         super(ExtensionsSource, self).__init__(*args)
         self.sources = {}
-        self.enabled = {}
+        self.availables = None
         if 'available' in self.options:
-            self.enabled = self.options['available'].as_list()
+            self.availables = self.options['available'].as_list()
 
     def initialize(self, priority):
         __status__ = u"Preparing extensions sources."
@@ -29,7 +29,7 @@ class ExtensionsSource(Source):
             return
         for package_name, package in working_set.iter_all_entry_points(
             'setup_extensions'):
-            if self.enabled and package_name not in self.enabled:
+            if self.availables is not None and package_name not in self.availables:
                 continue
             if not hasattr(package, '__path__'):
                 raise InstallationError(
