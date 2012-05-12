@@ -13,10 +13,11 @@ _marker = object()
 
 class Paths(object):
 
-    def __init__(self, paths=None, verify=True):
+    def __init__(self, paths=None, verify=True, separator=os.path.sep):
         self._data = {}
         self._len = 0
         self._verify = verify
+        self._separator = separator
         if paths:
             self.extend(paths)
 
@@ -30,8 +31,10 @@ class Paths(object):
                     path)
                 return False
         data = self._data
-        for piece in path.split(os.path.sep):
-            data = data.setdefault(piece, {})
+        for piece in path.split(self._separator):
+            if piece != '.':
+                data = data.setdefault(piece, {})
+        path = os.path.normpath(path)
         if directory is None:
             directory = os.path.isdir(path)
         info = {'directory': directory, 'original': path}
@@ -188,10 +191,11 @@ class Paths(object):
         if prefixes:
             for path, replace in prefixes.iteritems():
                 data = self._data
-                for piece in path.split(os.path.sep):
-                    data = data.get(piece)
-                    if data is None:
-                        break
+                for piece in path.split(self._separator):
+                    if piece != '.':
+                        data = data.get(piece)
+                        if data is None:
+                            break
                 else:
                     if replace:
                         build([replace], data)
@@ -203,10 +207,11 @@ class Paths(object):
 
     def get(self, path, default=None):
         data = self._data
-        for piece in path.split(os.path.sep):
-            data = data.get(piece, _marker)
-            if data is _marker:
-                return default
+        for piece in path.split(self._separator):
+            if piece != '.':
+                data = data.get(piece, _marker)
+                if data is _marker:
+                    return default
         if None in data:
             return data[None]
         return default

@@ -68,13 +68,10 @@ class TarArchive(object):
         self._tar.add(filename, dest_filename, False)
 
     def extract(self, destination):
-        filenames = Paths(verify=False)
+        filenames = Paths(verify=False, separator='/')
         for entry in self._tar:
             self._tar.extract(entry, destination)
-            filename = entry.name
-            if filename.startswith('./'):
-                filename = filename[2:]
-            filenames.add(filename, directory=entry.isdir())
+            filenames.add(entry.name, directory=entry.isdir())
         return filenames
 
     def close(self):
