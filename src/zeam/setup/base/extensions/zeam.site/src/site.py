@@ -149,27 +149,27 @@ def addpackage(sitedir, name, known_paths):
         f = open(fullname, "rU")
     except IOError:
         return
-    with f:
-        for n, line in enumerate(f):
-            if line.startswith("#"):
+    for n, line in enumerate(f):
+        if line.startswith("#"):
+            continue
+        try:
+            if line.startswith(("import ", "import\t")):
+                exec line
                 continue
-            try:
-                if line.startswith(("import ", "import\t")):
-                    exec line
-                    continue
-                line = line.rstrip()
-                dir, dircase = makepath(sitedir, line)
-                if not dircase in known_paths and os.path.exists(dir):
-                    sys.path.append(dir)
-                    known_paths.add(dircase)
-            except Exception:
-                print >>sys.stderr, "Error processing line %d of %s:\n" % (
-                    n+1, fullname)
-                for record in traceback.format_exception(*sys.exc_info()):
-                    for line in record.splitlines():
-                        print >>sys.stderr, '  '+line
-                print >>sys.stderr, "\nRemainder of file ignored"
-                break
+            line = line.rstrip()
+            dir, dircase = makepath(sitedir, line)
+            if not dircase in known_paths and os.path.exists(dir):
+                sys.path.append(dir)
+                known_paths.add(dircase)
+        except Exception:
+            print >>sys.stderr, "Error processing line %d of %s:\n" % (
+                n+1, fullname)
+            for record in traceback.format_exception(*sys.exc_info()):
+                for line in record.splitlines():
+                    print >>sys.stderr, '  '+line
+            print >>sys.stderr, "\nRemainder of file ignored"
+            break
+    f.close()
     if reset:
         known_paths = None
     return known_paths
