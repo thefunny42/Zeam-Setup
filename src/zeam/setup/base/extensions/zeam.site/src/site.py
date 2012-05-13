@@ -209,7 +209,7 @@ def check_enableusersite():
     False: Disabled by user (command line option)
     True: Safe and enabled
     """
-    if sys.flags.no_user_site:
+    if not hasattr(sys, 'flags') or sys.flags.no_user_site:
         return False
 
     if hasattr(os, "getuid") and hasattr(os, "geteuid"):
