@@ -6,6 +6,7 @@ from zeam.setup.base.sources.utils import (
 from zeam.setup.base.error import PackageNotFound
 from zeam.setup.base.utils import create_directory
 from zeam.setup.base.vcs import VCS, VCSPackage
+from zeam.setup.base.version import Version
 
 
 class VCSSource(Source):
@@ -65,7 +66,8 @@ class VCSSource(Source):
                 raise PackageNotFound(requirement)
             source = self.sources[name](update=(strategy!= STRATEGY_QUICK))
             installer = self.factory(
-                self, name=name, path=source.directory, trust=0)
+                self, name=name, path=source.directory,
+                version=Version.parse('latest'), trust=0)
             packages = Installers([installer]).get_installers_for(requirement)
             if packages:
                 return packages

@@ -11,6 +11,9 @@ from cStringIO import StringIO
 
 logger = logging.getLogger('zeam.setup')
 
+LOG_FILE = 'installed.log'
+ERROR_FILE = 'error.log'
+
 VERBOSE_LVL_TO_LOGGING_LVL = {0: logging.ERROR,
                               1: logging.WARNING,
                               2: logging.INFO,
@@ -30,7 +33,6 @@ class NamedFormatter(logging.Formatter):
 
 
 class LoggerUtility(object):
-    filename = 'error.log'
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -47,6 +49,12 @@ class LoggerUtility(object):
         logger.setLevel(VERBOSE_LVL(level))
         self._debug = debug
 
+    def save(self, configuration):
+        log_file = open(os.path.join(
+                configuration.get_previous_cfg_directory(), LOG_FILE), 'w')
+        log_file.write(self._logs.getvalue())
+        log_file.close()
+
     def register(self, name):
         self._names[thread.get_ident()] = name
 
@@ -61,7 +69,7 @@ class LoggerUtility(object):
     def _open_error_file(self):
         # Return a file suitable to log errors.
         try:
-            error_file =open(self.filename, self._append_to_file and 'a' or 'w')
+            error_file = open(ERROR_FILE, self._append_to_file and 'a' or 'w')
             self._append_to_file = True
             return error_file
         except IOError:

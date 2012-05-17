@@ -84,6 +84,7 @@ def bootstrap(session):
     utilities.register('package', current_package)
     utilities.register('installed', configuration.get_previous_cfg)
     utilities.events.subscribe('savepoint', configuration.save)
+    utilities.events.subscribe('savepoint', logs.save)
 
 
 class BootstrapCommand(object):
