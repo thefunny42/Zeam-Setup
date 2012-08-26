@@ -1,4 +1,0 @@
-# By default include all python files
-recursive-include . *.py
-# And the setup configuration
-include setup.cfg

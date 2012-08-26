@@ -3,6 +3,6 @@
 import site
 site.addsitedir('.')
 
-from zeam.setup.base.setup import BootstrapCommand
+from monteur.setup import BootstrapCommand
 command = BootstrapCommand()
 command()

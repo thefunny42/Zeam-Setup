@@ -1,0 +1,4 @@
+# Manifest for zeam.site
+recursive-include src *.py
+include monteur.cfg
+include MANIFEST.in
