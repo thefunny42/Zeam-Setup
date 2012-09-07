@@ -4,7 +4,7 @@ import shlex
 import re
 
 from monteur.error import ConfigurationError
-from monteur.utils import format_line, relative_uri
+from monteur.utils import format_line, relative_uri, create_directory
 
 OPTION_HEADER = re.compile(
     r'(?P<option>[^=\s]+)\s*(?P<operator>[\+\-]?=)\s*(?P<value>.*)$')
@@ -161,6 +161,11 @@ class Option(object):
         """Return the value's lines as a list.
         """
         return as_list(self.get_value())
+
+    def as_directory(self):
+        """Return the value as a directory, creating it if needed.
+        """
+        return create_directory(self.as_text())
 
     def as_file(self):
         """Return the value as a file, relative to the configuration

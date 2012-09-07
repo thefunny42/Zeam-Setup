@@ -53,10 +53,10 @@ class Package(Recipe):
             'isolation', 'on').as_bool()
         self.directory = options.get(
             'lib_directory',
-            '${setup:lib_directory}').as_text()
+            '${setup:lib_directory}').as_directory()
         self.bin_directory = options.get(
             'bin_directory',
-            '${setup:bin_directory}').as_text()
+            '${setup:bin_directory}').as_directory()
 
         requirements = []
         self.extra_sets = []

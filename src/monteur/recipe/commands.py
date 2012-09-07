@@ -73,7 +73,7 @@ class PartStatus(object):
             section = Section(self._installed_name, configuration=configuration)
             if self.paths:
                 section['paths'] = self.paths.as_list(
-                    prefixes={self._prefix: '${setup:prefix_directory}'})
+                    replaces={self._prefix: '${setup:prefix_directory}'})
             if self.packages:
                 #section['packages'] = self.packages.as_requirements()
                 self.depends_paths.extend(
@@ -82,7 +82,7 @@ class PartStatus(object):
                     verify=False)
             if self.depends_paths:
                 section['depends'] = self.depends_paths.as_list(
-                    prefixes={self._prefix: '${setup:prefix_directory}'})
+                    replaces={self._prefix: '${setup:prefix_directory}'})
         else:
             # Save old information
             section = self._installed_section.__copy__()

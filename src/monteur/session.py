@@ -58,7 +58,7 @@ class SessionConfiguration(Configuration):
     def get_previous_cfg_directory(self, *ignore):
         """Return the previous configuration directory.
         """
-        destination = self['setup']['prefix_directory'].as_text()
+        destination = self['setup']['prefix_directory'].as_directory()
         return create_directory(os.path.join(destination, DEFAULT_CONFIG_DIR))
 
     def get_previous_cfg(self, *ignore):

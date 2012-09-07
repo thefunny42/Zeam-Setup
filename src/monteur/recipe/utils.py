@@ -117,15 +117,17 @@ class Paths(object):
             lambda key, value: os.path.sep.join(key),
             True, matches=matches)
 
-    def as_list(self, simplify=False, matches={}, prefixes={}):
+    def as_list(self, simplify=False, matches={}, prefixes={}, replaces={}):
         return self._search(
             lambda key, value: os.path.sep.join(key),
-            simplify=simplify, matches=matches, prefixes=prefixes)
+            simplify=simplify, matches=matches,
+            prefixes=prefixes, replaces=replaces)
 
-    def as_dict(self, simplify=False, matches={}, prefixes={}):
+    def as_dict(self, simplify=False, matches={}, prefixes={}, replaces=[]):
         return dict(self._search(
             lambda key, value: (os.path.sep.join(key), value),
-            simplify=simplify, matches=matches, prefixes=prefixes))
+            simplify=simplify, matches=matches,
+            prefixes=prefixes, replaces=replaces))
 
     def as_manifest(self, local_rules, recursive_rules, prefixes=[]):
         result = []
@@ -171,10 +173,19 @@ class Paths(object):
             build('./', '', None, self._data, [])
         return result
 
-    def _search(self, visitor, simplify=False, matches={}, prefixes={}):
+    def _search(self, visitor, simplify=False, matches={}, prefixes={}, replaces={}):
         result = []
+        changes = {}
+        for path, value in replaces.items():
+            changes[tuple(path.split(self._separator))] = value
 
         def build(prefix, data):
+            change = changes.get(tuple(prefix), _marker)
+            if change is not _marker:
+                if change:
+                    prefix = [change]
+                else:
+                    return
             for key, value in sorted(data.items(), key=operator.itemgetter(0)):
                 if key is None:
                     for match_key, match_value in matches.items():

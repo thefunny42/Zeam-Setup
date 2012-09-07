@@ -83,6 +83,8 @@ def relative_uri(origin, target, is_container=False):
     """
     if target.startswith(os.path.sep) or is_remote_uri(target):
         return target
+    if target.startswith('~'):
+        return os.path.expanduser(target)
     if origin:
         origin = origin.split(os.path.sep)
         if not is_container:
@@ -115,7 +117,7 @@ def create_directory(directory, quiet=False):
     """Create a directory called directory if it doesn't exits
     already.
     """
-    directory = directory.strip()
+    directory = os.path.expanduser(directory.strip())
     if not os.path.isdir(directory):
         if not quiet:
             logger.info('Creating directory %s', directory)

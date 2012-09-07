@@ -64,19 +64,28 @@ def bootstrap(session):
                 create_dir)
     if new_prefix:
         setup['prefix_directory'] = new_prefix
-
-    setup['configuration_directory'] = configuration.get_cfg_directory()
-    setup['bin_directory'].register(create_directory)
-    setup['etc_directory'].register(create_directory)
-    setup['lib_directory'].register(create_directory)
-    setup['log_directory'].register(create_directory)
-    setup['var_directory'].register(create_directory)
-    setup['run_directory'].register(create_directory)
-
-    # Lookup python executable
     if 'python_executable' not in setup:
         setup['python_executable'] = sys.executable
+    setup['configuration_directory'] = configuration.get_cfg_directory()
 
+    # Parse and handle extra configuration option given on the command line
+    if session.options.extras:
+        for option in session.options.extras:
+            __status__ = u"Processing extra configuration option '%s'." % option
+            if '=' in option:
+                option, value = option.split('=', 1)
+            else:
+                value = 'on'
+            if ':' in option:
+                parts = option.split(':')
+                prefix = ':'.join(parts[:-1])
+                option = parts[-1]
+            else:
+                prefix = 'setup'
+            section = configuration[prefix]
+            section[option] = value
+
+    __status__ = u"Initialization configuration."
     utilities = configuration.utilities
     utilities.register('releases', Loaders)
     utilities.register('sources', Sources)
@@ -111,6 +120,9 @@ class BootstrapCommand(object):
         parser.add_option(
             "-d", '--debug', dest="debug", action='store_true',
             help="debug installation system on unexpected errors")
+        parser.add_option(
+            "--option", dest="extras", action="append",
+            help="override a configuration option")
         return parser
 
     def get_commands(self, session):
