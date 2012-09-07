@@ -123,7 +123,7 @@ class Paths(object):
             simplify=simplify, matches=matches,
             prefixes=prefixes, replaces=replaces)
 
-    def as_dict(self, simplify=False, matches={}, prefixes={}, replaces=[]):
+    def as_dict(self, simplify=False, matches={}, prefixes={}, replaces={}):
         return dict(self._search(
             lambda key, value: (os.path.sep.join(key), value),
             simplify=simplify, matches=matches,
