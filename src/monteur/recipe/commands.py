@@ -1,15 +1,16 @@
 
 import shutil
-import tempfile
 import logging
+import os
 
-from monteur.sources import STRATEGY_UPDATE, STRATEGY_QUICK
-from monteur.distribution.workingset import ReleaseSet, WorkingSet
 from monteur.configuration import Section
+from monteur.distribution.workingset import ReleaseSet, WorkingSet
 from monteur.error import ConfigurationError, PackageNotFound
 from monteur.installer import PackageInstaller
-from monteur.version import Requirements
 from monteur.recipe.utils import Paths
+from monteur.sources import STRATEGY_UPDATE, STRATEGY_QUICK
+from monteur.utils import create_directory
+from monteur.version import Requirements
 
 logger = logging.getLogger('monteur')
 
@@ -210,7 +211,9 @@ class InstallerStatus(object):
 
         # Setup working set: used only for recipes
         self._install_set = WorkingSet(no_activate=False)
-        self._install_directory = tempfile.mkdtemp('monteur.install')
+        self._install_directory = create_directory(os.path.join(
+                configuration.get_previous_cfg_directory(),
+                'packages'))
         self._installer = PackageInstaller(self._setup, self._install_set)
         self.get_recipe_entry_point = self._install_set.get_entry_point
 

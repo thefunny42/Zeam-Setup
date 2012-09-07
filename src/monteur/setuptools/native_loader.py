@@ -76,6 +76,7 @@ class NativeSetuptoolsLoaderFactory(object):
                         'setuptools_environ:' + package].as_dict()
             if 'patch' in options:
                 available, version = have_cmd('patch', '--version')
+                configuration = options.configuration
                 if not available:
                     raise InstallationError(
                         u'Using patches in setuptools, '
