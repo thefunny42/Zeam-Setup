@@ -52,6 +52,10 @@ class VCS(object):
         self.install = None     # Method called to do the work
 
     @property
+    def name(self):
+        return self.package.name
+
+    @property
     def directory(self):
         return self.package.directory
 

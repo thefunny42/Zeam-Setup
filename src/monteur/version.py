@@ -20,6 +20,12 @@ OPERATORS_TO_REQUIREMENT = {operator.eq: '==', operator.ge: '>=',
                             operator.ne: '!=', operator.le: '<='}.get
 
 
+def keyify(name):
+    """Return a software setuptools key from its name.
+    """
+    return name.lower().replace('-', '_')
+
+
 class InvalidVersion(PackageError):
     """This version is invalid.
     """
@@ -258,7 +264,7 @@ class Requirement(object):
 
     def __init__(self, name, versions=None, extras=None):
         self.name = name
-        self.key = name.lower().replace('-', '_')
+        self.key = keyify(name)
         self.versions = versions or []
         if extras is None:
             extras = frozenset()
@@ -301,8 +307,9 @@ class Requirement(object):
         they are not compatible.
         """
         assert isinstance(other, Requirement)
-        if self.name != other.name:
+        if self.key != other.key:
             return True
+        return False
 
     def __str__(self):
         name = self.name
@@ -317,7 +324,7 @@ class Requirement(object):
         return name
 
     def __add__(self, other):
-        if not isinstance(other, Requirement) or self.name != other.name:
+        if not isinstance(other, Requirement) or self.key != other.key:
             raise InvalidRequirement(other)
         return self.__class__(
             self.name,
@@ -332,7 +339,7 @@ class Requirement(object):
 
     def __eq__(self, other):
         if isinstance(other, Requirement):
-            return self.name == other.name and self.versions == other.versions
+            return self.key == other.key and self.versions == other.versions
         return False
 
 
@@ -341,8 +348,8 @@ class Requirements(object):
     """
 
     def __init__(self, *requirements):
-        self.__order = [r.name for r in requirements]
-        self.__data = dict((r.name, r) for r in requirements)
+        self.__order = [r.key for r in requirements]
+        self.__data = dict((r.key, r) for r in requirements)
 
     @property
     def requirements(self):
@@ -357,28 +364,28 @@ class Requirements(object):
         return cls(*map(Requirement.parse, requirements))
 
     def append(self, requirement):
-        name = requirement.name
-        if name in self.__data:
-            self.__data[name] += requirement
+        key = requirement.key
+        if key in self.__data:
+            self.__data[key] += requirement
         else:
-            self.__data[name] = requirement
-            self.__order.append(name)
+            self.__data[key] = requirement
+            self.__order.append(key)
 
     def remove(self, requirement):
-        name = requirement.name
-        del self.__data[name]
-        self.__order.remove(name)
+        key = requirement.key
+        del self.__data[key]
+        self.__order.remove(key)
 
     def pop(self):
-        name = self.__order.pop(0)
-        requirement = self.__data[name]
-        del self.__data[name]
+        key = self.__order.pop(0)
+        requirement = self.__data[key]
+        del self.__data[key]
         return requirement
 
     def get(self, requirement, default=None):
         if isinstance(requirement, Requirement):
-            return self.__data.get(requirement.name, default)
-        self.__data.get(requirement, default)
+            return self.__data.get(requirement.key, default)
+        self.__data.get(keyify(requirement), default)
 
     def __getitem__(self, requirement):
         requirement = self.get(requirement)
@@ -387,7 +394,7 @@ class Requirements(object):
         return requirement
 
     def __contains__(self, requirement):
-        contained = self.__data.get(requirement.name)
+        contained = self.__data.get(requirement.key)
         if contained is not None:
             reduce_requirements(
                 requirement.name,
@@ -403,23 +410,23 @@ class Requirements(object):
         return len(self.__order)
 
     def __str__(self):
-        return '\n'.join(str(r) for name, r in
-                         sorted(self.__data.items(),
-                                key=operator.itemgetter(0)))
+        return '\n'.join(str(r) for r in
+                         sorted(self.__data.values(),
+                                key=operator.attrgetter('name')))
 
     def __add__(self, other):
         if not isinstance(other, Requirements):
             raise ValueError(other)
         merged = {}
         for requirement in other.requirements:
-            name = requirement.name
-            if name in self.__data:
-                merged[name] = self.__data[name] + requirement
+            key = requirement.key
+            if key in self.__data:
+                merged[key] = self.__data[key] + requirement
             else:
-                merged[name] = requirement
-        for name, requirement in self.__data.iteritems():
-            if name not in merged:
-                merged[name] = requirement
+                merged[key] = requirement
+        for key, requirement in self.__data.iteritems():
+            if key not in merged:
+                merged[key] = requirement
         return self.__class__(*merged.values())
 
     def __repr__(self):

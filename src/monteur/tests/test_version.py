@@ -5,7 +5,7 @@ import operator
 from monteur.distribution.release import Release
 from monteur.version import Version, Requirement, Requirements
 from monteur.version import InvalidRequirement, IncompatibleRequirement
-from zeam.setup.base.version import InvalidVersion, IncompatibleVersion
+from monteur.version import InvalidVersion, IncompatibleVersion
 
 
 class VersionTestCase(unittest.TestCase):

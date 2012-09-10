@@ -6,7 +6,7 @@ from monteur.sources.utils import (
 from monteur.error import PackageNotFound
 from monteur.utils import create_directory
 from monteur.vcs import VCS, VCSPackage
-from monteur.version import Version
+from monteur.version import Version, keyify
 
 
 class VCSSource(Source):
@@ -57,16 +57,16 @@ class VCSSource(Source):
             VCS.initialize()
             create_directory(self.directory)
             for source in sources:
-                self.sources[source.name] = VCS(source)
+                self.sources[keyify(source.name)] = VCS(source)
 
     def search(self, requirement, interpretor, strategy):
-        name = requirement.name
-        if name in self.sources:
-            if self.enabled and name not in self.enabled:
+        if requirement.key in self.sources:
+            source = self.sources[requirement.key]
+            if self.enabled and source.name not in self.enabled:
                 raise PackageNotFound(requirement)
-            source = self.sources[name](update=(strategy!= STRATEGY_QUICK))
+            source = source(update=(strategy!= STRATEGY_QUICK))
             installer = self.factory(
-                self, name=name, path=source.directory,
+                self, name=source.name, path=source.directory,
                 version=Version.parse('latest'), trust=0)
             packages = Installers([installer]).get_installers_for(requirement)
             if packages:
