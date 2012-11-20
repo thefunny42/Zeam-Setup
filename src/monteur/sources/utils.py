@@ -95,6 +95,14 @@ class PackageInstaller(object):
         return distribution, loader
 
 
+class SourcePackageInstaller(PackageInstaller):
+
+    def __init__(self, source, **informations):
+        super(SourcePackageInstaller, self).__init__(source, informations)
+        self.distribution = Release(self.informations)
+
+
+
 class ExtractedPackageInstaller(PackageInstaller):
     """An extracted release that you can install.
     """

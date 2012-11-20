@@ -207,39 +207,27 @@ class Sources(object):
             priority += 1
         self._initialized = True
 
-    def search_quick(self, requirement, interpretor, strategy):
-        for source in self.available_sources:
-            try:
-                return source.search(
-                    requirement, interpretor, strategy=strategy)
-            except PackageNotFound:
-                continue
-        raise PackageNotFound(repr(requirement))
-
-    def search_update(self, requirement, interpretor, strategy):
-        installers = PackageInstallers(requirement.key)
-        for source in self.available_sources:
-            try:
-                installers.extend(
-                    source.search(
-                        requirement, interpretor, strategy))
-            except PackageNotFound:
-                continue
-        if installers:
-            return installers
-        raise PackageNotFound(repr(requirement))
-
-    search_strategies = {
-        STRATEGY_UPDATE: search_update,
-        STRATEGY_QUICK: search_quick}
-
     def search(self, requirement, interpretor, strategy=STRATEGY_UPDATE):
         """Search of a given package at the given location.
         """
-        search_method = self.search_strategies.get(strategy)
-        if search_method is None:
-            raise InstallationError('Unknow strategy %s' % STRATEGY_UPDATE)
-        return search_method(self, requirement, interpretor, strategy)
+        unique = requirement.is_unique()
+        candidates = PackageInstallers(requirement.key)
+        for source in self.available_sources:
+            try:
+                candidates.extend(
+                    source.search(
+                        requirement, interpretor, strategy))
+            except PackageNotFound:
+                # No package found
+                continue
+            else:
+                # Packages found, and there must be only one package
+                # match, don't look any further.
+                if unique:
+                    return candidates
+        if candidates:
+            return candidates
+        raise PackageNotFound(repr(requirement))
 
     def __repr__(self):
         return '<Source %s>' % ', '.join(map(repr, self.sources))

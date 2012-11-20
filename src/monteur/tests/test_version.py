@@ -4,7 +4,7 @@ import operator
 
 from monteur.distribution.release import Release
 from monteur.version import Version, Requirement, Requirements
-from monteur.version import InvalidRequirement, IncompatibleRequirement
+from monteur.version import InvalidRequirement
 from monteur.version import InvalidVersion, IncompatibleVersion
 
 
@@ -148,6 +148,18 @@ class RequirementTestCase(unittest.TestCase):
 
         release = Release('MySoft', '1.0')
         self.assertFalse(req.match(release))
+
+    def test_unique(self):
+        """Test is_unique on a requirement.
+        """
+        req = Requirement.parse('MySoft >=2.0, <=2.4')
+        self.assertFalse(req.is_unique())
+        req = Requirement.parse('MySoft')
+        self.assertFalse(req.is_unique())
+        req = Requirement.parse('MySoft ==3.0')
+        self.assertTrue(req.is_unique())
+        req = Requirement.parse('MySoft ==3.0,>=2.0')
+        self.assertTrue(req.is_unique())
 
     def test_hash(self):
         """Test that requirements are hashable

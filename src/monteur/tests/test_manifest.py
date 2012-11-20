@@ -17,26 +17,20 @@ class ManifestTestCase(unittest.TestCase):
     def test_parse_simple(self):
         """Parse a manifest with only simple rules
         """
-        manifest_name = get_test_file('manifest_simple.ini')
-        manifest = open(manifest_name, 'r')
-        data = parse_manifest(manifest, manifest_name)
+        data = parse_manifest(get_test_file('manifest_simple.ini'))
         self.assertEqual(
             data,
             ({'src/package/': ['__init__.py'],
               'src/': ['README.txt'],
               './': ['setup.py']},
              {}))
-        manifest.close()
 
     def test_parse_recursive(self):
         """Parse a manifest with recursive rules
         """
-        manifest_name = get_test_file('manifest_recursive.ini')
-        manifest = open(manifest_name, 'r')
-        data = parse_manifest(manifest, manifest_name)
+        data = parse_manifest(get_test_file('manifest_recursive.ini'))
         self.assertEqual(
             data,
             ({'./': ['setup.py']},
              {'src/': ['*.txt', '*.ini'],
               './': ['*.py']}))
-        manifest.close()

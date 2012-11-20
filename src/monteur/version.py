@@ -55,9 +55,9 @@ class IncompatibleVersion(PackageError):
 
     def msg(self):
         requirements = []
-        for operator, version in self.args[1:]:
+        for op, version in self.args[1:]:
             requirements.append(
-                ' '.join((OPERATORS_TO_REQUIREMENT(operator), str(version))))
+                ' '.join((OPERATORS_TO_REQUIREMENT(op), str(version))))
         return ': '.join((self.name, self.args[0], ', '.join(requirements)))
 
 
@@ -274,12 +274,12 @@ class Requirement(object):
     def parse(cls, requirement):
         groups = REQUIREMENT_NAME_PARSE.match(requirement).groupdict()
         version_requirements = []
-        for operator, version in REQUIREMENT_VERSION_PARSE.findall(
+        for op, version in REQUIREMENT_VERSION_PARSE.findall(
             groups['requirements']):
             if version != 'dev':
                 # We ignore the dev crap
                 version_requirements.append(
-                    (REQUIREMENT_TO_OPERATORS(operator),
+                    (REQUIREMENT_TO_OPERATORS(op),
                      Version.parse(version)))
         extras = groups.get('extras', None)
         if extras:
@@ -300,6 +300,15 @@ class Requirement(object):
         #     if extra not in release.extras:
         #         return False
         return True
+
+    def is_unique(self):
+        """Tells you if only one unique version can match the
+        requirement, or if mutliple are possible.
+        """
+        for op, version in self.versions:
+            if op is operator.eq:
+                return True
+        return False
 
     def is_compatible(self, other):
         """Tells you if two requirement are compatible together. It

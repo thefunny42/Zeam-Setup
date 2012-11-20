@@ -16,6 +16,7 @@ from monteur.sources.utils import (
 from monteur.download import DownloadManager
 from monteur.error import PackageNotFound, PackageDistributionError
 from monteur.error import NetworkError, DownloadError
+from monteur.error import InstallationError
 from monteur.utils import open_uri, is_remote_uri, create_directory
 
 logger = logging.getLogger('monteur')
@@ -313,38 +314,22 @@ class RemoteSource(Source):
             setup_config['offline'].as_bool()
         return not offline
 
-    def search_quick(self, requirement, interpretor, strategy):
-        # Implement strategy
+    def search(self, requirement, interpretor, strategy):
+        candidates = None
+        unique = requirement.is_unique()
+        if not unique:
+            candidates = PackageInstallers(requirement.key)
         query = RemoteSearchQuery(self, requirement, interpretor)
 
         for find_link in self.find_links:
             packages = query.search(find_link)
             if packages is not None:
-                return packages
+                if unique:
+                    return packages
+                candidates.extend(packages)
+        if candidates:
+            return candidates
         raise PackageNotFound(requirement)
-
-    def search_update(self, requirement, interpretor, strategy):
-        # Implement strategy
-        installers = PackageInstallers(requirement.key)
-        query = RemoteSearchQuery(self, requirement, interpretor)
-
-        for find_link in self.find_links:
-            found = query.search(find_link)
-            if found is not None:
-                installers.extend(found)
-        if installers:
-            return installers
-        raise PackageNotFound(requirement)
-
-    search_strategies = {
-        STRATEGY_UPDATE: search_update,
-        STRATEGY_QUICK: search_quick}
-
-    def search(self, requirement, interpretor, strategy):
-        search_method = self.search_strategies.get(strategy)
-        if search_method is None:
-            raise InstallationError('Unknow strategy %s' % STRATEGY_UPDATE)
-        return search_method(self, requirement, interpretor, strategy)
 
     def __repr__(self):
         return '<RemoteSource for %s>' % str(list(self.find_links))
