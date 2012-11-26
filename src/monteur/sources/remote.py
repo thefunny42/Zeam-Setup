@@ -102,7 +102,7 @@ class UndownloadedPackageInstaller(UninstalledPackageInstaller):
     """A release that you can download.
     """
 
-    def install(self, path, install_dependencies):
+    def install(self, install_dependencies):
         try:
             archive = self.context.downloader.download(
                 self.url, ignore_content_types=['text/html'])
@@ -113,7 +113,7 @@ class UndownloadedPackageInstaller(UninstalledPackageInstaller):
             self.context.mark_as_broken(self)
             raise PackageDistributionError(*e.args)
         return super(UndownloadedPackageInstaller, self).install(
-            path, install_dependencies, archive)
+            install_dependencies, archive)
 
 
 class URL(object):
