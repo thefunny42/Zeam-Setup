@@ -6,7 +6,7 @@ from monteur.version import Version, Requirement, Requirements
 from monteur.error import ConfigurationError
 
 logger = logging.getLogger('monteur')
-
+marker = object()
 
 class KnownVersion(object):
     """Represent a known version.
@@ -34,14 +34,14 @@ class KnownGoodVersionSet(object):
         self._uptodate = None
         self._activated = False
 
-    def get(self, requirement):
+    def get(self, requirement, default=None):
         if self._activated:
             __status__ = u"Looking version for %s in Known Good Set %s." % (
                 str(requirement), self.name)
             if requirement.key in self.versions:
                 self.used.add(requirement.key)
                 return Version.parse(self.versions[requirement.key].version)
-        return None
+        return default
 
     def is_activated(self):
         return self._activated
@@ -103,12 +103,12 @@ class KnownGoodVersionSetChain(object):
     def is_uptodate(self):
         return reduce(operator.and_, map(lambda k: k.is_uptodate(), self.kgs))
 
-    def get(self, requirement):
+    def get(self, requirement, default=None):
         for kgs in self.kgs:
-            version = kgs.get(requirement)
-            if version is not None:
+            version = kgs.get(requirement, marker)
+            if version is not marker:
                 return version
-        return None
+        return default
 
     def upgrade(self, requirement):
         __status__ = u"Restraining version of %s to the known good set." % (

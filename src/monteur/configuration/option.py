@@ -194,8 +194,6 @@ class Option(object):
                 self.location,
                 u"malformed last word for option %s" % self.name)
 
-
-
 class OptionParser(object):
     """Temporary object used to parse an option.
     """

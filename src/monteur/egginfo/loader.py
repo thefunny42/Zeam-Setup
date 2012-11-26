@@ -34,9 +34,12 @@ class EggLoader(object):
         self.distribution.extensions = read_native_libs(self.egg_info)
         return self.distribution
 
-    def install(self, install_path):
-        if install_path != self.distribution.path:
-            shutil.copytree(self.distribution.path, install_path)
+    def build(self, path):
+        pass
+
+    def install(self, path):
+        if path != self.distribution.path:
+            shutil.copytree(self.distribution.path, path)
 
 
 class EggLoaderFactory(object):

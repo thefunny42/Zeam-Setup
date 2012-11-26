@@ -1,5 +1,5 @@
 
-from monteur.vcs.vcs import VCSRegistry, VCSPackage
+from monteur.vcs.vcs import VCSRegistry, VCSCheckout
 
 VCS = VCSRegistry()
-__all__ = ['VCS', 'VCSPackage']
+__all__ = ['VCS', 'VCSCheckout']

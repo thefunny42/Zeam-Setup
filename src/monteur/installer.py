@@ -28,6 +28,7 @@ class PackageInstaller(object):
         self.working_set = working_set
         self.kgs = options.utilities.kgs.get(options)
         self.sources = options.utilities.sources
+        self.query = None
         self._to_install = Requirements()
         self._verify_being_installed = Requirements()
         self._being_installed = Requirements()
@@ -160,7 +161,7 @@ class PackageInstaller(object):
         self._first_done = False
         self._register_install(requirements)
         if self._to_install:
-            self.sources.initialize()
+            self.query = self.sources(self.interpretor)
             workers = []
             for count in range(self._worker_count):
                 worker = PackageInstallerWorker(
@@ -183,8 +184,6 @@ class PackageInstallerWorker(threading.Thread):
         super(PackageInstallerWorker, self).__init__(
             name='installer %d' % count)
         self.manager = manager
-        self.interpretor = manager.interpretor
-        self.sources = manager.sources
         self.directory = os.path.abspath(directory)
         self.strategy = strategy
 
@@ -202,17 +201,13 @@ class PackageInstallerWorker(threading.Thread):
         """Install the requirement.
         """
         __status__ = u"Installing %s, retry %d." % (requirement, retry)
-        candidate_packages = self.sources.search(
-            requirement,
-            self.interpretor,
-            strategy=self.strategy)
-        package = candidate_packages.get_most_recent()
+        candidates = self.manager.query(requirement, strategy=self.strategy)
+        package = candidates.get_most_recent()
         logger.info(
             u"Choosing version %s for %s.",
             str(package.version), requirement)
         release, loader = package.install(
             self.directory,
-            self.interpretor,
             lambda distribution: self.install_dependencies(
                 requirement, distribution))
         return release

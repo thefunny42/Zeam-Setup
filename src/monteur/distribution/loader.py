@@ -69,10 +69,11 @@ class SetupLoader(object):
 
         return self.distribution
 
-    def install(self, install_path):
+    def build(self, path):
         if self.distribution.extensions:
-            builder.build(self.distribution, install_path, self.interpretor)
+            builder.build(self.distribution, path, self.interpretor)
 
+    def install(self, path):
         egg_info = self.configuration['egginfo']
         manifest_url = egg_info['manifest'].as_file()
         files = Paths(verify=False)
@@ -81,17 +82,15 @@ class SetupLoader(object):
         if 'source' in egg_info:
             prefixes = [egg_info['source'].as_text()]
         for filename, info in files.as_manifest(*parse_manifest(manifest_url),
-             prefixes=prefixes):
-            install_file(
-                info['full'],
-                os.path.join(install_path, filename))
+                                                 prefixes=prefixes):
+            install_file(info['full'], os.path.join(path, filename))
 
         # XXX This needs review
         # if self.distribution.extensions:
         #     builder.install(
         #         self.distribution, install_path, self.interpretor)
 
-        write_egg_info(self.distribution, package_path=install_path)
+        write_egg_info(self.distribution, package_path=path)
 
 
 class SetupLoaderFactory(object):

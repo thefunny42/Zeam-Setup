@@ -11,19 +11,19 @@ logger = logging.getLogger('monteur')
 
 class Mercurial(VCS):
 
-    def __init__(self, package, options=[]):
-        super(Mercurial, self).__init__(package, options=options)
+    def __init__(self, checkout, options=[]):
+        super(Mercurial, self).__init__(checkout, options=options)
         # Support for branch names as '#' in URL.
-        if '#' in package.uri:
-            uri, branch = package.uri.split('#', 1)
-            if package.branch is not None and branch != package.branch:
+        if '#' in checkout.uri:
+            uri, branch = checkout.uri.split('#', 1)
+            if checkout.branch is not None and branch != checkout.branch:
                 raise MercurialError(
                     u"Different branches are given in the URI and as option",
-                    package.uri, package.branch)
-            package.uri = uri
-            package.branch = branch
-        if package.branch is None:
-            package.branch = 'default'
+                    checkout.uri, checkout.branch)
+            checkout.uri = uri
+            checkout.branch = branch
+        if checkout.branch is None:
+            checkout.branch = 'default'
 
     def _run_mercurial(self, arguments, error=None, path=None):
         command = ['hg']
@@ -36,51 +36,51 @@ class Mercurial(VCS):
                 error = u"Error while running mercurial command for"
             if code != 1 and (not stderr or stderr.startswith('warning:')):
                 raise MercurialError(
-                    error,  self.package.uri, command=command, detail=stderr)
+                    error,  self.checkout.uri, command=command, detail=stderr)
         return stdout.strip()
 
-    def checkout(self):
+    def fetch(self):
         self._run_mercurial(
-            ['clone', self.package.uri, self.package.directory],
+            ['clone', self.checkout.uri, self.checkout.directory],
             error=u"Error while cloning")
-        if self.package.branch != 'default':
+        if self.checkout.branch != 'default':
             self.switch()
 
     def update(self):
         self._run_mercurial(
             ['pull', '-u'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error=u"Error while pulling")
 
     def verify(self):
         current_uri = self._run_mercurial(
             ['showconfig', 'paths.default'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error=u"Error while reading the current repository path")
         if '#' in current_uri:
             current_uri = current_uri.split('#', 1)[0]
-        if not compare_uri(current_uri, self.package.uri):
+        if not compare_uri(current_uri, self.checkout.uri):
             raise MercurialError(
                 u"Cannot switch to a different repository.")
         current_branch = self._run_mercurial(
             ['branch'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error=u"Error while reading the current branch")
-        if self.package.branch != current_branch:
+        if self.checkout.branch != current_branch:
             return False
         return True
 
     def status(self):
         changes = self._run_mercurial(
             ['status'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error=u"Error while checking for changes")
         return not len(changes)
 
     def switch(self):
         self._run_mercurial(
-            ['update', '-r', 'branch(%r)' % self.package.branch],
-            path=self.package.directory,
+            ['update', '-r', 'branch(%r)' % self.checkout.branch],
+            path=self.checkout.directory,
             error=u"Error while switching branch")
 
 
@@ -88,8 +88,8 @@ class MercurialPre17(Mercurial):
 
     def switch(self):
         self._run_mercurial(
-            ['update', self.package.branch],
-            path=self.package.directory,
+            ['update', self.checkout.branch],
+            path=self.checkout.directory,
             error=u"Error while switching branch")
 
 
@@ -101,10 +101,10 @@ class MercurialFactory(VCSFactory):
         if isinstance(self.version, str):
             logger.info('Found Mercurial version %s' % self.version)
 
-    def __call__(self, package):
+    def __call__(self, checkout):
         if self.version < '1.7':
             logger.error(
                 u"Using an *old* mercurial version, "
                 u"we recommand you to upgrade your Mercurial.")
-            return MercurialPre17(package)
-        return Mercurial(package)
+            return MercurialPre17(checkout)
+        return Mercurial(checkout)

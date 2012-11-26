@@ -64,57 +64,57 @@ class Subversion(VCS):
                 raise SubversionError(
                     u"Invalid certificate. "
                     u"Please checkout and approve certificate by hand.",
-                    self.package.uri)
+                    self.checkout.uri)
             if AUTHORIZATION_FAILED in reason:
                 raise SubversionError(
                     u"Invalid username or password",
-                    self.package.uri)
+                    self.checkout.uri)
             if error is None:
                 error = u"Error while running svn command"
             raise SubversionError(
-                error, self.package.uri, detail=stderr, command=command)
+                error, self.checkout.uri, detail=stderr, command=command)
         return stdout
 
-    def checkout(self):
+    def fetch(self):
         self._run_svn(
-            ['co', self.package.uri, self.package.directory],
+            ['co', self.checkout.uri, self.checkout.directory],
             error=u"Error while checking out")
 
     def update(self):
         self._run_svn(
             ['update'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error=u"Error while updating")
 
     def verify(self):
         xml = self._run_svn(
             ['info', '--xml'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error="Checkout directory is not a valid checkout")
         current_uri, current_root = read_info(xml)
         if current_uri is None:
             raise SubversionError(
                 u"Could not read the output",
-                self.package.directory)
-        if not compare_uri(current_uri, self.package.uri):
-            if not self.package.uri.startswith(current_root):
+                self.checkout.directory)
+        if not compare_uri(current_uri, self.checkout.uri):
+            if not self.checkout.uri.startswith(current_root):
                 raise SubversionError(
                     u"Cannot switch to a different repository",
-                    current_root, self.package.uri)
+                    current_root, self.checkout.uri)
             return False
         return True
 
     def status(self):
         xml = self._run_svn(
             ['status', '--xml'],
-            path=self.package.directory,
+            path=self.checkout.directory,
             error="Checkout directory is not a valid checkout")
         return read_status(xml)
 
     def switch(self):
         self._run_svn(
-            ['switch', self.package.uri],
-            path=self.package.directory,
+            ['switch', self.checkout.uri],
+            path=self.checkout.directory,
             error=u"Error switching repository URI")
 
 
@@ -129,7 +129,7 @@ class SubversionFactory(VCSFactory):
         if self.version > '1.6':
             self.options.append('--trust-server-cert')
 
-    def __call__(self, package):
-        return Subversion(package, options=self.options)
+    def __call__(self, checkout):
+        return Subversion(checkout, options=self.options)
 
 

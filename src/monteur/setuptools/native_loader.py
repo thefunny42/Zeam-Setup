@@ -39,18 +39,28 @@ def create_manifest_from_source(source_file, manifest_file):
 
 class NativeSetuptoolsLoader(EggLoader):
 
-    def install(self, install_path):
-        # Remove egg_info to prevent strange things to happen
-        shutil.rmtree(self.egg_info)
-
-        create_directory(install_path)
+    def build(self, path):
         output, errors, code = self.execute(
-            'bdist_egg', '-k', '--bdist-dir', install_path,
+            'build_ext', '-i',
             path=self.distribution.package_path)
         if code:
             raise PackageError(
                 u"Setuptools retuned status code %s, "
-                u"while installing in %s." % (code, install_path),
+                u"while installing in %s." % (code, path),
+                detail='\n'.join((output, errors)))
+
+    def install(self, path):
+        # Remove egg_info to prevent strange things to happen
+        shutil.rmtree(self.egg_info)
+
+        create_directory(path)
+        output, errors, code = self.execute(
+            'bdist_egg', '-k', '--bdist-dir', path,
+            path=self.distribution.package_path)
+        if code:
+            raise PackageError(
+                u"Setuptools retuned status code %s, "
+                u"while installing in %s." % (code, path),
                 detail='\n'.join((output, errors)))
 
 

@@ -22,44 +22,40 @@ RELEASE_TARBALL = re.compile(
     re.IGNORECASE)
 
 
-def get_installer_from_name(source, link, url=None, path=None):
-    """Return a not installed installer from the given name.
+def parse_filename(link, **extra):
+    """Parse package information encoded inside a filename.
     """
     info = RELEASE_TARBALL.match(link)
     if info:
         try:
-            name = info.group('name')
-            version = Version.parse(info.group('version'))
-            format = info.group('format')
-            pyversion = info.group('pyversion')
-            platform = info.group('platform')
-            return source.factory(
-                source,
-                name=name, version=version, format=format, url=url, path=path,
-                pyversion=pyversion, platform=platform)
+            result = {'name': info.group('name'),
+                      'version': Version.parse(info.group('version')),
+                      'format': info.group('format'),
+                      'pyversion': info.group('pyversion'),
+                      'platform':  info.group('platform')}
         except InvalidVersion:
             logger.debug(
                 u"Link to '%s' seems to be a package, "
                 u"but can't make sense out of it, ignoring it." % link)
-            return None
-    return None
-
+            return {}
+        result.update(extra)
+        return result
+    return {}
 
 class PackageInstaller(object):
     """Install an already installed package: load informations and
     install dependencies.
     """
 
-    def __init__(self, source, **informations):
-        self.source = source
-        self.trust = -99        # Level of trust of quality for the packaging.
-        if 'trust' in informations:
-            self.trust = informations['trust']
-            del informations['trust']
+    def __init__(self, context, **informations):
+        self.context = context
         assert 'name' in informations
         informations.setdefault('version', None)
+        informations.setdefault('pyversion', None)
+        informations.setdefault('platform', None)
+        # Be compatible with setuptools rules. The release is only
+        # created when the package is intalled.
         self.informations = informations
-        # Be compatible with setuptools rules.
         self.key = informations['name'].lower().replace('-', '_')
 
     def filter(self, requirement, pyversion=None, platform=None):
@@ -77,44 +73,34 @@ class PackageInstaller(object):
         raise AttributeError(key)
 
     def __lt__(self, other):
-        return ((self.version, -self.source.priority) <
-                (other.version, -other.source.priority))
+        return ((self.version, -self.context.priority) <
+                (other.version, -other.context.priority))
 
     def __gt__(self, other):
-        return ((self.version, self.source.priority) >
-                (other.version, other.source.priority))
+        return ((self.version, self.context.priority) >
+                (other.version, other.context.priority))
 
     def __eq__(self, other):
         return (self.version, self.platform) == (other.version, other.platform)
 
-    def install(self, path, interpretor, install_dependencies):
-        distribution = Release(**self.informations)
-        loader = self.source.options.utilities.releases.load(
-            distribution, distribution.path, interpretor, trust=self.trust)
-        install_dependencies(distribution)
-        return distribution, loader
-
-
-class SourcePackageInstaller(PackageInstaller):
-
-    def __init__(self, source, **informations):
-        super(SourcePackageInstaller, self).__init__(source, informations)
-        self.distribution = Release(self.informations)
-
+    def install(self, path, install_dependencies):
+        release = Release(**self.informations)
+        loader = self.context.load(release)
+        install_dependencies(release)
+        return release, loader
 
 
 class ExtractedPackageInstaller(PackageInstaller):
     """An extracted release that you can install.
     """
 
-    def install(self, path, interpretor, install_dependencies):
+    def install(self, path, install_dependencies):
         # Load project information
         distribution, loader = super(ExtractedPackageInstaller, self).install(
-            path, interpretor, install_dependencies)
+            path, install_dependencies)
 
         # Install files
-        install_path = os.path.join(
-            path, distribution.get_egg_directory(interpretor))
+        install_path = self.context.get_install_path(path, distribution)
         loader.install(install_path)
 
         # Package path is now the installed path
@@ -127,7 +113,7 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
     """A release that you can extract from an archive and install.
     """
 
-    def install(self, path, interpretor, install_dependencies, archive=None):
+    def install(self, path, install_dependencies, archive=None):
         if archive is None:
             archive = self.informations['url']
 
@@ -165,7 +151,7 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
 
         # Load project information
         distribution, loader = super(UninstalledPackageInstaller, self).install(
-            path, interpretor, install_dependencies)
+            path, install_dependencies)
 
         # Clean build directory
         shutil.rmtree(build_dir)

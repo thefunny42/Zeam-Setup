@@ -6,7 +6,9 @@ from monteur.vcs.error import VCSConfigurationError, VCSError
 from monteur.error import ConfigurationError
 
 
-class VCSPackage(object):
+class VCSCheckout(object):
+    """Represent a checkout or clone from a VCS repository.
+    """
 
     def __init__(self, name, origin, options, base=None, directory=None):
         self.name = name
@@ -14,7 +16,7 @@ class VCSPackage(object):
         if len(options) < 2:
             raise ConfigurationError(
                 defined_at,
-                u"Malformed source description for package",
+                u"Malformed source description for checkout",
                 name)
         self.vcs = options[0]
         self.uri = options[1]
@@ -30,7 +32,7 @@ class VCSPackage(object):
             if not '=' in extra:
                 raise ConfigurationError(
                     defined_at,
-                    u"Malformed source option for package",
+                    u"Malformed source option for checkout",
                     name)
             name, value = extra.split('=', 1)
             if name in self.__dict__:
@@ -45,31 +47,32 @@ class VCS(object):
     """Base API to access a project in a VCS.
     """
 
-    def __init__(self, package, options=[]):
-        assert package.directory is not None, u"Package not properly configured"
-        self.package = package
+    def __init__(self, checkout, options=[]):
+        assert checkout.directory is not None, \
+            u"Checkout not properly configured"
+        self.checkout = checkout
         self.options = options
         self.install = None     # Method called to do the work
 
     @property
     def name(self):
-        return self.package.name
+        return self.checkout.name
 
     @property
     def directory(self):
-        return self.package.directory
+        return self.checkout.directory
 
     def inspect(self, checkout=True, update=True):
         """Determine what must be done (checkout, update, switch).
         """
         if self.install is None:
-            if not os.path.isdir(self.package.directory):
-                if os.path.exists(self.package.directory):
+            if not os.path.isdir(self.checkout.directory):
+                if os.path.exists(self.checkout.directory):
                     raise VCSError(
                         u"Checkout directory exists but is not a directory",
-                        self.package.directory)
+                        self.checkout.directory)
                 if checkout:
-                    self.install = self.checkout
+                    self.install = self.fetch
             else:
                 if self.verify():
                     if update:
@@ -79,7 +82,7 @@ class VCS(object):
                         raise VCSError(
                             u"Checkout directory must switched "
                             u"and is locally modified",
-                            self.package.directory)
+                            self.checkout.directory)
                     self.install = self.switch
         return self.install is not None
 
@@ -94,12 +97,12 @@ class VCS(object):
         return True
 
     def verify(self):
-        """Return True if the checkout match the given package uri,
+        """Return True if the checkout match the given checkout uri,
         False if it needs to be switched.
         """
         return True
 
-    def checkout(self):
+    def fetch(self):
         """Checkout the code on the filesystem.
         """
         raise NotImplementedError()
@@ -122,7 +125,7 @@ class VCSFactory(object):
     available = False
     version = '0.0'
 
-    def __call__(self, package):
+    def __call__(self, checkout):
         raise NotImplementedError()
 
 
@@ -145,19 +148,19 @@ class VCSRegistry(object):
             self._vcs[name] = factory()
         self._initialized = True
 
-    def __call__(self, package):
-        """Return a VCS instance called name of the package
-        package_name located at source_info url.
+    def __call__(self, checkout):
+        """Return a VCS instance called name of the checkout
+        checkout_name located at source_info url.
         """
-        if package.vcs not in self._vcs:
+        if checkout.vcs not in self._vcs:
             raise VCSConfigurationError(
-                package.defined_at, u"Unknown VCS system for package",
-                package.vcs, package.name)
-        factory = self._vcs[package.vcs]
+                checkout.defined_at, u"Unknown VCS system for checkout",
+                checkout.vcs, checkout.name)
+        factory = self._vcs[checkout.vcs]
         if not factory.available:
             raise VCSConfigurationError(
-                package.defined_at,
+                checkout.defined_at,
                 u"VCS system '%s' is not available, "
                 u"please install '%s' first" % (
-                    package.vcs, factory.software_name))
-        return factory(package)
+                    checkout.vcs, factory.software_name))
+        return factory(checkout)

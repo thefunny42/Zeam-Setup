@@ -1,5 +1,5 @@
 
-from monteur.vcs import VCSPackage, VCS
+from monteur.vcs import VCSCheckout, VCS
 from monteur.session import MultiCommand
 from monteur.error import InstallationError
 
@@ -13,7 +13,7 @@ class VCSCommand(MultiCommand):
         __status__ = u"Initializing VCS checkout"
         setup = session.configuration['setup']
         self.repository = None
-        self.package = None
+        self.checkout = None
         if 'repository' in setup:
             VCS.initialize()
             option = setup['repository']
@@ -24,14 +24,14 @@ class VCSCommand(MultiCommand):
                 if 'name' in egginfo:
                     name = egginfo['name']
             self.repository = option.as_words()
-            self.package = VCSPackage(
+            self.checkout = VCSCheckout(
                 name, option, self.repository, directory=directory)
 
     def do_update(self, args):
         """Update the current package to the latest version.
         """
-        if self.package is not None:
-            vcs = VCS(self.package)
+        if self.checkout is not None:
+            vcs = VCS(self.checkout)
             if vcs.inspect(checkout=False, update=True):
                 vcs.install()
                 self.session.need_reconfigure()

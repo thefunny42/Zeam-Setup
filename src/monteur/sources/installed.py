@@ -1,8 +1,7 @@
 
 
 from monteur.distribution.workingset import WorkingSet
-from monteur.sources import Installers, Source
-from monteur.error import PackageNotFound
+from monteur.sources import Installers, Source, Query
 
 marker = object()
 
@@ -11,26 +10,26 @@ class NullInstaller(object):
     """Don't install anything, return an already installed package.
     """
 
-    def __init__(self, source, distribution):
-        self.source = source
-        self.distribution = distribution
+    def __init__(self, context, release):
+        self.context = context
+        self.release = release
 
     def filter(self, requirement, pyversion=None, platform=None):
-        return requirement.match(self.distribution)
+        return requirement.match(self.release)
 
     def __lt__(self, other):
-        return ((self.version, -self.source.priority) <
-                (other.version, -other.source.priority))
+        return ((self.version, -self.context.priority) <
+                (other.version, -other.context.priority))
 
     def __getattr__(self, key):
-        value = getattr(self.distribution, key, marker)
+        value = getattr(self.release, key, marker)
         if value is marker:
             raise AttributeError(key)
         return value
 
-    def install(self, path, interpretor, install_dependencies):
-        install_dependencies(self.distribution)
-        return self.distribution, self
+    def install(self, path, install_dependencies):
+        install_dependencies(self.release)
+        return self.release, self
 
 
 class InstalledSource(Source):
@@ -41,25 +40,16 @@ class InstalledSource(Source):
 
     def __init__(self, *args):
         super(InstalledSource, self).__init__(*args)
-        self.working_sets = []
-        self.availables = None
+        self.enabled = None
         if 'available' in self.options:
-            self.availables = self.options.get('available', '').as_list()
+            self.enabled = self.options.get('available', '').as_list()
 
-    def available(self, configuration):
-        return self.availables is not None and len(self.availables) != 0
-
-    def search(self, requirement, interpretor, strategy):
-        if self.availables is None or requirement.name in self.availables:
-            # XXX This need testing (and a lock).
-            if interpretor not in self.working_sets:
-                self.working_sets[interpretor] = WorkingSet(
-                    interpretor, no_activate=False)
-            working_set = self.working_sets[interpretor]
-            if requirement.name in working_set:
-                installer = NullInstaller(self, working_set[requirement])
-                packages = Installers(
-                    [installer]).get_installers_for(requirement)
-                if packages:
-                    return packages
-        raise PackageNotFound(requirement)
+    def prepare(self, context):
+        if self.enabled:
+            installers = Installers()
+            for candidate in WorkingSet(context.interpretor, no_activate=False):
+                if self.enabled is not None and candidate.name in self.enabled:
+                    installers.add(NullInstaller(context, candidate))
+            if installers:
+                return Query(context, installers)
+        return None

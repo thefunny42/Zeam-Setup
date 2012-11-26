@@ -106,7 +106,10 @@ class InterpretedSetuptoolsLoader(object):
             distribution.extensions = libraries
         return distribution
 
-    def install(self, install_path):
+    def build(self, path):
+        raise NotImplementedError
+
+    def install(self, path):
         raise NotImplementedError
 
 

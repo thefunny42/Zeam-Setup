@@ -2,6 +2,7 @@
 import bisect
 import logging
 import operator
+import os
 
 from monteur.distribution.workingset import working_set
 from monteur.error import ConfigurationError, PackageNotFound
@@ -37,11 +38,12 @@ class PackageInstallers(object):
     def extend(self, installers):
         """Extend set with an set of available installers.
         """
-        assert isinstance(installers, PackageInstallers)
-        if installers.key != self.key:
-            raise InstallationError(u'Invalid installer added to set.')
-        for installer in installers:
-            bisect.insort(self.installers, installer)
+        if installers:
+            assert isinstance(installers, PackageInstallers)
+            if installers.key != self.key:
+                raise InstallationError(u'Invalid installer added to set.')
+            for installer in installers:
+                bisect.insort(self.installers, installer)
 
     def remove(self, installer):
         """Remove a given installer from the set.
@@ -123,38 +125,98 @@ class Installers(object):
     def __getitem__(self, key):
         if isinstance(key, Requirement):
             return self.installers[key.key][key]
-        return self.installer[key]
+        return self.installers[key]
+
+    def __contains__(self, key):
+        if isinstance(key, Requirement):
+            return key.key in self.installers
+        return key in self.installers
 
     def __repr__(self):
         return '<Installers %s>' % self.key
 
 
+class Query(object):
+    """Query a set of installers for a given requirement.
+    """
+
+    def __init__(self, context, installers):
+        self.installers = installers
+        self.pyversion = context.pyversion
+        self.platform = context.platform
+
+    def __call__(self, requirement, strategy):
+        return self.installers.get_installers_for(
+            requirement, self.pyversion, self.platform)
+
+
+class Context(object):
+
+    def __init__(self, source, interpretor, priority, trust=0):
+        self.interpretor = interpretor
+        self.pyversion = interpretor.get_version()
+        self.platform = interpretor.get_platform()
+        self.releases = source.options.utilities.releases
+        self.priority = priority
+        self.trust = trust
+
+    def load(self, distribution):
+        return self.releases.load(
+            distribution,
+            distribution.path,
+            self.interpretor,
+            trust=self.trust)
+
+    def get_install_path(self, path, distribution):
+        return os.path.join(
+            path,
+            distribution.get_egg_directory(self.interpretor))
+
+
 class Source(object):
     """Base class for source.
     """
+    Context = Context
+    TRUST = -99
 
     def __init__(self, options, installed_options=None):
         self.options = options
         self.installed_options = installed_options
-        self.priority = 99
 
     def is_uptodate(self):
         if self.installed_options is None:
             return True
         return (self.options == self.installed_options)
 
-    def initialize(self, priority):
-        if priority is not None:
-            self.priority = priority
+    def create(self, interpretor, priority):
+        return self.Context(self, interpretor, priority, self.TRUST)
 
-    def available(self, configuration):
-        return True
-
-    def search(self, requirement, interpretor, strategy):
+    def prepare(self, context):
         raise NotImplementedError
 
     def __repr__(self):
         return '<%s>' % (self.__class__.__name__)
+
+
+class Queries(object):
+    """Used to query instance of sources for a package.
+    """
+
+    def __init__(self, queries):
+        self.queries = queries
+
+    def __call__(self, requirement, strategy=STRATEGY_UPDATE):
+        """Search of a given package at the given location.
+        """
+        unique = requirement.is_unique()
+        candidates = PackageInstallers(requirement.key)
+        for query in self.queries:
+            candidates.extend(query(requirement, strategy))
+            if unique and candidates:
+                return candidates
+        if candidates:
+            return candidates
+        raise PackageNotFound(repr(requirement))
 
 
 class Sources(object):
@@ -164,7 +226,6 @@ class Sources(object):
     def __init__(self, configuration, section_name='setup'):
         __status__ = u"Initializing software sources."
         self.sources = []
-        self.available_sources = []
         self.configuration = configuration
         self.installed = configuration.utilities.installed
 
@@ -179,10 +240,10 @@ class Sources(object):
             factory = working_set.get_entry_point(
                 'setup_sources',
                 defined_sources[source_type]['name'])
-            self.sources.append(factory(
+            self.sources.append(
+                factory(
                     options,
                     self.installed.get('source:' + name, None)))
-        self._initialized = False
         self._uptodate = None
 
     def is_uptodate(self):
@@ -193,41 +254,14 @@ class Sources(object):
                     self.sources))
         return self._uptodate
 
-    def initialize(self):
-        if self._initialized:
-            for priority, source in enumerate(self.available_sources):
-                source.initialize(None)
-            return
-        priority = 0
-        for source in self.sources:
-            if not source.available(self.configuration):
+    def __call__(self, interpretor):
+        queries = []
+        for priority, source in enumerate(self.sources):
+            query = source.prepare(source.create(interpretor, priority))
+            if query is None:
                 continue
-            source.initialize(priority)
-            self.available_sources.append(source)
-            priority += 1
-        self._initialized = True
-
-    def search(self, requirement, interpretor, strategy=STRATEGY_UPDATE):
-        """Search of a given package at the given location.
-        """
-        unique = requirement.is_unique()
-        candidates = PackageInstallers(requirement.key)
-        for source in self.available_sources:
-            try:
-                candidates.extend(
-                    source.search(
-                        requirement, interpretor, strategy))
-            except PackageNotFound:
-                # No package found
-                continue
-            else:
-                # Packages found, and there must be only one package
-                # match, don't look any further.
-                if unique:
-                    return candidates
-        if candidates:
-            return candidates
-        raise PackageNotFound(repr(requirement))
+            queries.append(query)
+        return Queries(queries)
 
     def __repr__(self):
         return '<Source %s>' % ', '.join(map(repr, self.sources))

@@ -9,41 +9,43 @@ class FileSystem(VCS):
     """VCS VCS: no VCS, just do a symlink to the sources.
     """
 
-    def __init__(self, package, options=[]):
-        super(FileSystem, self).__init__(package, options=options)
-        if not os.path.isabs(self.package.uri):
-            self.package.uri = os.path.normpath(
-                os.path.join(self.package.defined_directory, self.package.uri))
+    def __init__(self, checkout, options=[]):
+        super(FileSystem, self).__init__(checkout, options=options)
+        if not os.path.isabs(self.checkout.uri):
+            self.checkout.uri = os.path.normpath(
+                os.path.join(
+                    self.checkout.defined_directory,
+                    self.checkout.uri))
 
-    def checkout(self):
-        if not os.path.exists(self.package.directory):
-            os.symlink(self.package.uri, self.package.directory)
+    def fetch(self):
+        if not os.path.exists(self.checkout.directory):
+            os.symlink(self.checkout.uri, self.checkout.directory)
 
-    update = checkout
+    update = fetch
 
     def verify(self):
-        if os.path.islink(self.package.directory):
+        if os.path.islink(self.checkout.directory):
             current = os.path.abspath(
-                os.readlink(self.package.directory))
-            if self.package.uri != current:
+                os.readlink(self.checkout.directory))
+            if self.checkout.uri != current:
                 return False
         return True
 
     def switch(self):
         try:
-            os.remove(self.package.directory)
+            os.remove(self.checkout.directory)
             os.symlink(
-                os.path.abspath(self.package.uri),
-                self.package.directory)
+                os.path.abspath(self.checkout.uri),
+                self.checkout.directory)
         except OSError:
             raise VCSError(
                 u"Error while updating filesystem link to",
-                self.package.uri)
+                self.checkout.uri)
 
 
 class FileSystemFactory(VCSFactory):
 
     available = hasattr(os, 'symlink')
 
-    def __call__(self, package):
-        return FileSystem(package)
+    def __call__(self, checkout):
+        return FileSystem(checkout)

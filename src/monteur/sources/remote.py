@@ -7,16 +7,13 @@ import urlparse
 import HTMLParser
 
 from monteur.sources import (
-    Installers, PackageInstallers, Source)
-from monteur.sources import (
-    STRATEGY_QUICK, STRATEGY_UPDATE)
+    Installers, PackageInstallers, Source, Context)
 from monteur.sources.utils import (
-    get_installer_from_name,
+    parse_filename,
     UninstalledPackageInstaller)
 from monteur.download import DownloadManager
-from monteur.error import PackageNotFound, PackageDistributionError
+from monteur.error import PackageDistributionError
 from monteur.error import NetworkError, DownloadError
-from monteur.error import InstallationError
 from monteur.utils import open_uri, is_remote_uri, create_directory
 
 logger = logging.getLogger('monteur')
@@ -105,26 +102,25 @@ class UndownloadedPackageInstaller(UninstalledPackageInstaller):
     """A release that you can download.
     """
 
-    def install(self, path, interpretor, install_dependencies):
+    def install(self, path, install_dependencies):
         try:
-            archive = self.source.downloader.download(
+            archive = self.context.downloader.download(
                 self.url, ignore_content_types=['text/html'])
         except DownloadError, e:
             logger.warn(
                 u"%s doesn't seem to be a valid package, ignoring it.",
                 self.url)
-            self.source.mark_installer_as_broken(self)
+            self.context.mark_as_broken(self)
             raise PackageDistributionError(*e.args)
         return super(UndownloadedPackageInstaller, self).install(
-            path, interpretor, install_dependencies, archive)
+            path, install_dependencies, archive)
 
 
-class RemoteURL(object):
+class URL(object):
     """A remote url.
     """
 
-    def __init__(self, source, url, filename=None, name=None, rel=None):
-        self.source = source
+    def __init__(self, url, filename=None, name=None, rel=None):
         self.url = url
         self.name = name or ''
         self.key = self.name.lower()
@@ -143,17 +139,17 @@ class RemoteURL(object):
         return str(self.url)
 
     def __repr__(self):
-        return "<RemoteURL '%s'>" % (self.url)
+        return "<URL '%s'>" % (self.url)
 
     @property
     def is_followable(self):
         return DOWNLOAD_NAME.match(self.name) or (self.rel in FOLLOW_REL_LINK)
 
-    def follow(self):
+    def follow(self, context):
         """Follow this link to find more.
         """
         urls = []
-        installers = []
+        informations = []
         stream = open_uri(self.url)
         try:
             content_type = stream.headers.get('content-type', '').split(';')[0]
@@ -163,22 +159,21 @@ class RemoteURL(object):
             parser.feed(stream.read())
         except HTMLParser.HTMLParseError:
             logger.warn("Discarding unreadable HTML page '%s'", self.url)
-            return urls, installers
+            return urls, informations
         finally:
             stream.close()
         for url, filename, name, rel in parser.links:
-            if self.source.is_disabled_link(url, True):
+            if context.is_disabled_link(url, True):
                 continue
-            installer = get_installer_from_name(self.source, filename, url=url)
-            if installer is not None:
-                installers.append(installer)
+            information = parse_filename(filename, url=url)
+            if information:
+                informations.append(information)
             else:
-                urls.append(self.__class__(
-                        self.source, url, filename, name, rel))
-        return urls, installers
+                urls.append(self.__class__(url, filename, name, rel))
+        return urls, informations
 
 
-class RemoteSearchQuery(object):
+class RequirementSearch(object):
     """Bind a search for a requirement.
     """
     # Condition to be tested in order to follow a download link
@@ -187,32 +182,29 @@ class RemoteSearchQuery(object):
         lambda self, link, depth: depth and link.is_followable,
         lambda self, link, depth: self.criteria.match(link.key)]
 
-    def __init__(self, source, requirement, interpretor):
-        self.source = source
+    def __init__(self, context, requirement):
+        self.context = context
         self.name = requirement.name
         self.key = requirement.name.lower()
         self.criteria = re.compile(r'.*\b%s\b.*' % re.escape(self.key))
         self.requirement = requirement
-        self.pyversion = interpretor.get_version()
-        self.platform = interpretor.get_platform()
 
     def search(self, link, depth=0):
-        if depth > self.source.max_depth:
+        if depth > self.context.max_depth:
             return None
 
         __status__ = u"Locating remote source for %s on %s" % (self.name, link)
-        if not self.source.follow_link(link):
+        if not self.context.follow_link(link):
             # The given link is not accessible.
             return None
 
         # Look for a software in the cache
-        packages = self.source.cache.get_installers_for(
-            self.requirement, self.pyversion, self.platform)
+        packages = self.context.search(self.requirement)
         if packages:
             return packages
 
         # No software, look for an another link to follow
-        links = self.source.links[link]
+        links = self.context.links[link]
         for condition in self.conditions:
             for link in links:
                 if condition(self, link, depth):
@@ -222,25 +214,32 @@ class RemoteSearchQuery(object):
         return None
 
 
-class RemoteSource(Source):
-    """Download software from da internet, in order to install it.
-    """
-    factory = UndownloadedPackageInstaller
+class RemoteContext(Context):
 
-    def __init__(self, *args):
-        __status__ = u"Initializing remote software source."
-        super(RemoteSource, self).__init__(*args)
-        self.find_links = map(
-            lambda url: RemoteURL(self, url), self.options['urls'].as_list())
-        self.disallow_urls = self.options.get('disallow_urls', '').as_list()
-        self.allow_urls = self.options.get('allow_urls', '').as_list()
+    def __init__(self, source, interpretor, priority, trust=0):
+        super(RemoteContext, self).__init__(source, interpretor, priority, trust)
+        self.find_links = source.find_links
+        self.disallow_urls = source.disallow_urls
+        self.allow_urls = source.allow_urls
+        self.max_depth = source.max_depth
         self.broken_links = set([])  # List of links that doesn't works.
-        self.max_depth = self.options.get('max_depth', '4').as_int()
         self.links = {}
         self.downloading_links = {}
         self.lock = threading.Lock()
         self.cache = Installers()
-        self.downloader = DownloadManager(self.get_download_directory())
+        self.downloader = DownloadManager(source.get_download_directory())
+
+    def search(self, requirement):
+        """Search if there is a match for a requirement in the cache.
+        """
+        return self.cache.get_installers_for(
+            requirement, self.pyversion, self.platform)
+
+    def mark_as_broken(self, installer):
+        """Mark an installer as broken so it won't be found again.
+        """
+        self.broken_links.add(installer.url)
+        self.cache.remove(installer)
 
     def follow_link(self, url):
         """Load links from the given URL if needed. Return True upon
@@ -262,23 +261,18 @@ class RemoteSource(Source):
 
         try:
             try:
-                links, installers = url.follow()
+                links, informations = url.follow(self)
             except NetworkError:
                 logger.warn("URL '%s' inaccessible, mark as broken.", url)
                 self.broken_links.add(url)
             else:
                 # Add found links and installers
                 self.links[url] = links
-                self.cache.extend(installers)
+                for detail in informations:
+                    self.cache.add(UndownloadedPackageInstaller(self, **detail))
         finally:
             self.downloading_links[url].set()
         return url in self.links
-
-    def mark_installer_as_broken(self, installer):
-        """Mark an installer as broken so it won't be found again.
-        """
-        self.broken_links.add(installer.url)
-        self.cache.remove(installer)
 
     def is_disabled_link(self, url, verify_allow=False):
         """Return true if the given URL should not be followed,
@@ -301,6 +295,21 @@ class RemoteSource(Source):
                         return True
         return False
 
+
+class RemoteSource(Source):
+    """Download software from da internet, in order to install it.
+    """
+    Context = RemoteContext
+    TRUST = -99
+
+    def __init__(self, *args):
+        __status__ = u"Initializing remote software source."
+        super(RemoteSource, self).__init__(*args)
+        self.find_links = map(lambda url: URL(url), self.options['urls'].as_list())
+        self.disallow_urls = self.options.get('disallow_urls', '').as_list()
+        self.allow_urls = self.options.get('allow_urls', '').as_list()
+        self.max_depth = self.options.get('max_depth', '4').as_int()
+
     def get_download_directory(self):
         """Return the created download directory.
         """
@@ -308,28 +317,23 @@ class RemoteSource(Source):
         create_directory(directory)
         return directory
 
-    def available(self, configuration):
-        setup_config = configuration['setup']
-        offline = 'offline' in setup_config and \
-            setup_config['offline'].as_bool()
-        return not offline
+    def prepare(self, context):
+        setup = self.options.configuration['setup']
+        if 'offline' not in setup or not setup['offline'].as_bool():
 
-    def search(self, requirement, interpretor, strategy):
-        candidates = None
-        unique = requirement.is_unique()
-        if not unique:
-            candidates = PackageInstallers(requirement.key)
-        query = RemoteSearchQuery(self, requirement, interpretor)
+            def query(requirement, strategy):
+                unique = requirement.is_unique()
+                candidates = PackageInstallers(requirement.key)
+                query = RequirementSearch(context, requirement)
 
-        for find_link in self.find_links:
-            packages = query.search(find_link)
-            if packages is not None:
-                if unique:
-                    return packages
-                candidates.extend(packages)
-        if candidates:
-            return candidates
-        raise PackageNotFound(requirement)
+                for find_link in self.find_links:
+                    candidates.extend(query.search(find_link))
+                    if unique and candidates:
+                        return candidates
+                return candidates
+
+            return query
+        return None
 
     def __repr__(self):
         return '<RemoteSource for %s>' % str(list(self.find_links))

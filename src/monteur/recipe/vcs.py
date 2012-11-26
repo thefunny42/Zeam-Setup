@@ -4,7 +4,7 @@ import shlex
 
 from monteur.sources import STRATEGY_QUICK
 from monteur.recipe.recipe import Recipe
-from monteur.vcs import VCSPackage, VCS
+from monteur.vcs import VCSCheckout, VCS
 from monteur.vcs.error import VCSError
 from monteur.error import ConfigurationError
 from monteur.utils import create_directory
@@ -17,7 +17,7 @@ class VersionSystemCheckout(Recipe):
         __status__ = u"Reading VCS URIs."
         super(VersionSystemCheckout, self).__init__(options, status)
         self.directory = options['directory'].as_text()
-        self.packages = {}
+        self.checkouts = {}
         self.repositories = []
 
         uris = options['uris']
@@ -29,30 +29,30 @@ class VersionSystemCheckout(Recipe):
                     uris.location,
                     u"Malformed URIs for option %s on line %d." % (
                         uris.name, index))
-            package = VCSPackage(
+            checkout = VCSCheckout(
                 values[0], uris, values[1:], base=self.directory)
-            if package.directory in self.packages:
+            if checkout.directory in self.checkouts:
                 raise ConfigurationError(
                     uris.location,
                     u"Duplicate checkout directory for %s on line %d." %(
-                        package.name, index))
-            self.packages[package.directory] = package
+                        checkout.name, index))
+            self.checkouts[checkout.directory] = checkout
 
         self._do = MultiTask(options, 'vcs')
 
     def preinstall(self):
         __status__ = u"Preparing installing VCS directories."
-        if self.packages:
+        if self.checkouts:
             VCS.initialize()
             create_directory(self.directory)
             update = self.status.strategy != STRATEGY_QUICK
 
-            def prepare(package):
-                repository = VCS(package)
+            def prepare(checkout):
+                repository = VCS(checkout)
                 repository.inspect(update=update)
                 return repository
 
-            self.repositories.extend(self._do(prepare, self.packages.values()))
+            self.repositories.extend(self._do(prepare, self.checkouts.values()))
 
     def install(self):
         __status__ = u"Checkout VCS directories."
@@ -71,11 +71,11 @@ class VersionSystemCheckout(Recipe):
             VCS.initialize()
 
             def status(path):
-                if path not in self.packages:
+                if path not in self.checkouts:
                     raise ConfigurationError(
                         u"Missing VCS repository definition for",
                         path)
-                repository = VCS(self.packages[path])
+                repository = VCS(self.checkouts[path])
                 if not repository.status():
                     raise VCSError(
                         u"Checkout directory has local modification "

@@ -2,8 +2,8 @@
 import os
 
 from monteur.distribution.workingset import working_set
-from monteur.error import InstallationError, PackageNotFound
-from monteur.sources import Installers, Source
+from monteur.error import InstallationError
+from monteur.sources import Installers, Source, Query
 from monteur.sources.utils import ExtractedPackageInstaller
 
 
@@ -16,41 +16,30 @@ class ExtensionsSource(Source):
     def __init__(self, *args):
         __status__ = u"Initializing extensions sources."
         super(ExtensionsSource, self).__init__(*args)
-        self.sources = {}
-        self.availables = None
+        self.enabled = None
         if 'available' in self.options:
-            self.availables = self.options['available'].as_list()
+            self.enabled = self.options['available'].as_list()
 
-    def initialize(self, priority):
+    def prepare(self, context):
         __status__ = u"Preparing extensions sources."
-        super(ExtensionsSource, self).initialize(priority)
-        if priority is None:
-            return
-        for package_name, package in working_set.iter_all_entry_points(
+        installers = Installers()
+        for name, package in working_set.iter_all_entry_points(
             'setup_extensions'):
-            if self.availables is not None and package_name not in self.availables:
+            if self.enabled is not None and name not in self.enabled:
                 continue
             if not hasattr(package, '__path__'):
-                raise InstallationError(
-                    u"Invalid extension entry point", package_name)
+                raise InstallationError(u"Invalid extension entry point", name)
             directory = package.__path__[0]
             for name in os.listdir(directory):
-                full_directory = os.path.join(directory, name)
-                if os.path.isdir(full_directory):
-                    if name in self.sources:
+                path = os.path.join(directory, name)
+                if os.path.isdir(path):
+                    if name in installers:
                         raise InstallationError(
                             u'Duplicate extension source',
-                            full_directory,
-                            self.sources[name])
-                    self.sources[name] = full_directory
-
-    def search(self, requirement, interpretor, strategy):
-        name = requirement.name
-        if name in self.sources:
-            installer = ExtractedPackageInstaller(
-                self, name=name, path=self.sources[name], trust=0)
-            packages = Installers([installer]).get_installers_for(requirement)
-            if packages:
-                return packages
-        raise PackageNotFound(requirement)
-
+                            path,
+                            installers[name])
+                    installers.add(ExtractedPackageInstaller(
+                            context, name=name, path=path))
+        if installers:
+            return Query(context, installers)
+        return None
