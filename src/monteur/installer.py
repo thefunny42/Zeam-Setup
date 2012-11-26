@@ -22,7 +22,7 @@ class PackageInstaller(object):
     sources.
     """
 
-    def __init__(self, options, working_set):
+    def __init__(self, options, working_set, directory=None):
         __status__ = u"Configuring package installer."
         self.interpretor = working_set.interpretor
         self.working_set = working_set
@@ -39,6 +39,10 @@ class PackageInstaller(object):
         self._options = options
         self._first_done = False
         self._error = None
+        if directory is None:
+            directory = options.get_with_default(
+                'lib_directory', 'setup').as_text()
+        self._directory = directory
 
     def _wakeup_workers(self):
         # Wake up some workers to work.
@@ -152,11 +156,11 @@ class PackageInstaller(object):
         finally:
             self._lock.release()
 
-    def __call__(self, requirements, directory=None, strategy=STRATEGY_UPDATE):
+    def __call__(self, requirements, strategy=STRATEGY_UPDATE, directory=None):
         __status__ = u"Installing %r." % (requirements)
         if directory is None:
-            directory = self._options.get_with_default(
-                'lib_directory', 'setup').as_text()
+            directory = self._directory
+        directory = os.path.abspath(directory)
         self._error = None
         self._first_done = False
         self._register_install(requirements)
@@ -184,7 +188,7 @@ class PackageInstallerWorker(threading.Thread):
         super(PackageInstallerWorker, self).__init__(
             name='installer %d' % count)
         self.manager = manager
-        self.directory = os.path.abspath(directory)
+        self.directory = directory
         self.strategy = strategy
 
     def install_dependencies(self, requirement, distribution):

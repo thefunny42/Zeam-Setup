@@ -104,12 +104,12 @@ class Package(Recipe):
         if self.isolation:
             self.requirements += Requirements(Requirement('zeam.site'))
         if self.requirements:
-            installer = PackageInstaller(self.options, self.working_set)
+            installer = PackageInstaller(
+                self.options,
+                self.working_set,
+                directory=self.directory)
             self.status.packages.extend(
-                installer(
-                    self.requirements,
-                    self.directory,
-                    self.status.strategy))
+                installer(self.requirements, self.status.strategy))
         logger.info(
             u'Installed %d packages (including Python) for "%s".',
             len(self.working_set), self.options.name)

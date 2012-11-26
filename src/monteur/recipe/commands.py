@@ -1,5 +1,4 @@
 
-import shutil
 import logging
 import os
 
@@ -211,10 +210,12 @@ class InstallerStatus(object):
 
         # Setup working set: used only for recipes
         self._install_set = WorkingSet(no_activate=False)
-        self._install_directory = create_directory(os.path.join(
-                configuration.get_previous_cfg_directory(),
-                'packages'))
-        self._installer = PackageInstaller(self._setup, self._install_set)
+        self._installer = PackageInstaller(
+            self._setup,
+            self._install_set,
+            directory=create_directory(os.path.join(
+                    configuration.get_previous_cfg_directory(),
+                    'lib')))
         self.get_recipe_entry_point = self._install_set.get_entry_point
 
     def add_recipe_packages(self, names):
@@ -222,7 +223,6 @@ class InstallerStatus(object):
         requirements = Requirements.parse(names)
         install_set = self._installer(
             requirements,
-            directory=self._install_directory,
             strategy=self.strategy)
         for requirement in requirements:
             install_set.get(requirement.key).activate()
@@ -272,8 +272,7 @@ class InstallerStatus(object):
                 parts.enable()
 
     def finalize(self):
-        # Remove unused software.
-        shutil.rmtree(self._install_directory)
+        pass
 
 
 class Installer(object):
