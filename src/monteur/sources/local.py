@@ -10,8 +10,8 @@ from monteur.utils import create_directory
 
 
 class LocalSource(Source):
-    """This represent a directory with a list of archives, that can be
-    used to install software.
+    """This source is used with a directory containing archives, that
+    can be used to install software.
     """
     installer_factory = UninstalledPackageInstaller
     type = 'Archive Source'
@@ -54,7 +54,8 @@ class LocalSource(Source):
 
 
 class EggsSource(LocalSource):
-    """This manage installed sources.
+    """This source is used with a directory, containing already
+    installed packages, as Python eggs.
     """
     installer_factory = PackageInstaller
     type = 'Eggs'
@@ -70,3 +71,28 @@ class EggsSource(LocalSource):
             information = parse_filename(filename, path=full_path)
             if information:
                 yield information
+
+
+class ContextSource(EggsSource):
+    """This source is used to use Package installed as eggs that
+    already exists in the installation directory.
+    """
+    type = 'Context eggs'
+
+    def __init__(self, *args):
+        __status__ = u"Initializing local software source."
+        super(LocalSource, self).__init__(*args)
+
+    def prepare(self, context):
+        __status__ = u"Analysing local software source %s." % (
+            context.path)
+        installers = Installers()
+
+        def build_installer(informations):
+            return self.installer_factory(context, **informations)
+
+        installers.extend(map(build_installer,
+                              self.get_information(context.path)))
+        if installers:
+            return Query(context, installers)
+        return None

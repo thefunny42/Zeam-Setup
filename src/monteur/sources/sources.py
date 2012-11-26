@@ -150,9 +150,15 @@ class Query(object):
             requirement, self.pyversion, self.platform)
 
 
-class Context(object):
+class QueryContext(object):
+    """Contains the context used to query a package source.
+    """
 
-    def __init__(self, source, interpretor, priority, trust=0):
+    def __init__(self, source, interpretor, path, priority, trust=0):
+        """Create a new context object for source. Packages will be
+        installed for the given interpretor in the given path.
+        """
+        self.path = path
         self.interpretor = interpretor
         self.pyversion = interpretor.get_version()
         self.platform = interpretor.get_platform()
@@ -161,22 +167,26 @@ class Context(object):
         self.trust = trust
 
     def load(self, distribution):
+        """Load distribution metadata.
+        """
         return self.releases.load(
             distribution,
             distribution.path,
             self.interpretor,
             trust=self.trust)
 
-    def get_install_path(self, path, distribution):
+    def get_install_path(self, distribution):
+        """Return the installation path for the given distribution.
+        """
         return os.path.join(
-            path,
+            self.path,
             distribution.get_egg_directory(self.interpretor))
 
 
 class Source(object):
     """Base class for source.
     """
-    Context = Context
+    Context = QueryContext
     TRUST = -99
 
     def __init__(self, options, installed_options=None):
@@ -188,10 +198,17 @@ class Source(object):
             return True
         return (self.options == self.installed_options)
 
-    def create(self, interpretor, priority):
-        return self.Context(self, interpretor, priority, self.TRUST)
+    def create(self, interpretor, path, priority):
+        """Create a context object for a query. Context object
+        contains the required information for the query and package
+        installers to work.
+        """
+        return self.Context(self, interpretor, path, priority, self.TRUST)
 
     def prepare(self, context):
+        """Prepare a query object from a context. You can use the
+        query object to find packages.
+        """
         raise NotImplementedError
 
     def __repr__(self):
@@ -247,6 +264,9 @@ class Sources(object):
         self._uptodate = None
 
     def is_uptodate(self):
+        """Return True if the configuration for sources didn't change
+        between the current and installed configuration.
+        """
         if self._uptodate is None:
             self._uptodate = reduce(
                 operator.and_,
@@ -254,10 +274,13 @@ class Sources(object):
                     self.sources))
         return self._uptodate
 
-    def __call__(self, interpretor):
+    def __call__(self, interpretor, path):
+        """Return an object Queries that can be used to lookup
+        packages to install.
+        """
         queries = []
         for priority, source in enumerate(self.sources):
-            query = source.prepare(source.create(interpretor, priority))
+            query = source.prepare(source.create(interpretor, path, priority))
             if query is None:
                 continue
             queries.append(query)

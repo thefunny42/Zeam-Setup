@@ -32,13 +32,13 @@ class FakeInstaller(object):
     def filter(self, requirement, pyversion=None, platform=None):
         return requirement.match(self)
 
-    def install(self, path, install_dependencies):
+    def install(self, install_dependencies):
         distribution = Release(name=self.name, version=self.version)
         distribution.extras = self.extras.copy()
 
         # Create a fake egg-info to make setuptools entry points works
         # if the package is a dependency.
-        install_path = self.context.get_install_path(path, distribution)
+        install_path = self.context.get_install_path(distribution)
         if not os.path.isdir(install_path):
             os.makedirs(install_path)
         write_egg_info(distribution, package_path=install_path)

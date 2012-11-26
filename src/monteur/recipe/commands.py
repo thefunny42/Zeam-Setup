@@ -1,10 +1,11 @@
 
 import logging
 import os
+import fnmatch
 
 from monteur.configuration import Section
 from monteur.distribution.workingset import ReleaseSet, WorkingSet
-from monteur.error import ConfigurationError, PackageNotFound
+from monteur.error import ConfigurationError, InstallationError, PackageNotFound
 from monteur.installer import PackageInstaller
 from monteur.recipe.utils import Paths
 from monteur.sources import STRATEGY_UPDATE, STRATEGY_QUICK
@@ -15,6 +16,10 @@ logger = logging.getLogger('monteur')
 
 
 class PartStatus(object):
+    """Hold the status information about a part: which are the
+    packages and files that got installed, and dependencies
+    information.
+    """
 
     def __init__(self, section, installer, strategy=STRATEGY_UPDATE):
         setup = section.configuration['setup']
@@ -24,6 +29,7 @@ class PartStatus(object):
         self.requirements = []
         self.packages = ReleaseSet()
         self.paths = Paths()
+        self.override_rules = [('fail', '*')]
         self.installed_paths = Paths()
         self.depends = set(section.get('depends', '').as_list())
         self.depends_paths = Paths()
@@ -60,14 +66,63 @@ class PartStatus(object):
                     self._installed_section.get('paths', '').as_list())
             self._enabled = True
 
+    def add_override_rule(self, rule, pattern):
+        """Add a rule to allow or reject overriding given paths.
+        """
+        assert rule in ('fail', 'allow', 'ask')
+        for existing_rule, existing_pattern in self.override_rules:
+            if existing_pattern == pattern:
+                if existing_rule != rule:
+                    raise ConfigurationError('Conflictuous rules for', pattern)
+                break
+        else:
+            self.override_rules.insert(0, (rule, pattern))
+
+    def test_override_rule(self, pathname, directory=False):
+        """Test if it is possible to override the given path.
+        """
+        if not os.path.exists(pathname):
+            return False
+        if directory:
+            if not os.path.isdir(pathname):
+                raise InstallationError(
+                    u"Target directory already exists, but is a file",
+                    pathname)
+            message = u"Directory already exists"
+        else:
+            if os.path.isdir(pathname):
+                raise InstallationError(
+                    u"Target file already exists, but is a directory",
+                    pathname)
+            message = u"File already exists"
+        for method, pattern in self.override_rules:
+            if fnmatch.fnmatch(pathname, pattern):
+                if method == 'fail':
+                    raise InstallationError(message, pathname)
+                if method == 'allow':
+                    return True
+                if method == 'ask':
+                    raise NotImplementedError()
+        raise InstallationError(message, pathname)
+
     def enable(self, flag=True):
+        """Enable the part: if the part is enabled it will be called
+        during the installation or uninstallation process.
+        """
         if flag:
             self._enabled = True
 
     def is_enabled(self):
+        """Return True if the part is enabled for installation or
+        installation.
+        """
         return self._enabled
 
     def save(self, configuration):
+        """Save the current part status in the given configuration. If
+        the part is not enabled, it will just recopy the status of the
+        previous installation in the given configuration.
+        """
         if self.is_enabled():
             # Save new information
             section = Section(self._installed_name, configuration=configuration)
@@ -94,6 +149,8 @@ class PartStatus(object):
 
 
 class Part(object):
+    """Represent a part of the installation.
+    """
 
     def __init__(self, section, installer, strategy=STRATEGY_UPDATE):
         logger.warn('Load installation for %s.' % section.name)
@@ -124,6 +181,8 @@ class Part(object):
         return False
 
     def preinstall(self):
+        """Run all pre-installation actions for the part, if it is enabled.
+        """
         # Verify dependencies first.
         if self.status.is_enabled():
             logger.warn(u'Prepare installation for %s.', self.name)
@@ -136,6 +195,8 @@ class Part(object):
         return False
 
     def install(self):
+        """Run all installation actions for the part, if it is enabled.
+        """
         if self.status.is_enabled():
             logger.warn(u'Install %s.', self.name)
             for recipe in self.recipes:
@@ -145,6 +206,8 @@ class Part(object):
         return False
 
     def preuninstall(self):
+        """Run all pre-uninstallation actions for the part, if it is enabled.
+        """
         if self.status.is_enabled():
             logger.warn(u'Pre-uninstall %s.', self.name)
             for recipe in reversed(self.recipes):
@@ -155,6 +218,8 @@ class Part(object):
         return False
 
     def uninstall(self):
+        """Run all installation actions for the part, if it is enabled.
+        """
         if self.status.is_enabled():
             logger.warn(u'Uninstall %s.', self.name)
             for recipe in reversed(self.recipes):
@@ -219,6 +284,10 @@ class InstallerStatus(object):
         self.get_recipe_entry_point = self._install_set.get_entry_point
 
     def add_recipe_packages(self, names):
+        """Install a list of packages required for the parts to
+        execute. Packages are enabled in the current Python
+        environment so that the parts can use them directly.
+        """
         # This must be used only to install recipe and recipe dependency.
         requirements = Requirements.parse(names)
         install_set = self._installer(
@@ -228,6 +297,9 @@ class InstallerStatus(object):
             install_set.get(requirement.key).activate()
 
     def verify_dependencies(self, refresh=False):
+        """Verify the dependencies between all the parts: if a part is
+        enabled, any part depending on it should be enabled too.
+        """
         cache = dict()
         markers = set()
         partitions = dict()

@@ -32,6 +32,8 @@ class Template(Recipe):
     def __init__(self, options, status):
         super(Template, self).__init__(options, status)
         status.requirements.append('Genshi')
+        status.add_override_rule('allow', '*.template_xml')
+        status.add_override_rule('allow', '*.template_text')
 
     def preinstall(self):
         from genshi.template import NewTextTemplate, MarkupTemplate
@@ -40,10 +42,15 @@ class Template(Recipe):
                         '.template_text': NewTextTemplate}
 
     def render_template(self, source_path, output_path, factory):
+        """Render a template using Template engine ``factory`` from
+        ``source_path`` into ``output_path``.
+        """
         __status__ = u"Rendering template for %s." % output_path
         from genshi.template import TemplateError
 
         logger.info('Creating file %s from template.' % output_path)
+        if output_path not in self.status.installed_paths:
+            self.status.test_override_rule(output_path)
         success = False
         source_file = open_uri(source_path)
         try:
@@ -73,6 +80,8 @@ class Template(Recipe):
         return output_path
 
     def render_file(self, filename, prefix=None):
+        """Optionally render filename as a template.
+        """
         for format, factory in self.formats.items():
             if filename.endswith(format):
                 if prefix:
@@ -82,12 +91,17 @@ class Template(Recipe):
                     filename[:-len(format)],
                     factory)
 
-    def render_directory(self, path):
-        for prefix, directories, filenames in os.walk(path):
+    def render_directory(self, dirname):
+        """Look for files to render as a template inside the given path.
+        """
+        for prefix, directories, filenames in os.walk(dirname):
             for filename in filenames:
                 self.render_file(filename, prefix)
 
     def install(self):
+        """Look in previously installed paths files that can be
+        rendered as a template.
+        """
         __status__ = u"Installing templates."
         for path in self.status.paths.query(added=True):
             if os.path.isdir(path):

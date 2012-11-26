@@ -27,7 +27,7 @@ class NullInstaller(object):
             raise AttributeError(key)
         return value
 
-    def install(self, path, install_dependencies):
+    def install(self, install_dependencies):
         install_dependencies(self.release)
         return self.release, self
 
@@ -53,3 +53,5 @@ class InstalledSource(Source):
             if installers:
                 return Query(context, installers)
         return None
+
+

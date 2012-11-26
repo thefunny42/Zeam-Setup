@@ -45,6 +45,7 @@ class File(Recipe):
 
     def __init__(self, options, status):
         super(File, self).__init__(options, status)
+        self.overrides = options.get('files_overrides', '').as_list()
         self.files = parse_files(options, 'files')
         self.urls = parse_files(options, 'urls')
         self.directory = options['directory'].as_text()
@@ -66,15 +67,12 @@ class File(Recipe):
             if os.path.exists(destination_path):
                 if not os.path.isdir(destination_path):
                     raise InstallationError(
-                        u"Error target directory already exists",
+                        u"Error target directory already exists as a file",
                         destination_path)
             else:
                 create_directory(destination_path, quiet=True)
         else:
-            if os.path.exists(destination_path):
-                raise InstallationError(
-                    u"Error target file already exists",
-                    destination_path)
+            self.status.test_override_rule(destination_path)
             if not os.path.exists(source_path):
                 raise InstallationError(
                     u"Error missing directory or file in source",

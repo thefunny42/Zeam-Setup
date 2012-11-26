@@ -83,7 +83,7 @@ class PackageInstaller(object):
     def __eq__(self, other):
         return (self.version, self.platform) == (other.version, other.platform)
 
-    def install(self, path, install_dependencies):
+    def install(self, install_dependencies):
         release = Release(**self.informations)
         loader = self.context.load(release)
         install_dependencies(release)
@@ -94,13 +94,13 @@ class ExtractedPackageInstaller(PackageInstaller):
     """An extracted release that you can install.
     """
 
-    def install(self, path, install_dependencies):
+    def install(self, install_dependencies):
         # Load project information
         distribution, loader = super(ExtractedPackageInstaller, self).install(
-            path, install_dependencies)
+            install_dependencies)
 
         # Install files
-        install_path = self.context.get_install_path(path, distribution)
+        install_path = self.context.get_install_path(distribution)
         loader.install(install_path)
 
         # Package path is now the installed path
@@ -113,7 +113,7 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
     """A release that you can extract from an archive and install.
     """
 
-    def install(self, path, install_dependencies, archive=None):
+    def install(self, install_dependencies, archive=None):
         if archive is None:
             archive = self.informations['url']
 
@@ -151,7 +151,7 @@ class UninstalledPackageInstaller(ExtractedPackageInstaller):
 
         # Load project information
         distribution, loader = super(UninstalledPackageInstaller, self).install(
-            path, install_dependencies)
+            install_dependencies)
 
         # Clean build directory
         shutil.rmtree(build_dir)

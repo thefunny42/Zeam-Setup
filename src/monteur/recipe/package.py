@@ -127,15 +127,14 @@ class Package(Recipe):
                 continue
             script_path = os.path.join(self.bin_directory, script_name)
             if script_path not in self.status.installed_paths:
-                if os.path.exists(script_path):
-                    raise InstallationError(
-                        u"Script already exists", script_path)
+                self.status.test_override_rule(script_path)
             package, main = entry_point['destination'].split(':')
             script_body = SCRIPT_BODY % {
                 'args': args, 'package': package, 'callable': main}
             self.status.paths.add(
                 self.working_set.create_script(
-                    script_path, script_body, extra_paths=self.extra_paths,
+                    script_path, script_body,
+                    extra_paths=self.extra_paths,
                     script_isolation=self.isolation),
                 added=True)
 

@@ -7,7 +7,7 @@ import urlparse
 import HTMLParser
 
 from monteur.sources import (
-    Installers, PackageInstallers, Source, Context)
+    Installers, PackageInstallers, Source, QueryContext)
 from monteur.sources.utils import (
     parse_filename,
     UninstalledPackageInstaller)
@@ -214,10 +214,10 @@ class RequirementSearch(object):
         return None
 
 
-class RemoteContext(Context):
+class RemoteContext(QueryContext):
 
-    def __init__(self, source, interpretor, priority, trust=0):
-        super(RemoteContext, self).__init__(source, interpretor, priority, trust)
+    def __init__(self, source, interpretor, path, priority, trust=0):
+        super(RemoteContext, self).__init__(source, interpretor, path, priority, trust)
         self.find_links = source.find_links
         self.disallow_urls = source.disallow_urls
         self.allow_urls = source.allow_urls

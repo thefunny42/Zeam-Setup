@@ -86,12 +86,16 @@ class PackageInstaller(object):
             self._to_install.append(requirement)
 
     def wait_for_requirements(self):
+        """Called by a worker to wait for requirement to arrive.
+        """
         logger.debug(u'Wait for dependencies')
         self._wait.acquire()
         self._wait.wait()
         self._wait.release()
 
     def mark_failed(self, error):
+        """Called by a worked to report an error.
+        """
         self._lock.acquire()
         try:
             logger.debug(u'Failure')
@@ -104,6 +108,8 @@ class PackageInstaller(object):
             self._lock.release()
 
     def get_requirement(self):
+        """Called by a worker to get a new requirement to install.
+        """
         self._lock.acquire()
         try:
             if self._error is not None:
@@ -127,6 +133,9 @@ class PackageInstaller(object):
             self._lock.release()
 
     def mark_installed(self, requirement, package):
+        """Called by a worker to mark that the given requirement have
+        been installed, using the given package.
+        """
         self._lock.acquire()
         try:
             self.working_set.add(package)
@@ -157,19 +166,22 @@ class PackageInstaller(object):
             self._lock.release()
 
     def __call__(self, requirements, strategy=STRATEGY_UPDATE, directory=None):
+        """Called by the user to trigger the installation of the given
+        list of requirements.
+        """
         __status__ = u"Installing %r." % (requirements)
         if directory is None:
             directory = self._directory
-        directory = os.path.abspath(directory)
         self._error = None
         self._first_done = False
         self._register_install(requirements)
         if self._to_install:
-            self.query = self.sources(self.interpretor)
+            self.query = self.sources(
+                self.interpretor,
+                os.path.abspath(directory))
             workers = []
             for count in range(self._worker_count):
-                worker = PackageInstallerWorker(
-                    self, directory, count, strategy)
+                worker = PackageInstallerWorker(self, count, strategy)
                 worker.start()
                 workers.append(worker)
             for worker in workers:
@@ -184,11 +196,10 @@ class PackageInstallerWorker(threading.Thread):
     requirements and its dependencies.
     """
 
-    def __init__(self, manager, directory, count, strategy=STRATEGY_UPDATE):
+    def __init__(self, manager, count, strategy=STRATEGY_UPDATE):
         super(PackageInstallerWorker, self).__init__(
             name='installer %d' % count)
         self.manager = manager
-        self.directory = directory
         self.strategy = strategy
 
     def install_dependencies(self, requirement, distribution):
@@ -211,7 +222,6 @@ class PackageInstallerWorker(threading.Thread):
             u"Choosing version %s for %s.",
             str(package.version), requirement)
         release, loader = package.install(
-            self.directory,
             lambda distribution: self.install_dependencies(
                 requirement, distribution))
         return release

@@ -1,5 +1,5 @@
 
-from monteur.sources import Installers, Source, Context, STRATEGY_QUICK
+from monteur.sources import Installers, Source, QueryContext, STRATEGY_QUICK
 from monteur.utils import create_directory
 from monteur.vcs import VCS, VCSCheckout
 from monteur.version import keyify
@@ -29,14 +29,14 @@ class SourceInstaller(object):
             raise AttributeError(key)
         return value
 
-    def install(self, path, install_dependencies):
+    def install(self, install_dependencies):
         install_dependencies(self.release)
         if self.context.develop:
-            # Build files
-            self.loader.build(path)
+            # Build files in place
+            self.loader.build(self.release.path)
         else:
             # Install files
-            install_path = self.context.get_install_path(path, self.release)
+            install_path = self.context.get_install_path(self.release)
             self.loader.install(install_path)
 
             # Package path is now the installed path
@@ -62,10 +62,10 @@ class VCSQuery(object):
         return []
 
 
-class VCSContext(Context):
+class VCSContext(QueryContext):
 
-    def __init__(self, source, interpretor, priority, trust=0):
-        super(VCSContext, self).__init__(source, interpretor, priority, trust)
+    def __init__(self, source, interpretor, path, priority, trust=0):
+        super(VCSContext, self).__init__(source, interpretor, path, priority, trust)
         self.develop = source.develop
 
 
