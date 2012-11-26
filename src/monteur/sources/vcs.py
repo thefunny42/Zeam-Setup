@@ -37,7 +37,7 @@ class SourceInstaller(object):
         else:
             # Install files
             install_path = self.context.get_install_path(path, self.release)
-            self.loader.install(path)
+            self.loader.install(install_path)
 
             # Package path is now the installed path
             self.release.path = install_path
