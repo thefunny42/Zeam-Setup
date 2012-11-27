@@ -9,7 +9,7 @@ class ReleaseTestCase(unittest.TestCase):
     """Test a release
     """
 
-    def test_releaseset(self):
+    def test_release_set(self):
         """Test a release set, container for release
         """
         packages = ReleaseSet()
