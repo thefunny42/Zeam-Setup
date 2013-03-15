@@ -1,6 +1,6 @@
 # Manifest for zeam.setup
 recursive-include src *.py
-recursive-include src/zeam/setup/base *.cfg MANIFEST.in
+recursive-include src/monteur *.cfg MANIFEST.in
 include setup.cfg
 include bootstrap.pth
 include bootstrap.py
